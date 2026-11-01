@@ -8,8 +8,9 @@ still decides is in the first group that fits, in this order:
 - `earlier`: the reason a person gave the partner's other lines (the most frequent);
 - `bank_category`: the reason the line's own category in the bank's export suggests (`reconcile.category_mark`);
 - `salary_rule`: the salary reason the memo or the description suggests (`reconcile.salary_mark`);
-- `ai_sure`: both engines (JEV and GPT) give the same kind of payment, it suggests a reason, and JEV's probability is
-  at least the threshold (`finance.json` `reconcile.ai_sure`, the owner's decision: 0.95);
+- `ai_sure`: two or more engines give the same kind of payment, it suggests a reason, and every judgement service's
+  probability is at least the threshold (`finance.json` `reconcile.ai_sure`, the owner's decision: 0.95); with the
+  installation's JEV and GPT, as before 265: both agree, and JEV is at least that sure;
 - `ai_review`: the AI suggests a reason below the threshold, or only one engine answered: to look at;
 - `expects_invoice`: the AI's kind says an invoice is expected and the line has no candidate (for information);
 - `rest`: everything else, for the pairing page.
@@ -31,6 +32,7 @@ from collections import Counter, defaultdict
 from decimal import Decimal
 from typing import Any, Iterable
 
+from jav.ai import engine as registry
 from jav.app import work
 from jav.core import identity, values
 from jav.domains.finance import reconcile, reconcile_package
@@ -39,7 +41,7 @@ from jav.core.user_messages import explained
 GROUPS = ("sure_pairs", "earlier", "bank_category", "salary_rule", "ai_sure", "ai_review", "expects_invoice", "rest")
 ACTIONS = {"sure_pairs": "pair", "expects_invoice": "none", "rest": "none"}  # every other group marks a reason
 DECIDING = ("proposed", "amount_only", "partly_allocated", "open")  # a line a person still decides
-ENGINES = ("jev", "gpt")
+ENGINES = tuple(registry.ids())  # 265: every engine of the registry, in its order (until then JEV and GPT)
 BRIEF = ("id", "statement_id", "booking_date", "amount", "currency", "direction", "counterparty_name", "memo", "description",
          "file", "partner")
 
@@ -79,8 +81,12 @@ def _place(line: dict[str, Any], sure: dict[str, list[str]], threshold: float) -
         return "salary_rule", {"category": category}
     answers = _answers(line)
     marks = {a.get("suggested_mark") for a in answers.values()}
-    if len(answers) == len(ENGINES) and len({a["kind"] for a in answers.values()}) == 1 and None not in marks:
-        sure_kind = (answers["jev"].get("kind_probability") or 0) >= threshold
+    # 265 (plan L): two engines or more agree, a judgement service among them, and each judgement service's answer is
+    # at least this probable (until 265: JEV and GPT agree, JEV's answer this probable; OpenAI Decisions' answers are
+    # held to JEV's threshold until they are measured)
+    judged = [a for e, a in answers.items() if registry.get(e).judged]
+    if len(answers) >= 2 and judged and len({a["kind"] for a in answers.values()}) == 1 and None not in marks:
+        sure_kind = all((a.get("kind_probability") or 0) >= threshold for a in judged)
         return ("ai_sure" if sure_kind else "ai_review"), {"category": marks.pop()}
     if len(answers) == 1 and None not in marks:
         return "ai_review", {"category": marks.pop()}

@@ -48,21 +48,21 @@ def test_a_step_with_gpt_only_runs_its_package_without_jev(db):
     made = _monthly(db, engine="gpt")
     inv = _steps(made)["invoices"]
     assert inv["engine"] == "gpt" and inv["state"] == "started"
-    assert _run_params(made, "invoices")["jev"] == "off"
-    assert work_recipes.current_assignment(inv["package"]["id"])["params"]["jev"] == "off"
+    assert _run_params(made, "invoices")["engine"] == "gpt"
+    assert work_recipes.current_assignment(inv["package"]["id"])["params"]["engine"] == "gpt"
 
 
 def test_a_step_without_its_own_engine_follows_the_application_when_it_starts(db):
     app_settings.save_engine_default("gpt", actor="tester")
     made = _monthly(db)
     assert _steps(made)["invoices"]["engine"] is None
-    assert _run_params(made, "invoices")["jev"] == "off"
+    assert _run_params(made, "invoices")["engine"] == "gpt"
 
 
 def test_a_steps_own_engine_wins_over_the_applications(db):
     app_settings.save_engine_default("gpt", actor="tester")
     made = _monthly(db, engine="jev")
-    assert _run_params(made, "invoices")["jev"] == "on"
+    assert _run_params(made, "invoices")["engine"] == "jev"
 
 
 def test_a_mailbox_steps_engine_reaches_its_downloaded_package(db, monkeypatch):
@@ -77,11 +77,11 @@ def test_a_mailbox_steps_engine_reaches_its_downloaded_package(db, monkeypatch):
                             "statements": {"source": {"kind": "folder", "folder": str(db)}},
                             "reconcile": {"source": {"kind": "none"}}}, actor="tester")
     package = work.create_from_files(sorted(_invoices(db / "mail").iterdir()), name="Mail", owner="tester")
-    work_recipes.assign_recipe(package["id"], "processing", params={"jev": "on", "jev_cache": "live"}, expected_revision=0, actor="tester")
+    work_recipes.assign_recipe(package["id"], "processing", params={"engine": "jev", "jev_cache": "live"}, expected_revision=0, actor="tester")
     pulls["p1"] = {"id": "p1", "status": "ok", "result": {"workpackage": package["id"]}}
     view = wf.advance(made["workflow"]["id"], actor="tester (auto)")
     params = _run_params(view, "emails")
-    assert params["jev"] == "off" and params["jev_cache"] == "live"
+    assert params["engine"] == "gpt" and params["jev_cache"] == "live"
 
 
 def test_the_estimate_follows_the_steps_engine(db):

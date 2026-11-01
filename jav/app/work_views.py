@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import item_kinds, logic_packs, work, work_readiness, work_recipes, work_runs
-from jav.ai import typepack
+from jav.ai import engine as engines
 from jav.core import cfg, display, store
 from jav.core import calls
 
@@ -31,10 +31,12 @@ def recipe_catalog(*, every_status: bool = False) -> list[dict[str, Any]]:
     settings (`work_recipes.default_params`)."""
     out = []
     for r in work_recipes.recipes() if every_status else work_recipes.active_recipes():
-        params = {k: ({**spec, "allowed": sorted(typepack.extractable_keys())} if spec.get("allowed_from") == "typepacks" else spec)
+        params = {k: ({**spec, "allowed": work_recipes.allowed_from(spec)} if spec.get("allowed_from") else spec)
                   for k, spec in r["params"].items()}
         if engine := work_recipes.engine_params(r):
-            params["jev"] = {**params["jev"], "default": engine["jev"]}
+            name = work_recipes.ENGINE_PARAM
+            # 265: each engine with whether it can run here and why not (the owner's decision: shown, not offered)
+            params[name] = {**params[name], "default": engine[name], "choices": engines.choices()}
         out.append({**r, "params": params})
     return jsonable(out)
 

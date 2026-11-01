@@ -112,6 +112,18 @@ def _no_real_jev_cache(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_live_decisions(monkeypatch):
+    """265 (plan L): a test never sends a question to OpenAI Decisions (a paid call): the adapter's own client is
+    refused; a test that needs answers hands the adapter a client with a local transport (`httpx2.MockTransport`)."""
+    from jav.ai import decisions
+
+    def refuse(self, key):
+        raise AssertionError("a test tried a live OpenAI Decisions call (jav/ai/decisions.py); hand the adapter a client")
+
+    monkeypatch.setattr(decisions.DecisionsAdapter, "_new_client", refuse)
+
+
+@pytest.fixture(autouse=True)
 def _no_live_gpt_choice():
     """089: a test never sends a GPT choice question (type or email intent without JEV) to OpenAI, which would be a paid
     call; a test that needs an answer installs its own stand-in with `gpt_choice.use_agent_factory`."""
@@ -146,6 +158,30 @@ def _no_live_quote_letter():
         raise AssertionError("a test tried a live GPT call (jav/domains/quotes/quote_letter.py); install a stand-in with use_agent_factory")
 
     with quote_letter.use_agent_factory(refuse):
+        yield
+
+
+@pytest.fixture(autouse=True)
+def _an_installation_with_its_keys(request):
+    """265 (plan L): the tests run as an installation whose providers have their keys: an engine can run unless one of
+    its providers is switched off (OpenAI Decisions by default). The keys themselves are removed
+    (`_no_provider_keys`), so a call still finds none and spends nothing. A test of the availability itself asks
+    the environment: it uses `bare_env` or is marked `real_availability`. Its own patch, so a test that undoes its
+    `monkeypatch` midway (`monkeypatch.undo()`) keeps the installation it runs in."""
+    if "bare_env" in request.fixturenames or request.node.get_closest_marker("real_availability"):
+        yield
+        return
+    from jav.ai import engine
+    from jav.core import providers
+
+    def availability(engine_id):
+        for provider_id in engine.get(engine_id).requires:
+            if (reason := providers.off_reason(provider_id)) is not None:
+                return providers.Availability(False, reason, provider_id)
+        return providers.Availability(True)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(engine, "availability", availability)
         yield
 
 

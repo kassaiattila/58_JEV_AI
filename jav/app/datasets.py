@@ -51,7 +51,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import costs, logic_packs, work, work_recipes, work_runs, work_views
-from jav.core import activity_kinds, cfg, decisions, display, field_names, store
+from jav.core import activity_kinds, cfg, decisions, display, field_names, providers, store
 from jav.app.outputs import parts
 from jav.core import calls
 from jav.app.tablequery import NUMERIC, Column, Query, run_query, select, shown
@@ -501,7 +501,8 @@ def _run_items(scope: dict[str, str]) -> Rows:
     return cols, rows
 
 
-PROVIDER_NAMES = {"jev": "JEV", "openai": "OpenAI", "azure_di": "Azure DI"}
+# 265 (plan L): the providers by their names in the registry (configs/providers.json), OpenAI Decisions included
+PROVIDER_NAMES = {provider_id: providers.label(provider_id) for provider_id in providers.ids()}
 
 
 def _cost_key(line: costs.Line) -> str:

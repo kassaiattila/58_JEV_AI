@@ -29,6 +29,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from jav.ai import engine as engines
 from jav.domains.quotes import invented_golden
 from jav.core.config import RUNS_DIR
 from jav.evals.evals import field_equal
@@ -61,7 +62,7 @@ def count_intents() -> int:
     return len(invented_golden.load().cases)
 
 
-def quote_intents(*, use_cache: bool = True, jev: bool = True, budget_usd: Decimal | None = None,
+def quote_intents(*, use_cache: bool = True, engine: str = "jev", budget_usd: Decimal | None = None,
                   jev_budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
     """Every email's intent, asked as the email flow asks it (without the attachments' detection), against the
     expected one."""
@@ -76,14 +77,14 @@ def quote_intents(*, use_cache: bool = True, jev: bool = True, budget_usd: Decim
             calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-quote-intents", limits, reuse=use_cache):
         for case, folder in _laid_out(Path(tmp)):
             t0 = time.perf_counter()
-            st = run_email(str(folder), use_cache=use_cache, detect_attachments=False, jev=jev)
+            st = run_email(str(folder), use_cache=use_cache, detect_attachments=False, engine=engine)
             r = st.result
             rows.append({"case_id": case.id, "language": case.language, "expected": case.expected.intent,
                          "got": r.intent if r else None, "confidence": r.confidence if r else None,
                          "probabilities": r.probabilities if r else None, "next_flow": st.next_flow,
                          "review_reasons": st.review_reasons, "seconds": round(time.perf_counter() - t0, 2)})
             print(f"  {case.id:30} {rows[-1]['got'] or '-':26} {rows[-1]['confidence'] or 0:.2f}")
-    path = _dump(rows, "quote_intents" + ("" if jev else "_gpt"))
+    path = _dump(rows, "quote_intents" + engines.get(engine).runs)
     answered = [r for r in rows if r["got"] is not None]
     right = sum(r["got"] == r["expected"] for r in answered)
     print(f"\n### Quote request golden set - intent: {right}/{len(answered)} as expected "
@@ -152,7 +153,7 @@ def _reading(state) -> dict[str, Any] | None:
     return state.record.to_datapoints(get_pack(TYPE).record_fields)
 
 
-def _read_case(case: invented_golden.Case, folder: Path, *, use_cache: bool, jev: bool,
+def _read_case(case: invented_golden.Case, folder: Path, *, use_cache: bool, engine: str,
                run_one: Callable[..., Any]) -> dict[str, Any]:
     from jav.domains.email import emails
     from jav.documents import text_document
@@ -162,22 +163,22 @@ def _read_case(case: invented_golden.Case, folder: Path, *, use_cache: bool, jev
     text = emails.document_text(msg)
     sources: list[dict[str, Any]] = []
     states = [run_one(str(folder / "message.json"), f"{case.id}-text", "G", use_cache=use_cache, doc_type=TYPE,
-                      jev=jev, source_text=text)]
+                      engine=engine, source_text=text)]
     sources.append({"source": "text", "final_status": states[-1].final_status, "review_reasons": states[-1].review_reasons})
     for att in msg.attachments:
         if att.path is None:
             continue
         source: dict[str, Any] = {"source": att.filename}
         if text_document.input_kind(att.path) == "pdf":  # only a PDF is recognised by its type
-            st = run_detect(att.path, use_cache=use_cache, run_id=f"{case.id}-{att.filename}-detect", jev=jev)
+            st = run_detect(att.path, use_cache=use_cache, run_id=f"{case.id}-{att.filename}-detect", engine=engine)
             source["detected"] = st.result.doc_type if st.result else None
-        states.append(run_one(att.path, f"{case.id}-{att.filename}", "G", use_cache=use_cache, doc_type=TYPE, jev=jev))
+        states.append(run_one(att.path, f"{case.id}-{att.filename}", "G", use_cache=use_cache, doc_type=TYPE, engine=engine))
         sources.append({**source, "final_status": states[-1].final_status, "review_reasons": states[-1].review_reasons})
     readings = [_reading(s) for s in states]
     return {"sources": sources, "readings": readings, "answered": all(r is not None for r in readings)}
 
 
-def quote_requests(*, use_cache: bool = True, jev: bool = True, budget_usd: Decimal | None = None,
+def quote_requests(*, use_cache: bool = True, engine: str = "jev", budget_usd: Decimal | None = None,
                    jev_budget_usd: Decimal | None = None, run_one: Callable[..., Any] | None = None) -> list[dict[str, Any]]:
     """Every quote request read from its email's text and its attachments, against the expected request."""
     from jav.core import calls
@@ -194,7 +195,7 @@ def quote_requests(*, use_cache: bool = True, jev: bool = True, budget_usd: Deci
             if case.expected.request is None:
                 continue
             t0 = time.perf_counter()
-            read = _read_case(case, folder, use_cache=use_cache, jev=jev, run_one=run_one)
+            read = _read_case(case, folder, use_cache=use_cache, engine=engine, run_one=run_one)
             got = merged([r or {} for r in read["readings"]]) if read["answered"] else None
             row = {"case_id": case.id, "language": case.language, "sources": read["sources"], "got": got,
                    "score": score(got, case.expected.request) if got is not None else None,
@@ -203,7 +204,7 @@ def quote_requests(*, use_cache: bool = True, jev: bool = True, budget_usd: Deci
             s = row["score"]
             print(f"  {case.id:30} " + (f"{sum(s['fields'].values())}/{len(s['fields'])} fields, rows {s['rows']}"
                                         if s else "without a result"))
-    path = _dump(rows, "quote_requests" + ("" if jev else "_gpt"))
+    path = _dump(rows, "quote_requests" + engines.get(engine).runs)
     print_requests_report(rows)
     print(f"\nRaw rows: {path}")
     return rows

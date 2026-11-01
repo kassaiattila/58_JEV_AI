@@ -136,10 +136,10 @@ class _Jev:
                                call=JevCall(request_id=request_id, n_questions=len(questions), state_chars=0))
 
 
-def _run(*, jev: bool):
+def _run(*, engine: str):
     with extract_llm.use_agent_factory(lambda pack: _FakeAgent(pack, OUT)):
         app = flow.build_app("inbox/box/m1/message.json", "c190q", "G", tracker=False, doc_type=KEY, source_text=EMAIL,
-                             jev=jev)
+                             engine=engine)
         action, _, state = app.run(halt_after=flow.TERMINALS)
     return action.name, state.data
 
@@ -147,7 +147,7 @@ def _run(*, jev: bool):
 def test_a_request_in_an_emails_text_is_extracted_and_checked(db, monkeypatch):
     jev = _Jev()
     monkeypatch.setattr(jev_mod, "get_adapter", lambda: jev)
-    terminal, state = _run(jev=True)
+    terminal, state = _run(engine="jev")
     assert state.doc_id == text_document.text_digest(EMAIL)
     record = state.record
     assert record.extra["customer_name"] == "Minta Szolgaltato Kft." and record.extra["deadline"] == date(2026, 11, 20)
@@ -162,7 +162,7 @@ def test_a_request_in_an_emails_text_is_extracted_and_checked(db, monkeypatch):
 
 def test_without_jev_the_code_checks_the_request(db, monkeypatch):
     monkeypatch.setattr(jev_mod, "get_adapter", lambda: pytest.fail("JEV was asked on the path without JEV"))
-    _terminal, state = _run(jev=False)
+    _terminal, state = _run(engine="gpt")
     assert state.verdicts.source == "code"
     assert "customer_name" not in state.verdicts.unsupported and "contact_email" not in state.verdicts.unsupported
     assert all(c.ok for c in state.validation)

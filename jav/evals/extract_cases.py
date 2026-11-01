@@ -53,7 +53,9 @@ def run(case_file: Path, *, arm: str, jev: bool, budget_usd: Decimal, out_dir: P
         for case in cases:
             row: dict[str, Any] = {"case_id": case.case_id, "pack": case.expected_detail, "arm": arm, "jev": jev}
             try:
-                st = flow.run_one(str(case.path), f"x122-{case.case_id}", arm, tracker=False, doc_type=case.expected_detail, jev=jev)
+                # 265 (plan L): this tool measures JEV or GPT alone (its budgets are JEV's and OpenAI's)
+                st = flow.run_one(str(case.path), f"x122-{case.case_id}", arm, tracker=False, doc_type=case.expected_detail,
+                                  engine="jev" if jev else "gpt")
             except Exception as exc:  # noqa: BLE001 - a failed case is a row of the measurement, not its end
                 row.update(error=f"{type(exc).__name__}: {exc}")
             else:

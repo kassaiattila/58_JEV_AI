@@ -169,7 +169,7 @@ def measure(options: Any, *, stand_in: bool = False) -> Any:
 
     product_set = product_sets.load(SET)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    limits = {p: Decimal(str(v)) for p, v in (("openai", options.budget_usd), ("jev", options.jev_budget_usd if options.jev else None))
+    limits = {p: Decimal(str(v)) for p, v in (("openai", options.budget_usd), ("jev", options.jev_budget_usd if options.judged else None))
               if v is not None}
     folder = RUNS_DIR / "rule_proposal_documents"
     with calls.measurement(f"rule-proposals-{stamp}", limits, reuse=options.use_cache) as scope:
@@ -177,9 +177,10 @@ def measure(options: Any, *, stand_in: bool = False) -> Any:
             return rule_proposals.set_proposer(product_set) if stand_in else rule_proposals.gpt_proposer(scope)
 
         def verifier_for(ref: str) -> rule_proposals.Verifier | None:
-            if not options.jev:
+            if not options.judged:
                 return None
-            return lambda rule, pages: rule_support.support(rule, pages, run_id=scope, use_cache=options.use_cache)
+            return lambda rule, pages: rule_support.support(rule, pages, run_id=scope, use_cache=options.use_cache,
+                                                            engine=options.engine)
 
         proposed, failed = propose_set(product_set, folder, proposer_for=proposer_for, verifier_for=verifier_for)
         usage = calls.scope_calls(scope)

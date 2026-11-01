@@ -200,7 +200,7 @@ def test_detection_flow_without_jev_never_asks_jev(tmp_path, monkeypatch):
     monkeypatch.setattr(detect_detail, "anchor_score", lambda detect, text: (True, 1.0))
     path = write_text_pdf(tmp_path / "szamla.pdf", INVOICE_LINES)
     with store.use_store(tmp_path / "f.sqlite"), detect_gpt.use_agent_factory(_by_question), jev_mod.use_adapter(_NoJev()):
-        st = flow_detect.run_detect(str(path), run_id="r1", jev=False)
+        st = flow_detect.run_detect(str(path), run_id="r1", engine="gpt")
     assert st.final_status == "done"
     assert st.result.engine == "gpt" and st.result.doc_type == "invoice_hu"
     assert st.detail.method == "gpt" and st.detail.key == "invoice_hu"
@@ -217,7 +217,7 @@ def test_detection_flow_without_jev_turns_a_gpt_failure_into_a_to_do(tmp_path):
 
     with store.use_store(tmp_path / "f.sqlite"), detect_gpt.use_agent_factory(lambda m, i: _Broken()), \
             jev_mod.use_adapter(_NoJev()):
-        st = flow_detect.run_detect(str(path), run_id="r1", jev=False)
+        st = flow_detect.run_detect(str(path), run_id="r1", engine="gpt")
     assert st.result is None and st.final_status == "gpt_unavailable"
     assert "detect:gpt_failed:RuntimeError" in st.review_reasons
 
@@ -226,7 +226,7 @@ def test_detection_flow_without_jev_flags_an_unmeasured_type(tmp_path):
     path = write_text_pdf(tmp_path / "szamla.pdf", INVOICE_LINES)
     with store.use_store(tmp_path / "f.sqlite"), detect_gpt.use_agent_factory(_factory(DETECT_TOKENS, logprobs=False)), \
             jev_mod.use_adapter(_NoJev()):
-        st = flow_detect.run_detect(str(path), run_id="r1", jev=False)
+        st = flow_detect.run_detect(str(path), run_id="r1", engine="gpt")
         open_reasons = [r["reason"] for r in store.review_open_reasons("document", st.doc_id)]
     assert st.uncertain
     assert any(r.startswith("detect:confidence_unavailable:invoice_hu") for r in open_reasons), open_reasons

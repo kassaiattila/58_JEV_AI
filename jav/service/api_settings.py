@@ -11,12 +11,13 @@ Layer: UI/CLI (the local service) → `jav.app.app_settings`.
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI
 from fastapi import Path as PathParam
 from pydantic import Field
 
+from jav.ai import engine as engines
 from jav.core import identity
 from jav.app import app_settings, work_views
 from jav.service.service_shared import Empty, In, actor_unless_first_users, allowed_roots, checked_path, human_actor
@@ -37,7 +38,7 @@ class SaveOutputFolder(In):
 
 
 class SaveEngine(In):
-    engine: Literal["jev", "gpt"]  # 160-D: JEV and GPT | GPT only (app_settings.ENGINES)
+    engine: engines.EngineId  # 160-D/265: an engine of configs/engines.json
 
 
 def routes(app: FastAPI, r: str) -> None:

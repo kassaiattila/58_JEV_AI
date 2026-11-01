@@ -5,7 +5,9 @@
 import fieldLabels from "../../configs/field_labels.json";
 import intentRegistry from "../../configs/intents.json";
 import emailTasks from "../../configs/email_tasks.json";
-import type { Recipe, RunPlan, Said } from "./api";
+import engineRegistry from "../../configs/engines.json";
+import providerRegistry from "../../configs/providers.json";
+import type { EngineChoice, Recipe, RunPlan, Said } from "./api";
 import { getLocale, t } from "./i18n";
 
 /** A label map that translates on read (`MAP[code]` → in the chosen language). `Object.entries` gives the Hungarian
@@ -14,8 +16,18 @@ export function tmap(source: Record<string, string>): Record<string, string> {
   return new Proxy(source, { get: (o, k) => (typeof k === "string" && typeof o[k] === "string" ? t(o[k]) : Reflect.get(o, k)) });
 }
 
-/** 160-D: the AI engine's short name (Settings › Processing, the workflow wizard and its control view). */
-export const ENGINE: Record<string, string> = tmap({ jev: "JEV and GPT", gpt: "GPT only" });
+/** 160-D: the AI engine's short name (Settings › Processing, the workflow wizard and its control view); 274: every
+ *  engine of the registry (configs/engines.json `label`, a test keeps them equal). */
+export const ENGINE: Record<string, string> = tmap({ jev: "JEV and GPT", decisions: "OpenAI Decisions and GPT", gpt: "GPT only" });
+/** 274: why an engine cannot run here (the service's `choices`, `jav.ai.engine.choices`), in words beside its greyed
+ *  choice (the owner's decision of 2026-11-01: shown with its reason, not offered). */
+const ENGINE_REASON: Record<string, string> = tmap({
+  under_measurement: "Under measurement: it can be chosen after its measurement on the golden sets and a decision",
+  missing_key: "This installation has no {{provider}} key",
+  switched_off: "{{provider}} is switched off in this installation",
+});
+export const engineReason = (reason: string | null | undefined, provider?: string | null): string =>
+  reason ? (ENGINE_REASON[reason] ?? reason).replace("{{provider}}", providerName(provider ?? "")) : "";
 
 export const RUN_STATUS: Record<string, string> = tmap({
   queued: "Waiting in the queue",
@@ -320,6 +332,8 @@ export function reasonText(code: string): string {
   // 160: in processing without JEV a JEV question asked anyway is refused before it is sent
   if (code === "jev_unavailable:disabled") return t("The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand");
   if (p[0] === "jev_unavailable") return t("JEV was unavailable ({{why}}); check manually", { why: p.slice(1).join(":") });
+  // 265 (plan L): OpenAI Decisions answers in JEV's place; its own to-do when a question could not be answered
+  if (p[0] === "decisions_unavailable") return t("OpenAI Decisions was unavailable ({{why}}); check manually", { why: p.slice(1).join(":") });
   if (p[0] === "llm" && p[1] === "failed") return t("GPT extraction failed ({{why}})", { why: p[2] ?? "" });
   // 177: an amount or a quantity of the record that cannot be read as a number (`<field>:unparseable:<raw>`, jav/ai/models.py)
   if (p[1] === "unparseable") return t("A number cannot be read: {{field}}", { field: fieldPathLabel(p[0]) });
@@ -351,8 +365,16 @@ export function usdBudget(v: string | number | null | undefined): string {
     ? `${n.toLocaleString(getLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD` : usd(v);
 }
 
-/** The provider's name in the interface (058: instead of the key). */
-export const providerName = (p: string): string => ({ jev: "JEV", openai: "OpenAI", azure_di: "Azure DI" } as Record<string, string>)[p] ?? p;
+/** 265 (plan L): the providers in the registry's order (configs/providers.json; the service: `jav/core/providers.py`). */
+export const PROVIDER_ORDER: string[] = Object.keys(providerRegistry.providers);
+const PROVIDER_LABEL: Record<string, string> = Object.fromEntries(
+  Object.entries(providerRegistry.providers).map(([id, p]) => [id, p.label]));
+/** The provider's name in the interface (058: instead of the key; 265: the registry's `label`). */
+export const providerName = (p: string): string => PROVIDER_LABEL[p] ?? p;
+/** 274: the budgets calls reserve from, in the registry's order (a provider spending another's, OpenAI Decisions in
+ *  OpenAI's, has none of its own; the service: `providers.budgets`). */
+export const BUDGET_PROVIDERS: string[] = PROVIDER_ORDER.filter((p) =>
+  (providerRegistry.providers as Record<string, { budget: string }>)[p].budget === p);
 
 /** An item's name: for an email, the subject and the sender (the service's `titles`); for a document, the file name
  *  (048 T2). */
@@ -496,12 +518,14 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
-export const PARAM_LABEL: Record<string, string> = tmap({ path: "Processing path", arm: "Path", doc_type: "Document type", jev_cache: "Earlier answers", tasks: "Task proposal", azure_ocr: "Azure recognition", jev: "Use of JEV",
+export const PARAM_LABEL: Record<string, string> = tmap({ path: "Processing path", arm: "Path", doc_type: "Document type", jev_cache: "Earlier answers", tasks: "Task proposal", azure_ocr: "Azure recognition", engine: "AI engine",  // 274: not a JEV switch
   unknown_documents: "Unknown PDFs",  // 120
   email_text: "Quote requests from the email's text" });  // 190
 const PARAM_SHORT: Record<string, string> = tmap({
-  "jev:on": "on",
-  "jev:off": "off — GPT only (OpenAI)",
+  // 274: the engine by its name (until 265 a JEV switch, on / off)
+  "engine:jev": "JEV and GPT",
+  "engine:decisions": "OpenAI Decisions and GPT",
+  "engine:gpt": "GPT only (OpenAI)",
   // 090: the path and the use of JEV as one choice (`path`, shown only)
   "path:auto": "Automatic (recommended) — JEV and GPT",
   "path:S": "JEV where possible — cheaper, no line items; GPT elsewhere (S)",
@@ -534,11 +558,41 @@ export const paramApplies = (k: string, kinds?: string[]): boolean => !kinds?.le
  *  Without JEV (086) every document runs on the G path, so the documents' path does not count. A missing value counts
  *  as the needed one: an assignment from before the switch ran with JEV. 090: the earlier answers (`jev_cache`) count
  *  for GPT too, so they are shown on every path. */
-const PARAM_NEEDS: Record<string, [string, string]> = { arm: ["jev", "on"] };
+const PARAM_NEEDS: Record<string, (params: Record<string, string>) => boolean> = {
+  arm: (params) => engineOf(params) !== GPT_ONLY };
 export const paramInEffect = (k: string, params: Record<string, string>): boolean => {
   const need = PARAM_NEEDS[k];
-  return !need || (params[need[0]] ?? need[1]) === need[1];
+  return !need || need(params);
 };
+
+/** 265 (plan L): the engine registry (configs/engines.json), read as the service reads it (`jav/ai/engine.py`). */
+const ENGINES = engineRegistry.engines as Record<string, { judge: string | null }>;
+const JUDGES = engineRegistry.judges as Record<string, { provider: string }>;
+const LEGACY = engineRegistry.legacy.values as Record<string, string>;
+/** The engine without a judgement service (GPT answers, the code checks). */
+export const GPT_ONLY = Object.keys(ENGINES).find((e) => ENGINES[e].judge === null) ?? "gpt";
+/** The provider whose budget an engine's judgement service spends (none for GPT only). */
+export const judgeProvider = (engine: string): string | null => {
+  const judge = ENGINES[engine]?.judge;
+  return judge ? JUDGES[judge]?.provider ?? null : null;
+};
+/** 265: the AI engine of saved settings: `engine`, or, saved before 265, the JEV switch (`jev: on | off`), or the
+ *  registry's default. */
+export function engineOf(params: Record<string, string | undefined>): string {
+  if (params.engine) return params.engine;
+  return (params.jev && LEGACY[params.jev]) || engineRegistry.default;
+}
+/** 265: settings saved before 265 (a frozen run's, an old package's) name the engine with the JEV switch; they are
+ *  read as the engine setting, as the service reads them (`work_recipes.upgraded_params`). */
+export function upgradedParams(params: Record<string, string>): Record<string, string> {
+  if (!("jev" in params) || "engine" in params) return params;
+  const { jev: _legacy, ...rest } = params;
+  return { ...rest, engine: engineOf(params) };
+}
+const upgradedKeys = (keys: string[]): string[] => keys.map((k) => (k === "jev" ? "engine" : k));
+/** 265: the engine of a pre-start overview: its `engine`, or, saved before 265, its JEV flag. */
+export const planEngine = (plan: { engine?: string; jev?: boolean }): string =>
+  plan.engine ?? (plan.jev === false ? LEGACY.off : engineRegistry.default);
 
 /** 090 (the owner's trial and decision of 2026-10-02, "one picker, four paths"): the documents' path and the use of
  *  JEV are one choice on screen, the processing path (`path`): automatic, JEV where possible (S), GPT + JEV (G), or
@@ -547,30 +601,63 @@ export const paramInEffect = (k: string, params: Record<string, string>): boolea
  *  JEV" (`jev`) and "GPT only" (`gpt`). Unknown item kinds count as documents. */
 export const PATH = "path";
 const withDocuments = (kinds?: string[]) => !kinds?.length || kinds.includes("document");
-const hasPath = (keys: string[]) => keys.includes("arm") && keys.includes("jev");
+const hasPath = (keys: string[]) => keys.includes("arm") && keys.includes("engine");
+/** 274: a path value naming another judged engine of the registry (`engine:<id>`, OpenAI Decisions): its documents on
+ *  the automatic path. The documents' own paths (automatic, S, G) and "with JEV" are the registry default's, JEV's,
+ *  as their texts say. */
+const ENGINE_PATH = "engine:";
+export const enginePath = (engine: string): string => `${ENGINE_PATH}${engine}`;
+const pathEngine = (path: string): string | null => (path.startsWith(ENGINE_PATH) ? path.slice(ENGINE_PATH.length) : null);
 export function pathValue(params: Record<string, string>, kinds?: string[]): string {
-  if ((params.jev ?? "on") === "off") return "gpt";
+  const engine = engineOf(params);
+  if (engine === GPT_ONLY) return GPT_ONLY;
+  if (engine !== engineRegistry.default) return enginePath(engine);  // 274
   return withDocuments(kinds) ? params.arm ?? "auto" : "jev";
 }
 export const pathOptions = (armAllowed: string[], kinds?: string[]): string[] =>
-  withDocuments(kinds) ? [...armAllowed, "gpt"] : ["jev", "gpt"];
+  withDocuments(kinds) ? [...armAllowed, GPT_ONLY] : ["jev", GPT_ONLY];
+/** 274: the processing path's choices for the picker: the registry default's paths, then every other judged engine of
+ *  the service's list (`choices`; one that cannot run here greyed, with its reason: the owner's decision of 2026-11-01),
+ *  then GPT only. */
+export interface PathChoice { value: string; disabled?: boolean; detail?: string }
+export function pathChoices(armAllowed: string[], kinds?: string[], choices?: EngineChoice[]): PathChoice[] {
+  const base = pathOptions(armAllowed, kinds).map((value) => ({ value }));
+  const others = (choices ?? []).filter((c) => c.engine !== engineRegistry.default && c.engine !== GPT_ONLY)
+    .map((c) => ({ value: enginePath(c.engine), disabled: !c.available,
+      detail: c.available ? undefined : engineReason(c.reason, c.provider) }));
+  return [...base.slice(0, -1), ...others, ...base.slice(-1)];
+}
+/** 265: GPT only, or a path of the registry default (JEV), or (274) another judged engine on the automatic path. */
 export function applyPath(params: Record<string, string>, path: string): Record<string, string> {
-  if (path === "gpt") return { ...params, jev: "off" };
-  return path === "jev" ? { ...params, jev: "on" } : { ...params, jev: "on", arm: path };
+  const { jev: _legacy, ...rest } = params;  // a setting saved before 265 is written with its engine
+  if (path === GPT_ONLY) return { ...rest, engine: GPT_ONLY };
+  const other = pathEngine(path);
+  if (other) return { ...rest, engine: other, ...("arm" in rest ? { arm: "auto" } : {}) };
+  const judged = engineRegistry.default;
+  return path === "jev" ? { ...rest, engine: judged } : { ...rest, engine: judged, arm: path };
 }
 /** The settings shown, in order: the processing path first (for a recipe with both values), then the recipe's other
  *  settings that count and act on the package's items. */
-export function shownParams(keys: string[], params: Record<string, string>, kinds?: string[]): string[] {
+export function shownParams(shown: string[], saved: Record<string, string>, kinds?: string[]): string[] {
+  const keys = upgradedKeys(shown), params = upgradedParams(saved);
   const merged = hasPath(keys);
-  const rest = keys.filter((k) => !(merged && (k === "arm" || k === "jev")) && paramApplies(k, kinds) && paramInEffect(k, params));
+  const rest = keys.filter((k) => !(merged && (k === "arm" || k === "engine")) && paramApplies(k, kinds) && paramInEffect(k, params));
   return merged ? [PATH, ...rest] : rest;
 }
 /** A shown setting's value: the processing path from the two saved values, any other setting as saved. */
-export const shownValue = (k: string, params: Record<string, string>, kinds?: string[]): string =>
-  k === PATH ? pathValue(params, kinds) : params[k] ?? "";
-export const paramShort = (k: string, v: string): string => PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
-export const paramsText = (params: Record<string, string>): string =>
-  shownParams(Object.keys(params), params).map((k) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, shownValue(k, params))}`).join(" · ");
+export const shownValue = (k: string, saved: Record<string, string>, kinds?: string[]): string => {
+  const params = upgradedParams(saved);
+  return k === PATH ? pathValue(params, kinds) : params[k] ?? "";
+};
+export const paramShort = (k: string, v: string): string => {
+  const other = k === PATH ? pathEngine(v) : null;  // 274: another judged engine's automatic path
+  if (other) return ENGINE[other] ?? other;
+  return PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
+};
+export const paramsText = (saved: Record<string, string>): string => {
+  const params = upgradedParams(saved);
+  return shownParams(Object.keys(params), params).map((k) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, shownValue(k, params))}`).join(" · ");
+};
 
 /** 063: an item's budget maximum per provider — a mirror of the service's `work.item_budget` calculation (from the
  *  recipe's data, per item kind; with the setting-dependent extra, e.g. task proposals on an email). */
@@ -586,6 +673,9 @@ export function itemBudget(r: Recipe, params: Record<string, string>, kind?: str
       for (const p of extra.drop ?? []) drop.add(p); // 086: e.g. without JEV the item has no JEV budget at all
     }
   }
+  // 265: a judgement service's amount counts only for the engine whose service it is (as on the service)
+  const mine = judgeProvider(engineOf(params));
+  for (const judge of Object.values(JUDGES)) if (judge.provider !== mine) drop.add(judge.provider);
   return Object.fromEntries(Object.entries(out).filter(([p]) => !drop.has(p)));
 }
 
@@ -621,11 +711,11 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
       plan.jev_reuse ? t("questions asked before are not paid for again") : t("every question is a live call; earlier answers do not count"),
     ])}.`);
   }
-  if (plan.jev === false) {
+  if (planEngine(plan) === GPT_ONLY) {
     // 086: processing without JEV — no JEV budget, so not even a stray JEV call could start
     out.push(t("JEV: not called (switched off)."));
   }
-  if (amount("openai") > 0 && plan.jev === false) {
+  if (amount("openai") > 0 && planEngine(plan) === GPT_ONLY) {
     out.push(`${head("openai")}: ${join([
       plan.documents > 0 && t("type recognition and extraction of {{n}} document(s) on the G path, checked by the code", { n: plan.documents }),
       plan.emails > 0 && t("intent recognition of {{n}} email(s)", { n: plan.emails }),  // 089: by GPT without JEV

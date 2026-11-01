@@ -24,6 +24,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from jav.ai import engine as engines
 from jav.core.config import GOLDEN_EXPECTED_DIR, GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
 from jav.core.dates import read_date
 from jav.ai.models import Candidate, FlowState, money_label, normalize_tax_id
@@ -336,12 +337,23 @@ def _dump_rows(rows: list[dict[str, Any]], name: str) -> Path:
     return path
 
 
+# 265: the data points' run files named GPT's measurement `_nojev` before the engines' own suffixes (`runs`), and the
+# eval report still reads them by it
+_RUNS_BEFORE_265 = {"gpt": "_nojev"}
+
+
+def _runs(engine: str) -> str:
+    """The suffix of a data points' run file measured with the engine."""
+    return _RUNS_BEFORE_265.get(engine, engines.get(engine).runs)
+
+
 def golden(
     arm: str, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, tracker: bool = False, use_cache: bool = True,
-    *, type_key: str, jev: bool = True, budget_usd: Decimal | None = None,
+    *, type_key: str, engine: str = "jev", budget_usd: Decimal | None = None,
     jev_budget_usd: Decimal | None = None, label: str = "golden", reuse: bool | None = None,
 ) -> list[dict[str, Any]]:
-    """`jev=False` (086): the G path verified by the code alone (no JEV question). `reuse` (231, F1): whether earlier
+    """`engine` (265): the AI engine measured; one without a judgement service (086: until 265 `jev=False`) has the G
+    path verified by the code alone. `reuse` (231, F1): whether earlier
     answers in the call log (GPT's) are reused; by default as `use_cache`, so JEV can be asked again while GPT's earlier
     answers are kept. `budget_usd`: a hard OpenAI budget
     for the whole measurement (the owner's sub-budget); `jev_budget_usd` (127): a hard JEV budget. With either one the
@@ -352,7 +364,7 @@ def golden(
     pack = get_pack(type_key)
     cases = cases or load_cases(type_key)
     rows: list[dict[str, Any]] = []
-    name = _run_name(type_key, f"{label}_{arm}" + ("" if jev else "_nojev"))
+    name = _run_name(type_key, f"{label}_{arm}" + _runs(engine))
     limits = {p: b for p, b in (("openai", budget_usd), ("jev", jev_budget_usd)) if b is not None}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count, never an unbudgeted live call
         print(calls.NO_BUDGET_NOTE)
@@ -361,7 +373,8 @@ def golden(
     with guard:
         for case in cases:
             t0 = time.perf_counter()
-            kwargs = {} if jev else {"jev": False}  # a stand-in `run_one` without the parameter keeps working
+            # a stand-in `run_one` without the parameter keeps working with the flow's default engine
+            kwargs = {} if engine == "jev" else {"engine": engine}
             state = run_one(str(case.pdf), case.case_id, arm, run_no=1, tracker=tracker, use_cache=use_cache, doc_type=type_key, **kwargs)
             rows.append(_state_row(case, state, 1, time.perf_counter() - t0, pack))
             print(f"  {case.case_id:40} {state.final_status:12} {state.route or '-':6} {time.perf_counter() - t0:5.1f}s")
@@ -410,26 +423,24 @@ def print_golden_report(rows: list[dict[str, Any]], arm: str, pack: TypePack) ->
 
 def determinism(
     arm: str, n: int, run_one: Callable[..., FlowState], cases: list[GoldenCase] | None = None, *, type_key: str,
-    jev: bool = True,
+    engine: str = "jev",
 ) -> list[dict[str, Any]]:
-    """n runs per case without the cache. `jev=False` (160-D): the G path checked by the code alone, its run file
-    named `_nojev` as the golden run's."""
-    from jav.ai.jev import get_adapter
-
+    """n runs per case without the cache. `engine` (265): the AI engine measured; without a judgement service (160-D)
+    the G path checked by the code alone; the run file named as the golden run's."""
     pack = get_pack(type_key)
     cases = cases or load_cases(type_key)
     rows: list[dict[str, Any]] = []
     # without the cache (no reads AND no writes): we measure the real run-to-run variation, and the golden
     # reference answers in the cache stay untouched (handoff 004 §4 pitfall)
-    with get_adapter().no_cache_write():
+    with engines.no_cache_write(engine):
         for case in cases:
             for run_no in range(1, n + 1):
                 t0 = time.perf_counter()
                 state = run_one(str(case.pdf), case.case_id, arm, run_no=run_no, tracker=False, use_cache=False, doc_type=type_key,
-                                jev=jev)
+                                engine=engine)
                 rows.append(_state_row(case, state, run_no, time.perf_counter() - t0, pack))
             print(f"  {case.case_id:40} {n} run(s) done")
-    path = _dump_rows(rows, _run_name(type_key, f"determinism_{arm}_n{n}" + ("" if jev else "_nojev")))
+    path = _dump_rows(rows, _run_name(type_key, f"determinism_{arm}_n{n}" + _runs(engine)))
     print_determinism_report(rows, arm, n, pack)
     print(f"\nRaw runs: {path}")
     return rows

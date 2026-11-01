@@ -1,0 +1,69 @@
+{
+  "meta": {
+    "name": "engines",
+    "version": "1.2.0",
+    "description": "Every AI engine a processing can run with, read only through jav/ai/engine.py. An engine: `label` (its name on screen), `judge` (the judgement service that answers its typed questions, a key of `judges`, or null: GPT answers and the code checks), `requires` (the providers of configs/providers.json it cannot run without: unavailable when one of them is), `bands` (the suffix of its band keys in configs/policy.json `band_for`), `unavailable_status` (a flow's end state when its answerer could not be asked), `runs` (the suffix of its measurements' run files, so a measurement's file says which engine it measured; the data points' measurement names GPT's `_nojev`, as it always has). A judge: `provider` (whose calls it books and budgets) and `todo` (the first part of the to-do it raises when it cannot answer). `default`: the engine of a setting that names none; `fallback`: in order, the engines an installation takes instead when the default cannot run there (no JEV key) and nothing is saved. `legacy`: how a setting saved before the registry names its engine (the recipes' `jev: on | off`). (Glossary: Engine registry, AI engine, Judgement service.)",
+    "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-11-01",
+        "note": "GPT only until OpenAI Decisions is measured (the owner's decision of 2026-11-01): `fallback` [gpt], the engine of an installation without a JEV key while nothing is saved; OpenAI Decisions is selectable there but not the default."
+      },
+      {
+        "version": "1.1.0",
+        "date": "2026-11-01",
+        "note": "Each engine's `runs`, the suffix of its measurements' run files (until then written by every measurement tool: `_gpt`, or `_nojev` for the data points); no value of jev or gpt changes."
+      },
+      {
+        "version": "1.0.0",
+        "date": "2026-11-01",
+        "note": "The engine as data, not a JEV on/off switch (the owner's decision of 2026-11-01): first version. jev (JEV and GPT) and gpt (GPT only) as they are, and decisions (OpenAI Decisions and GPT), whose provider is off until its measurement and the owner's decision."
+      }
+    ]
+  },
+  "default": "jev",
+  "fallback": ["gpt"],
+  "engines": {
+    "jev": {
+      "label": "JEV and GPT",
+      "judge": "jev",
+      "requires": ["jev"],
+      "bands": "",
+      "unavailable_status": "jev_unavailable",
+      "runs": ""
+    },
+    "decisions": {
+      "label": "OpenAI Decisions and GPT",
+      "judge": "decisions",
+      "requires": ["openai_decisions"],
+      "bands": ".decisions",
+      "unavailable_status": "decisions_unavailable",
+      "runs": "_decisions"
+    },
+    "gpt": {
+      "label": "GPT only",
+      "judge": null,
+      "requires": ["openai"],
+      "bands": ".gpt",
+      "unavailable_status": "gpt_unavailable",
+      "runs": "_gpt"
+    }
+  },
+  "judges": {
+    "jev": {
+      "provider": "jev",
+      "todo": "jev_unavailable"
+    },
+    "decisions": {
+      "provider": "openai_decisions",
+      "todo": "decisions_unavailable"
+    }
+  },
+  "legacy": {
+    "param": "jev",
+    "values": {
+      "on": "jev",
+      "off": "gpt"
+    }
+  }
+}

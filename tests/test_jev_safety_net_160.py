@@ -71,7 +71,7 @@ def test_an_adapter_built_by_hand_is_refused_too(env, tmp_path):
 @pytest.mark.jev_refusal
 def test_a_flow_without_jev_turns_a_forgotten_question_into_a_to_do(env, monkeypatch):
     monkeypatch.setattr("jav.ai.detect_gpt.detect", _forgetful_gpt_detect)
-    state = flow_detect.run_detect(str(env["pdf"]), jev=False)
+    state = flow_detect.run_detect(str(env["pdf"]), engine="gpt")
     assert "jev_unavailable:disabled" in state.review_reasons
     assert env["client"].calls == 0
 

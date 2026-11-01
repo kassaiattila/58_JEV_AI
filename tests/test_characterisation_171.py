@@ -117,7 +117,7 @@ def test_a_g_path_decision_without_jev_lists_its_reasons_in_this_order(monkeypat
         [f"duplicate:copy:{DOC_C}"], duplicates.DUPLICATE_POINT, {}, {}))
     monkeypatch.setattr(own_parties, "traced", lambda doc_type, values: checks.Traced(
         ["parties:own_tax_as_supplier"], own_parties.OWN_TAX_POINT, {}, {}))
-    state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", jev=False, doc_type="invoice_hu",
+    state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", engine="gpt", doc_type="invoice_hu",
                       doc_id=DOC_A)
     state.record = DocumentRecord(supplier_name="Example Supplier Kft.", invoice_number="INV-0001", currency="HUF",
                               gross_total=Decimal("1270.00"), payment_iban="HU00 0000 0000 0000 0000 0000 0000")
@@ -349,8 +349,8 @@ def test_each_recipe_routes_each_item_kind_to_this_flow() -> None:
     assert routed == PIN_ROUTES
 
 
-_ALL = {"arm": "auto", "jev": "on", "jev_cache": "reuse", "tasks": "propose", "unknown_documents": "review"}
-_DETECT_ON = ("doc_detect", {"jev": "on", "jev_cache": "reuse"})
+_ALL = {"arm": "auto", "engine": "jev", "jev_cache": "reuse", "tasks": "propose", "unknown_documents": "review"}
+_DETECT_ON = ("doc_detect", {"engine": "jev", "jev_cache": "reuse"})  # 265: the engine setting (until then `jev`)
 _DETECT = ("doc_detect", {"jev_cache": "reuse"})
 _MULTI = {k: v for k, v in _ALL.items() if k != "tasks"}
 _INVOICE_HU = [("invoice", {"arm": "S", "jev_cache": "reuse", "doc_type": "invoice_hu"})]  # auto -> the pack's path
@@ -370,7 +370,7 @@ PIN_STAGES = {
 
 
 def test_each_recipe_runs_these_stages() -> None:
-    params = {"arm": "auto", "jev": "on", "jev_cache": "reuse", "tasks": "propose", "unknown_documents": "review"}
+    params = {"arm": "auto", "engine": "jev", "jev_cache": "reuse", "tasks": "propose", "unknown_documents": "review"}
     stages = {}
     for r in work_recipes.recipes():
         for k, item in _ITEMS.items():

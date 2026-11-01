@@ -48,7 +48,7 @@ def _run(tmp_path: Path, pack_key: str, values: dict, engine: str):
     adapter = jev_mod.JevAdapter(client=client, cache_dir=tmp_path / "cache", model="jev-1.13.0")
     scoped = jev_mod.use_adapter(adapter) if engine == "jev" else contextlib.nullcontext()
     with store.use_store(tmp_path / "s.sqlite"), extract_llm.use_agent_factory(lambda pack: _FakeAgent(pack, values)), scoped:
-        app = flow.build_app(str(pdf), "c1", "G", tracker=False, doc_type=pack_key, jev=engine == "jev")
+        app = flow.build_app(str(pdf), "c1", "G", tracker=False, doc_type=pack_key, engine=engine)
         _, _, state = app.run(halt_after=flow.TERMINALS)
     return state.data, client
 

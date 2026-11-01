@@ -39,7 +39,7 @@ def golden_env(tmp_path: Path, monkeypatch):
 
 
 def test_detect_golden_without_jev_runs_under_the_measurement_budget(golden_env):
-    rows = evals_detect.detect_golden(jev=False, budget_usd=Decimal("1.00"))
+    rows = evals_detect.detect_golden(engine="gpt", budget_usd=Decimal("1.00"))
     assert [(r["got"], r["engine"], r["measured"]) for r in rows] == [("invoice_hu", "gpt", True)]
     assert list((golden_env["tmp"] / "runs").glob("*_detect_golden_gpt.jsonl"))
     with store.connect() as c:
@@ -50,7 +50,7 @@ def test_detect_golden_without_jev_runs_under_the_measurement_budget(golden_env)
 
 
 def test_the_keys_only_variant_offers_the_bare_type_keys(golden_env):
-    evals_detect.detect_golden(jev=False, descriptions=False, budget_usd=Decimal("1.00"))
+    evals_detect.detect_golden(engine="gpt", descriptions=False, budget_usd=Decimal("1.00"))
     detect_instructions = next(i for i in golden_env["seen"] if "Document types:" in i)
     assert "- invoice_hu\n" in detect_instructions and "- invoice_hu:" not in detect_instructions
     assert list((golden_env["tmp"] / "runs").glob("*_detect_golden_gpt_keys.jsonl"))
@@ -58,7 +58,7 @@ def test_the_keys_only_variant_offers_the_bare_type_keys(golden_env):
 
 
 def test_a_spent_budget_stops_the_calls_and_says_so(golden_env):
-    rows = evals_detect.detect_golden(jev=False, budget_usd=Decimal("0.000001"))
+    rows = evals_detect.detect_golden(engine="gpt", budget_usd=Decimal("0.000001"))
     assert rows[0]["got"] is None and "detect:gpt_failed:BudgetExceeded" in rows[0]["review_reasons"]
     with store.connect() as c:  # refused at the reservation: the request was never sent
         assert c.execute("SELECT COUNT(*) FROM invocations").fetchone()[0] == 0
@@ -72,10 +72,10 @@ def test_golden_without_jev_asks_the_flow_for_the_code_check_and_names_the_run(m
     monkeypatch.setattr(evals, "print_golden_report", lambda rows, arm, pack: None)
 
     def run_one(*args, **kwargs):
-        seen.append(kwargs.get("jev", True))
+        seen.append(kwargs.get("engine", "jev"))
         assert calls.current() is not None and calls.current().budget_scope.startswith("measure-")
         return type("State", (), {"final_status": "done", "route": "auto"})()
 
     with store.use_store(tmp_path / "g.sqlite"):
-        evals.golden("G", run_one, type_key="invoice_hu", jev=False, budget_usd=Decimal("0.60"))
-    assert seen == [False] and names == ["golden_G_nojev"]
+        evals.golden("G", run_one, type_key="invoice_hu", engine="gpt", budget_usd=Decimal("0.60"))
+    assert seen == ["gpt"] and names == ["golden_G_nojev"]

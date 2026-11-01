@@ -14,6 +14,12 @@ reservation of the largest question is reported too: a hard budget has to leave 
     python -m jav.evals.jev_estimate golden:invoice_hu synthetic:invoice_foreign detect-golden email-golden
     python -m jav.evals.jev_estimate detect-cases:runs/quality_122/cases.json extract-cases:runs/quality_127/sample.json
 
+265 (plan L, L3): `--decisions` also translates every request into an OpenAI Decisions request
+(`jav/ai/decisions_wire.py`), never sending it: whether the API's limits admit it, whether the shared state goes as JSON
+or as text, and what the whole step would cost with Decisions' price (`configs/models.json` `decisions`; every request
+counts as live, as Decisions has no earlier answers yet). `--cache-dir` names the JEV answer cache to read (a worktree
+reads the main folder's).
+
 Steps: `golden:<type>` (S path on the legacy golden set), `synthetic:<type>` (S path on the synthetic cases),
 `detect-golden`, `detect-cases:<case file>`, `email-golden`, `verifier-probe:<type>` (the G path's JEV check on the
 golden extracts), `extract-cases:<case file>` (S path on a local case list, `jav.evals.extract_cases`). Output: `runs/<timestamp>_jev_estimate/` (`estimate.json`, `estimate.md`,
@@ -51,6 +57,9 @@ class Request:
     n_questions: int
     cached: bool
     reserve_usd: str  # the worst-case reservation a live call of this request would make
+    decisions_chars: int | None = None  # 265: the translated Decisions request's size (None: not translated)
+    decisions_unfit: str | None = None  # why the API's limits do not admit it
+    decisions_state: str | None = None  # how the shared state goes: input_json or input_text
 
 
 def request_body(state: object, questions: dict[str, Any]) -> str:
@@ -82,11 +91,12 @@ class EstimatingAdapter(JevAdapter):
     """Answers from the real request-hash cache and writes nothing to it; a missing answer is never requested, it is
     recorded and answered with `stand_in`. The model is the concrete version the cache keys name."""
 
-    def __init__(self, model: str, cache_dir: Path = CACHE_DIR) -> None:
+    def __init__(self, model: str, cache_dir: Path = CACHE_DIR, *, decisions: bool = False) -> None:
         super().__init__(client=None, cache_dir=cache_dir, model=model)
         self.write_cache = False
         self.step = ""
         self.requests: list[Request] = []
+        self.decisions = decisions
 
     def ask(self, request_id: str, state: object, questions: dict[str, Any], **kwargs: Any):  # type: ignore[override]
         from jav.core import calls
@@ -96,11 +106,26 @@ class EstimatingAdapter(JevAdapter):
         reserve = calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
                                           usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)),
                                           repeats=1 + int(JEV_RETRY.get("max_retries", 0)))
-        self.requests.append(Request(self.step, request_id, len(body), len(questions), result.cached, str(reserve)))
+        request = Request(self.step, request_id, len(body), len(questions), result.cached, str(reserve))
+        if self.decisions:
+            request.decisions_chars, request.decisions_unfit, request.decisions_state = translated(state, questions)
+        self.requests.append(request)
         return result
 
     def _live(self, request_id, state, questions, *, model, run_id, config_hash):  # the parent's signature
         return stand_in(questions, model, len(request_body(state, questions))), 0.0
+
+
+def translated(state: object, questions: dict[str, Any]) -> tuple[int | None, str | None, str | None]:
+    """265: (size, why unfit, how the state goes) of the request translated for OpenAI Decisions; nothing is sent."""
+    from jav.ai import decisions, decisions_wire
+
+    conf = decisions.settings()
+    try:
+        body = decisions_wire.request(state, questions, model=str(conf["model"]), state_mode=str(conf["state"]))
+    except decisions_wire.Unfit as exc:
+        return None, str(exc), None
+    return len(json.dumps(body, ensure_ascii=False)), None, body["input"][0]["content"][0]["type"]
 
 
 def concrete_model(cache_dir: Path = CACHE_DIR) -> str:
@@ -121,7 +146,7 @@ def only_adapter(adapter: JevAdapter) -> Iterator[None]:
     from jav.ai import jev
 
     saved = jev._default_adapter
-    jev._default_adapter = lambda: adapter  # type: ignore[assignment]
+    jev._default_adapter = lambda judge="jev": adapter  # type: ignore[assignment]  # 265: whichever service
     try:
         with use_adapter(adapter):
             yield
@@ -193,26 +218,57 @@ def summary(requests: list[Request]) -> dict[str, Any]:
     for s in by_step.values():
         s["expected_usd"] = (s["live_chars"] * TOKENS_PER_CHAR * price).quantize(Decimal("0.000001"))
         s["upper_usd"] = (s["live_chars"] * TOKENS_PER_CHAR_MAX * price).quantize(Decimal("0.000001"))
-    total = {k: sum((s[k] for s in by_step.values()), Decimal(0) if k.endswith("usd") else 0)
-             for k in ("requests", "cached", "live", "live_chars", "expected_usd", "upper_usd")}
+    keys = ["requests", "cached", "live", "live_chars", "expected_usd", "upper_usd"]
+    if any(r.decisions_chars is not None or r.decisions_unfit is not None for r in requests):
+        _decisions_summary(requests, by_step)
+        keys += ["decisions_unfit", "decisions_as_text", "decisions_chars", "decisions_expected_usd", "decisions_upper_usd"]
+    total = {k: sum((s[k] for s in by_step.values()), Decimal(0) if k.endswith("usd") else 0) for k in keys}
     total["max_reserve_usd"] = max((s["max_reserve_usd"] for s in by_step.values()), default=Decimal(0))
     return {"steps": by_step, "total": total}
 
 
+def _decisions_summary(requests: list[Request], by_step: dict[str, dict[str, Any]]) -> None:
+    """265: per step, the requests the Decisions API would not admit, the ones whose state goes as text, and the
+    cost of sending every request (no earlier Decisions answers yet) at the uncached input price."""
+    from jav.ai import decisions
+
+    price = Decimal(str(decisions.settings()["usd_per_mtok"]["input"])) / Decimal(1_000_000)
+    for s in by_step.values():
+        s.update(decisions_unfit=0, decisions_as_text=0, decisions_chars=0)
+    for r in requests:
+        s = by_step[r.step]
+        s["decisions_unfit"] += r.decisions_unfit is not None
+        s["decisions_as_text"] += r.decisions_state == "input_text"
+        s["decisions_chars"] += r.decisions_chars or 0
+    for s in by_step.values():
+        s["decisions_expected_usd"] = (s["decisions_chars"] * TOKENS_PER_CHAR * price).quantize(Decimal("0.000001"))
+        s["decisions_upper_usd"] = (s["decisions_chars"] * TOKENS_PER_CHAR_MAX * price).quantize(Decimal("0.000001"))
+
+
 def report(result: dict[str, Any]) -> str:
-    lines = ["| step | requests | from the cache | live | expected USD | upper USD | largest reservation USD |",
-             "|---|---|---|---|---|---|---|"]
+    decisions = "decisions_chars" in result["total"]
+    head = "| step | requests | from the cache | live | expected USD | upper USD | largest reservation USD |"
+    rule = "|---|---|---|---|---|---|---|"
+    if decisions:
+        head += " Decisions: not admitted | state as text | expected USD | upper USD |"
+        rule += "---|---|---|---|"
+    lines = [head, rule]
     for name, s in [*result["steps"].items(), ("total", result["total"])]:
-        lines.append(f"| {name} | {s['requests']} | {s['cached']} | {s['live']} | {s['expected_usd']} | {s['upper_usd']} | "
-                     f"{s['max_reserve_usd']} |")
+        line = (f"| {name} | {s['requests']} | {s['cached']} | {s['live']} | {s['expected_usd']} | {s['upper_usd']} | "
+                f"{s['max_reserve_usd']} |")
+        if decisions:
+            line += (f" {s['decisions_unfit']} | {s['decisions_as_text']} | {s['decisions_expected_usd']} | "
+                     f"{s['decisions_upper_usd']} |")
+        lines.append(line)
     return "\n".join(lines)
 
 
-def estimate(steps: list[str], out: Path) -> dict[str, Any]:
+def estimate(steps: list[str], out: Path, *, decisions: bool = False, cache_dir: Path | None = None) -> dict[str, Any]:
     from jav.core import store
 
     out.mkdir(parents=True, exist_ok=True)
-    adapter = EstimatingAdapter(concrete_model())
+    cache = cache_dir if cache_dir is not None else CACHE_DIR
+    adapter = EstimatingAdapter(concrete_model(cache), cache, decisions=decisions)
     with store.use_store(out / "estimate.sqlite"), only_adapter(adapter), runs_redirected(out):
         for step in steps:
             adapter.step = step
@@ -225,13 +281,20 @@ def estimate(steps: list[str], out: Path) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from jav.app import registrations
+
+    registrations.load_all()  # 265: run on its own, the steps' checks need the application's registrations (229)
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("steps", nargs="+", help="golden:<type> | synthetic:<type> | detect-golden | detect-cases:<file> | "
                                              "email-golden | verifier-probe:<type> | extract-cases:<file>")
     ap.add_argument("--out", help="output folder (default: runs/<timestamp>_jev_estimate)")
+    ap.add_argument("--decisions", action="store_true",
+                    help="also translate every request for OpenAI Decisions (never sent): limits, state, cost")
+    ap.add_argument("--cache-dir", help="the JEV answer cache to read (default: this checkout's runs/cache)")
     args = ap.parse_args(argv)
     out = Path(args.out) if args.out else RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_jev_estimate"
-    result = estimate(args.steps, out)
+    result = estimate(args.steps, out, decisions=args.decisions,
+                      cache_dir=Path(args.cache_dir) if args.cache_dir else None)
     print("\n" + report(result))
     print(f"\n{out}")
     return 0

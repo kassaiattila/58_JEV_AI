@@ -29,7 +29,6 @@ from tests.test_no_jev_085 import _FakeAgent as _FakeExtractor
 from tests.test_paired_recognition_160 import _Jev
 
 ENGINES = ("jev", "gpt")
-SETTING = {"jev": "on", "gpt": "off"}
 
 
 def _models(engine: str, tmp_path, *, noul: float = 0.95):
@@ -56,7 +55,7 @@ def _start_and_run(wp_id: str) -> str:
 def _check_engine(run_id: str, engine: str) -> None:
     run = work_runs.get_run(run_id)
     assert all(i["final_status"] in ("done", "needs_review") for i in run["items"]), run["items"]
-    assert run["plan"]["jev"] is (engine == "jev")
+    assert run["plan"]["engine"] == engine
     provider = "jev" if engine == "jev" else "openai"
     assert {j["provider"] for j in calls.scope_journal(run_id)} | _reused(run_id) == {provider}
     rows = {r["provider"]: r for r in costs.plan_vs_actual(run_id)["providers"]}
@@ -78,7 +77,7 @@ def test_a_document_run_finishes_on_both_engines(tmp_path, engine):
     write_text_pdf(folder / "invoice.pdf", INVOICE_LINES)
     with store.use_store(tmp_path / "w.sqlite"), _models(engine, tmp_path):
         wp = work.create_from_folder(folder, name="Paired")
-        work_recipes.assign_recipe(wp["id"], "processing", params={"arm": "auto", "jev": SETTING[engine], "azure_ocr": "off"},
+        work_recipes.assign_recipe(wp["id"], "processing", params={"arm": "auto", "engine": engine, "azure_ocr": "off"},
                            expected_revision=0, actor="t")
         _check_engine(_start_and_run(wp["id"]), engine)
 
@@ -88,7 +87,7 @@ def test_an_email_run_finishes_on_both_engines(env, tmp_path, engine):  # noqa: 
     res = mailbox.fetch(REQ, actor="t", runner=FakeBridge(MAILS), inbox_root=env["inbox"])
     wp_id = res["workpackage"]
     current = work_recipes.current_assignment(wp_id)
-    work_recipes.assign_recipe(wp_id, current["recipe_id"], params={**current["params"], "jev": SETTING[engine]},
+    work_recipes.assign_recipe(wp_id, current["recipe_id"], params={**current["params"], "engine": engine},
                        expected_revision=current["revision"], actor="t")
     gpt = gpt_choice.use_agent_factory(_factory(_answer())) if engine == "gpt" else contextlib.nullcontext()
     with _models(engine, tmp_path, noul=0.05), gpt:

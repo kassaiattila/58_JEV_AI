@@ -10,8 +10,9 @@ import json
 import sqlite3
 from typing import Any
 
+from jav.ai import engine as engines
 from jav.ai import typepack
-from jav.core import cfg, identity, store
+from jav.core import cfg, display, identity, store
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
 from jav.app import work
@@ -46,23 +47,39 @@ def recipe(recipe_id: str) -> dict[str, Any]:
 
 def carried_params(r: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     """080: the settings of an old assignment that the recipe `r` also has (path, JEV reuse, Azure, task proposal),
-    the rest with `r`'s defaults. A given document type is dropped: the processing recognises it."""
+    the rest with `r`'s defaults. A given document type is dropped: the processing recognises it. 265: an engine named
+    with the old switch carries over as its engine (`upgraded_params`)."""
+    params = upgraded_params(params)
     return _validated_params(r, {k: v for k, v in params.items() if k in r["params"]})
 
 
-ENGINE_JEV = {"jev": "on", "gpt": "off"}  # 160-D: the AI engine as the recipes' `jev` setting
+ENGINE_PARAM = "engine"  # 265 (plan L): the recipes' AI engine setting (configs/engines.json); until then `jev: on | off`
+
+
+def upgraded_params(params: dict[str, Any]) -> dict[str, Any]:
+    """265: a setting saved before the recipes named their engine (`jev: on | off`, the legacy reading of
+    `configs/engines.json`) names it as `engine`; a setting that names neither is as it was. A setting naming it both
+    ways keeps `engine` when the two agree, and is refused when they do not (which one was meant is unknown)."""
+    legacy = engines.legacy_param()
+    if legacy not in params:
+        return params
+    named = engines.of_params({legacy: params[legacy]}).id
+    if params.get(ENGINE_PARAM, named) != named:
+        raise explained(ValueError, "the setting names two AI engines: {{engine}} and {{legacy}}={{value}}",
+                        engine=repr(params[ENGINE_PARAM]), legacy=legacy, value=repr(params[legacy]))
+    return {**{k: v for k, v in params.items() if k != legacy}, ENGINE_PARAM: params.get(ENGINE_PARAM, named)}
 
 
 def engine_params(r: dict[str, Any], engine: str | None = None) -> dict[str, str]:
     """160-D (plan F-csak-gpt Sz4): the engine setting a new processing setting gets when it does not name one:
     `engine`, or the application's (`app_settings.engine_default`). Empty for a recipe without the setting."""
-    if "jev" not in r["params"]:
+    if ENGINE_PARAM not in r["params"]:
         return {}
     if engine is None:
         from jav.app import app_settings  # it imports this module
 
         engine = app_settings.engine_default()
-    return {"jev": ENGINE_JEV[engine]}
+    return {ENGINE_PARAM: engines.get(engine).id}
 
 
 def default_params(r: dict[str, Any], engine: str | None = None) -> dict[str, Any]:
@@ -82,7 +99,7 @@ def _validated_params(r: dict[str, Any], params: dict[str, Any]) -> dict[str, An
         raise explained(ValueError, "unknown params: {{unknown}}", unknown=sorted(unknown))
     for name, spec in r["params"].items():
         value = params.get(name, spec.get("default"))
-        allowed = spec.get("allowed") or (typepack.extractable_keys() if spec.get("allowed_from") == "typepacks" else None)
+        allowed = spec.get("allowed") or allowed_from(spec)
         if allowed is not None and value not in allowed:
             raise explained(ValueError, "param {{name}}={{value}} not in {{allowed}}",
                             name=name, value=repr(value), allowed=sorted(allowed))
@@ -90,13 +107,24 @@ def _validated_params(r: dict[str, Any], params: dict[str, Any]) -> dict[str, An
     return out
 
 
+def allowed_from(spec: dict[str, Any]) -> list[str] | None:
+    """The values a setting takes from a registry (`allowed_from`): the type packs' keys, or (265) the engines."""
+    source = spec.get("allowed_from")
+    if source == "typepacks":
+        return sorted(typepack.extractable_keys())
+    if source == "engines":
+        return engines.ids()
+    return None
+
+
 def current_assignment(wp_id: str, c: sqlite3.Connection | None = None) -> dict[str, Any] | None:
-    """`c`: an open connection (inside a write transaction, so the new row is visible)."""
+    """`c`: an open connection (inside a write transaction, so the new row is visible). 265: the settings as the
+    current code reads them (an engine saved with the old switch, as its engine: `upgraded_params`)."""
     if c is None:
         with store.connect() as c:
             return current_assignment(wp_id, c)
     row = c.execute("SELECT * FROM recipe_assignments WHERE workpackage_id=? ORDER BY revision DESC LIMIT 1", (wp_id,)).fetchone()
-    return {**dict(row), "params": json.loads(row["params"])} if row else None
+    return {**dict(row), "params": upgraded_params(json.loads(row["params"]))} if row else None
 
 
 def assignment_history(wp_id: str) -> list[dict[str, Any]]:
@@ -114,7 +142,7 @@ def assign_recipe(wp_id: str, recipe_id: str, *, params: dict[str, Any], expecte
     if recipe_status(r) == "retired":
         raise explained(work.RetiredRecipe, "recipe {{recipe_id}} is retired; assign {{id}} instead",
                         recipe_id=repr(recipe_id), id=repr(default_recipe()["id"]))
-    clean = _validated_params(r, {**engine_params(r), **params})
+    clean = _validated_params(r, {**engine_params(r), **upgraded_params(params)})
     with store.connect() as c:
         work._begin(c)
         if c.execute("SELECT 1 FROM workpackages WHERE id=?", (wp_id,)).fetchone() is None:
@@ -139,11 +167,17 @@ def _insert_assignment(c, wp_id: str, r: dict[str, Any], params: dict[str, Any],
 MIGRATION_ACTOR = "rendszer"  # data: the actor of the 080 migration in the assignment history (shown in the UI)
 
 
+def carried_hashes(r: dict[str, Any]) -> set[str]:
+    """274: the recipe's own hash and those of the versions whose saved settings it carries unchanged in meaning
+    (`carries_from` in configs/recipes.json: only a setting's name changed)."""
+    return {recipe_hash(r), *(str(c["hash"]) for c in r.get("carries_from", ()))}
+
+
 def migrate_assignments(*, write: bool) -> list[dict[str, Any]]:
     """080 (owner's decision of 2026-10-01: automatic migration): every package whose current assignment is not an
     active recipe moves onto the default processing, keeping its settings (`carried_params`); hidden packages too.
     Without `write` it only lists what it would do. Repeatable: a package already on the active recipe is left alone.
-    Old runs keep their own recipe snapshot."""
+    Old runs keep their own recipe snapshot. Each entry names the recipe it goes `to`."""
     target = default_recipe()
     with store.connect() as c:
         rows = c.execute("SELECT a.* FROM recipe_assignments a WHERE a.revision = (SELECT MAX(revision) FROM recipe_assignments b"
@@ -151,15 +185,30 @@ def migrate_assignments(*, write: bool) -> list[dict[str, Any]]:
     out = []
     for row in rows:
         old = recipe(row["recipe_id"])
-        if recipe_status(old) == "active":
-            continue
         params = json.loads(row["params"])
+        if recipe_status(old) == "active":
+            # 265 (plan L): an active recipe's settings that name the engine with the old switch are saved again with
+            # its engine, on the recipe's current version (so the package does not warn that its processing changed).
+            # 274: only those saved on a version the recipe carries (`carried_hashes`); a setting saved on an older
+            # version keeps its warning, and the old switch is read as its engine wherever it is read
+            if params == upgraded_params(params) or row["recipe_hash"] not in carried_hashes(old):
+                continue
+            new = carried_params(old, params)
+            note = display.text("the AI engine setting saved again under its engine's name")
+            out.append({"workpackage_id": row["workpackage_id"], "from": row["recipe_id"], "from_params": params,
+                        "to": old["id"], "params": new, "revision": row["revision"] + 1, "note": note})
+            if write:
+                with store.connect() as c:
+                    work._begin(c)
+                    _insert_assignment(c, row["workpackage_id"], old, new, expected_revision=row["revision"],
+                                       actor=MIGRATION_ACTOR, note=note)
+            continue
         new = carried_params(target, params)
         doc_type = f", típus: {params['doc_type']}" if params.get("doc_type") else ""
         # data (the assignment history, shown in the UI as written), not a label
         note = f"080: átállítás az egységes feldolgozásra (előtte: {old['title']}, {old['version']}. változat{doc_type})"
-        out.append({"workpackage_id": row["workpackage_id"], "from": row["recipe_id"], "from_params": params, "params": new,
-                    "revision": row["revision"] + 1, "note": note})
+        out.append({"workpackage_id": row["workpackage_id"], "from": row["recipe_id"], "from_params": params,
+                    "to": target["id"], "params": new, "revision": row["revision"] + 1, "note": note})
         if write:
             with store.connect() as c:
                 work._begin(c)

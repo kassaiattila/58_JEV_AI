@@ -1,23 +1,28 @@
 {
   "meta": {
     "name": "reconcile",
-    "version": "1.14.0",
-    "description": "128 F-reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. Decisions: DECISIONS 128 (exact amount and at least one signal first; card payments with an exchange rate later; never 'unpaid'), DECISIONS 131, DECISIONS 134.",
+    "version": "1.14.1",
+    "description": "The reconciliation (jav/reconcile.py): which bank statement line paid which incoming invoice, by code. The invoice types, the payment window, the signal thresholds, the payment channels, the pairs listed for their equal amount alone, the names learnt from a person's confirmations, the payment kinds left to a person, when a statement counts as verified coverage and how a candidate's strength is weighed. The owner's decisions: an exact amount and at least one signal first, card payments with an exchange rate later, never 'unpaid'.",
     "changelog": [
+      {
+        "version": "1.14.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references and the store's figures; no value changes."
+      },
       {
         "version": "1.14.0",
         "date": "2026-10-13",
-        "note": "The 153 review's security item 4: replacement.keep_every_line - the better source replaces the other by rule only when every line of the other has its same line (carry_over) on it, or when it comes from an approved live run (a person has checked it; the lines it lacks are left over as before); otherwise a line the replacement would drop makes the pair a conflict a person decides, so a file nobody approved cannot hide real lines. On the live store 3 of the 20 rule replacements lack a line an unapproved trial run's AI read another way (a swapped date, a credit read as a debit); all 3 replacing statements come from an approved live run, so nothing changes. Engine 1.17.0."
+        "note": "A security fix: replacement.keep_every_line - the better source replaces the other by rule only when every line of the other has its same line (carry_over) on it, or when it comes from an approved live run (a person has checked it; the lines it lacks are left over as before); otherwise a line the replacement would drop makes the pair a conflict a person decides, so a file nobody approved cannot hide real lines. Engine 1.17.0."
       },
       {
         "version": "1.13.0",
         "date": "2026-10-12",
-        "note": "Fx.bank - a forint line of a bank account meets an invoice in another currency at the MNB rate of the invoice's fulfilment day, then of the line's booking day (rate_days), in the invoice's payment window; CHF joins the currencies (11 outgoing invoices in francs). Engine 1.15.0."
+        "note": "Fx.bank - a forint line of a bank account meets an invoice in another currency at the MNB rate of the invoice's fulfilment day, then of the line's booking day (rate_days), in the invoice's payment window; CHF joins the currencies. Engine 1.15.0."
       },
       {
         "version": "1.12.0",
         "date": "2026-10-12",
-        "note": "The quick review: salary_marks - patterns on a line's normalised memo and description that suggest the salary reason (munkaber, ber, berkifizetes, payroll, salary, wage; not fizetes, which a card payment also says). On the store's 1183 lines only munkaber occurs (8 incoming lines). A suggestion for a person, as category_marks."
+        "note": "The quick review: salary_marks - patterns on a line's normalised memo and description that suggest the salary reason (munkaber, ber, berkifizetes, payroll, salary, wage; not fizetes, which a card payment also says). A suggestion for a person, as category_marks."
       },
       {
         "version": "1.11.0",
@@ -32,7 +37,7 @@
       {
         "version": "1.9.0",
         "date": "2026-10-11",
-        "note": "The sports club's trial; engine 1.9.0: combined.max_invoices - a line whose memo names two or more invoices whose amounts left add up to it exactly proposes them together (amount relation combined, strength.amount.combined), at most this many; proposal.unnamed_days_before_issue - a line booked more than this many days before an invoice's issue date is its candidate only when its memo names the invoice (an advance payment). Without a setting: a credit note that cancels exactly one invoice of its supplier settles it (status credited), and a line whose memo names one invoice proposes no other."
+        "note": "Engine 1.9.0: combined.max_invoices - a line whose memo names two or more invoices whose amounts left add up to it exactly proposes them together (amount relation combined, strength.amount.combined), at most this many; proposal.unnamed_days_before_issue - a line booked more than this many days before an invoice's issue date is its candidate only when its memo names the invoice (an advance payment). Without a setting: a credit note that cancels exactly one invoice of its supplier settles it (status credited), and a line whose memo names one invoice proposes no other."
       },
       {
         "version": "1.8.0",

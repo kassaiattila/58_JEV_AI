@@ -77,7 +77,7 @@ def _native_fact(tmp_path, monkeypatch, value):
         limits = native_processing.estimate_limits({"jev": "off"})
         with calls.measurement("native-run", limits.provider_limits_usd):
             outcome_id = native_processing.interpret(work_run_id="native-run", item_id="native-item", graph_id="g-sub",
-                                                     reading_id=ref.reading_id, jev=False, use_cache=False, limits=limits)
+                                                     reading_id=ref.reading_id, engine="gpt", use_cache=False, limits=limits)
         _, _, interpretation = native_results.load_outcome(outcome_id)
     return interpretation.facts[0]
 

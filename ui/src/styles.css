@@ -405,7 +405,9 @@ body.dragging { cursor: col-resize; user-select: none; }
 /* the tick goes before the label, on one line; as a CSS escape so that the file encoding cannot corrupt it
    (061: „ásm” stood in its place) */
 .picker-opt[aria-selected="true"] > span:first-child::before { content: "\2713\00a0"; color: var(--ink); }
-.picker-opt[aria-disabled="true"] { opacity: .5; cursor: default; }
+.picker-opt[aria-disabled="true"] { cursor: default; color: var(--faint); }
+/* 274: why a choice cannot be made stays readable beside it (the owner's decision of 2026-11-01) */
+.picker-opt[aria-disabled="true"] .picker-detail { color: var(--ink-2); }
 .picker-group { padding: var(--sp-2) 10px var(--sp-1); font-size: var(--fs-xs); font-weight: 600; color: var(--muted); } /* 157: no uppercase micro-label */
 .picker-empty { padding: 8px 9px; color: var(--muted); font-size: 12px; }
 .viewer-pick { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 14px; }
@@ -948,7 +950,12 @@ button.chip[aria-pressed="true"] { background: var(--tint); border-color: var(--
 .wizard-choice:has(input:checked) { border-color: var(--ink); background: var(--tint); } /* 157: a choice is a selection, not an action */
 .wizard-choice input { accent-color: var(--ink); }
 .wizard-choice > span { display: grid; gap: 3px; }
-.engine-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); } /* 160-D: the two AI engines side by side */
+.engine-choices { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); } /* 160-D, 274: the AI engines side by side */
+/* 274: a choice that cannot be made here: quieter, no hover, its reason in ink (the owner's decision of 2026-11-01) */
+.wizard-choice:has(input:disabled) { cursor: default; }
+.wizard-choice:has(input:disabled):hover { border-color: var(--line); }
+.wizard-choice:has(input:disabled) strong, .wizard-choice:has(input:disabled) .muted { color: var(--faint); }
+.choice-reason { color: var(--ink); }
 .wz-chain { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px var(--sp-1); }
 .wz-step { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 8px; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; }  /* 154: a fieldset is min-content wide by default */
 .wz-step legend { font-weight: 600; padding: 0 4px; }

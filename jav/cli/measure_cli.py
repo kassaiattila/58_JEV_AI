@@ -8,7 +8,7 @@ import argparse
 import json
 from pathlib import Path
 
-from jav.cli.cli_options import REFERENCE_TYPE, budget_args, engine_args, jev_on, s_without_jev, type_pack_help, under_budget
+from jav.cli.cli_options import REFERENCE_TYPE, budget_args, engine_args, engine_of, s_without_judge, type_pack_help, under_budget
 
 
 def cmd_candidates(args: argparse.Namespace) -> int:
@@ -47,11 +47,11 @@ def cmd_recall(args: argparse.Namespace) -> int:
 def cmd_run(args: argparse.Namespace) -> int:
     from jav.flows.flow import run_one
 
-    if s_without_jev(args):
+    if s_without_judge(args):
         return 2
     with under_budget(args, "run"):
         state = run_one(args.pdf, case_id=args.case_id or "adhoc", arm=args.arm, tracker=not args.no_tracker,
-                        use_cache=not args.no_cache, doc_type=args.type, jev=jev_on(args))
+                        use_cache=not args.no_cache, doc_type=args.type, engine=engine_of(args))
     print(f"\n=== {state.final_status} | route={state.route} | arm={state.arm} | type={state.doc_type}")
     if state.record:
         print(json.dumps(state.record.to_datapoints(), ensure_ascii=False, indent=2, default=str))
@@ -88,7 +88,7 @@ def cmd_detect(args: argparse.Namespace) -> int:
     from jav.flows.flow_detect import run_detect
 
     with under_budget(args, "detect"):
-        st = run_detect(args.pdf, tracker=args.tracker, use_cache=not args.no_cache, jev=jev_on(args))
+        st = run_detect(args.pdf, tracker=args.tracker, use_cache=not args.no_cache, engine=engine_of(args))
     print(f"=== {st.final_status}  doc_id={st.doc_id[:12]}…  run_id={st.run_id}")
     if st.result:
         r = st.result
@@ -111,7 +111,7 @@ def cmd_detect_golden(args: argparse.Namespace) -> int:
     cases = evals_detect.load_case_file(args.cases) if args.cases else None
     # 122: a separate measurement store keeps the results, to-dos and call log of the measurement out of the work store
     with store.use_store(Path(args.store)) if args.store else contextlib.nullcontext():
-        rows = evals_detect.detect_golden(use_cache=not args.no_cache, jev=jev_on(args), descriptions=not args.keys_only,
+        rows = evals_detect.detect_golden(use_cache=not args.no_cache, engine=engine_of(args), descriptions=not args.keys_only,
                                           budget_usd=Decimal(args.budget_usd) if args.budget_usd else None, cases=cases,
                                           label="cases" if cases is not None else "golden")
     # 123: exit code 3 = the budget left cases without a result
@@ -122,7 +122,7 @@ def cmd_detect_determinism(args: argparse.Namespace) -> int:
     from jav.evals.evals_detect import detect_determinism
 
     with under_budget(args, "detect-determinism", reuse=False):
-        detect_determinism(n=args.n, limit=args.limit, jev=jev_on(args))
+        detect_determinism(n=args.n, limit=args.limit, engine=engine_of(args))
     return 0
 
 
@@ -137,7 +137,7 @@ def cmd_detect_corpus(args: argparse.Namespace) -> int:
     else:
         with under_budget(args, "detect-corpus"):
             detect_corpus(root, limit=args.limit, force=args.force, use_cache=not args.no_cache, redo_unknown=args.redo_unknown,
-                          jev=jev_on(args))
+                          engine=engine_of(args))
     return 0
 
 
@@ -157,7 +157,7 @@ def cmd_email_golden(args: argparse.Namespace) -> int:
     from decimal import Decimal
 
     jev_budget = getattr(args, "jev_budget_usd", None)
-    email_golden(use_cache=not args.no_cache, limit=args.limit, jev=jev_on(args),
+    email_golden(use_cache=not args.no_cache, limit=args.limit, engine=engine_of(args),
                  budget_usd=Decimal(args.budget_usd) if args.budget_usd else None,
                  jev_budget_usd=Decimal(jev_budget) if jev_budget else None)
     return 0
@@ -170,7 +170,7 @@ def cmd_email_inbox(args: argparse.Namespace) -> int:
         print_inbox_report()
     else:
         with under_budget(args, "email-inbox"):
-            email_inbox(args.root, limit=args.limit, force=args.force, use_cache=not args.no_cache, jev=jev_on(args))
+            email_inbox(args.root, limit=args.limit, force=args.force, use_cache=not args.no_cache, engine=engine_of(args))
     return 0
 
 
@@ -196,7 +196,7 @@ def cmd_email_determinism(args: argparse.Namespace) -> int:
     from jav.evals.evals_email import email_determinism
 
     with under_budget(args, "email-determinism", reuse=False):
-        email_determinism(n=args.n, limit=args.limit, jev=jev_on(args))
+        email_determinism(n=args.n, limit=args.limit, engine=engine_of(args))
     return 0
 
 
@@ -205,7 +205,7 @@ def cmd_email_injection_probe(args: argparse.Namespace) -> int:
 
     from decimal import Decimal
 
-    email_injection_probe(limit=args.limit, use_cache=not args.no_cache, jev=jev_on(args),
+    email_injection_probe(limit=args.limit, use_cache=not args.no_cache, engine=engine_of(args),
                           budget_usd=Decimal(args.budget_usd) if args.budget_usd else None)
     return 0
 
@@ -242,10 +242,10 @@ def cmd_golden(args: argparse.Namespace) -> int:
             return 1
         if local:  # 151: a local list's expectations are reference values, so its score is an agreement
             print("Local cases: the scores compare with the list's reference values (agreement, not accuracy).")
-        if s_without_jev(args):
+        if s_without_judge(args):
             return 2
         rows = evals.golden(args.arm, run_one, cases=cases, tracker=args.tracker, use_cache=not args.no_cache,
-                            type_key=args.type, jev=jev_on(args),
+                            type_key=args.type, engine=engine_of(args),
                             budget_usd=Decimal(args.budget_usd) if args.budget_usd else None,
                             jev_budget_usd=Decimal(jev_budget) if jev_budget else None,
                             label="local" if local else "synthetic" if synthetic else "golden")
@@ -283,10 +283,10 @@ def cmd_determinism(args: argparse.Namespace) -> int:
     from jav.evals.evals import determinism
     from jav.flows.flow import run_one
 
-    if s_without_jev(args):
+    if s_without_judge(args):
         return 2
     with under_budget(args, "determinism", reuse=False):
-        determinism(args.arm, args.n, run_one, type_key=args.type, jev=jev_on(args))
+        determinism(args.arm, args.n, run_one, type_key=args.type, engine=engine_of(args))
     return 0
 
 
@@ -322,8 +322,9 @@ def register(sub) -> None:
     p.add_argument("--no-cache", action="store_true")
     engine_args(p, measurement=True)  # 086: GPT recognises the type
     p.add_argument("--keys-only", action="store_true", help="with --engine gpt, offer the types by their keys only")
-    p.add_argument("--budget-usd", help="hard budget for the whole measurement, for the engine that answers "
-                                        "(OpenAI with --engine gpt, JEV otherwise); the other providers and Azure get none")
+    p.add_argument("--budget-usd", help="hard budget for the whole measurement, for the budget of the provider that "
+                                        "answers (JEV's with --engine jev, OpenAI's otherwise: GPT's and OpenAI "
+                                        "Decisions'); the other providers and Azure get none")
     p.add_argument("--cases", help="A local case list (JSON, outside git) instead of the golden set")
     p.add_argument("--store", help="A separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_detect_golden)

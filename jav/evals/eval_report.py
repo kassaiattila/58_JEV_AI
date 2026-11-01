@@ -19,6 +19,11 @@ the flows apply without JEV. A GPT field's confidence is a judgment of the `fiel
 extracted value is the document's, its truth the field's score, its band `auto` at or above the policy's
 `gpt_field_confidence.review_below` and a to-do below it. The silent errors section counts the wrong answers the
 recorded run left without a to-do (`Judgment.flagged`), for every flow whose rows record their to-dos.
+
+265 (plan L): another judgement service in JEV's place (OpenAI Decisions) answers the same questions in the same shape,
+so its measurements (the engine's run-file suffix, `configs/engines.json` `runs`: `*_decisions.jsonl`) are JEV's flows
+of their own, named `<flow><suffix>` and judged with the engine's bands (`<call site><bands>`, which fall back to JEV's
+until a band of their own is set).
 """
 
 from __future__ import annotations
@@ -31,7 +36,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal
 
-from jav.ai import policy
+from jav.ai import engine as engines, policy
 from jav.core import values
 from jav.core.config import RUNS_DIR
 
@@ -46,24 +51,50 @@ Kind = Literal["choice", "noul", "score", "field"]
 
 # file-name pattern -> flow name (the determinism files belong to the same flow, several rows per case)
 # 160-D: the GPT patterns come first, since the JEV detection determinism pattern would take their files too
-FLOW_PATTERNS: tuple[tuple[str, str], ...] = (
+_GPT_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"_detect_golden_gpt(_keys)?\.jsonl$|_detect_determinism_gpt\.jsonl$", "doc_detect_gpt"),
     (r"_email_golden_gpt\.jsonl$|_email_determinism_gpt\.jsonl$", "email_intent_gpt"),
     (r"_email_injection_probe_gpt\.jsonl$", "email_injection_probe_gpt"),
     (r"_(golden|synthetic)_G_nojev\.jsonl$|_determinism_G_n\d+_nojev\.jsonl$", "invoice_G_gpt"),
+)
+# JEV's flows that another judgement service's measurements share (265; the verifier probe asks JEV only)
+_JEV_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"_golden_S\.jsonl$|_determinism_S_n\d+\.jsonl$", "invoice_S"),
     (r"_golden_G\.jsonl$|_determinism_G_n\d+\.jsonl$", "invoice_G"),
     (r"_detect_golden\.jsonl$|_detect_determinism.*\.jsonl$", "doc_detect"),
     (r"_email_golden\.jsonl$|_email_determinism.*\.jsonl$", "email_intent"),
+)
+_JEV_GLOBS: tuple[str, ...] = ("*_golden_S.jsonl", "*_golden_G.jsonl", "*_detect_golden.jsonl", "*_email_golden.jsonl",
+                               "*_determinism_S_n*.jsonl", "*_determinism_G_n*.jsonl", "*_detect_determinism.jsonl",
+                               "*_email_determinism.jsonl")
+
+
+def _other_judges() -> list[engines.Engine]:
+    """265: the engines a judgement service other than JEV answers (those with a run-file suffix of their own)."""
+    return [e for e in map(engines.get, engines.ids()) if e.judged and e.runs]
+
+
+def _with_runs(pattern: str, runs: str) -> str:
+    """A JEV pattern for the run files of an engine whose names end in `runs`."""
+    end = r"\.jsonl$"
+    return pattern.replace(end, re.escape(runs) + end)
+
+
+# 265: another judgement service's patterns come before JEV's, whose determinism patterns would take their files too
+FLOW_PATTERNS: tuple[tuple[str, str], ...] = (
+    *_GPT_PATTERNS,
+    *((_with_runs(pattern, e.runs), flow + e.runs) for e in _other_judges() for pattern, flow in _JEV_PATTERNS),
+    *((_with_runs(r"_email_injection_probe\.jsonl$", e.runs), "email_injection_probe" + e.runs) for e in _other_judges()),
+    *_JEV_PATTERNS,
     (r"_verifier_probe\.jsonl$", "invoice_verify_probe"),
     (r"_email_injection_probe\.jsonl$", "email_injection_probe"),
 )
-DEFAULT_GLOBS: tuple[str, ...] = ("*_golden_S.jsonl", "*_golden_G.jsonl", "*_detect_golden.jsonl", "*_email_golden.jsonl",
-                                  "*_determinism_S_n*.jsonl", "*_determinism_G_n*.jsonl", "*_detect_determinism.jsonl", "*_email_determinism.jsonl",
-                                  "*_verifier_probe.jsonl", "*_email_injection_probe.jsonl",
+DEFAULT_GLOBS: tuple[str, ...] = (*_JEV_GLOBS, "*_verifier_probe.jsonl", "*_email_injection_probe.jsonl",
                                   "*_detect_golden_gpt.jsonl", "*_email_golden_gpt.jsonl", "*_golden_G_nojev.jsonl",
                                   "*_detect_determinism_gpt.jsonl", "*_email_determinism_gpt.jsonl",
-                                  "*_determinism_G_n*_nojev.jsonl", "*_email_injection_probe_gpt.jsonl")
+                                  "*_determinism_G_n*_nojev.jsonl", "*_email_injection_probe_gpt.jsonl",
+                                  *(g.replace(".jsonl", f"{e.runs}.jsonl") for e in _other_judges()
+                                    for g in (*_JEV_GLOBS, "*_email_injection_probe.jsonl")))
 CAL_BIN_EDGES: tuple[float, ...] = (0.0, 0.5, 0.6, 0.7, 0.8, 0.9, 0.95, 1.0)
 # 160-D: GPT confidences crowd near 1 and the field threshold is 0.98, so the GPT flows get finer bins there
 GPT_CAL_BIN_EDGES: tuple[float, ...] = (0.0, 0.5, 0.8, 0.9, 0.95, 0.98, 0.99, 1.0)
@@ -113,8 +144,10 @@ def load_rows(path: Path | str) -> list[dict[str, Any]]:
 
 def _budget_skipped(row: dict[str, Any]) -> bool:
     reasons = row.get("review_reasons") or ()
+    # 274: every judgement service's own to-do (`jev_unavailable:`, `decisions_unavailable:`; configs/engines.json)
+    over = {f"{prefix}budget_exceeded" for prefix in engines.unavailable_prefixes()}
     return (str(row.get("error") or "").startswith("BudgetExceeded")
-            or any(r.endswith(":BudgetExceeded") or r == "jev_unavailable:budget_exceeded" for r in reasons))
+            or any(r.endswith(":BudgetExceeded") or r in over for r in reasons))
 
 
 def budget_skips(rows: list[dict[str, Any]]) -> list[str]:
@@ -369,6 +402,23 @@ EXTRACTORS: dict[str, Callable[[dict[str, Any]], list[Judgment]]] = {
 }
 
 
+def _as_engine(extract: Callable[[dict[str, Any]], list[Judgment]], e: engines.Engine
+               ) -> Callable[[dict[str, Any]], list[Judgment]]:
+    """265: JEV's extractor for another judgement service's rows: its flows `<flow><suffix>`, its bands."""
+    def judged(row: dict[str, Any]) -> list[Judgment]:
+        out = extract(row)
+        for j in out:
+            j.flow, j.callsite = j.flow + e.runs, e.band_key(j.callsite)
+        return out
+
+    return judged
+
+
+for _e in _other_judges():
+    for _flow in (*(f for _, f in _JEV_PATTERNS), "email_injection_probe"):
+        EXTRACTORS[_flow + _e.runs] = _as_engine(EXTRACTORS[_flow], _e)
+
+
 def judgments_from_file(path: Path | str) -> list[Judgment]:
     flow = flow_of(path)
     if flow is None:
@@ -576,13 +626,16 @@ def determinism_summary(js: list[Judgment]) -> list[dict[str, Any]]:
 
 
 def default_inputs() -> list[Path]:
-    """The latest runs/*.jsonl per pattern."""
-    out = []
+    """The latest runs/*.jsonl per flow and kind (a golden run, a determinism run), in the patterns' order. 274: by the
+    flow a file belongs to (`flow_of`), not by the pattern that found it, since a JEV pattern also finds another
+    engine's files (`*_determinism_S_n*.jsonl` takes `..._n5_decisions.jsonl`, GPT's `..._nojev.jsonl` too)."""
+    latest: dict[tuple[str | None, bool], Path] = {}
     for g in DEFAULT_GLOBS:
-        files = sorted(RUNS_DIR.glob(g))
-        if files:
-            out.append(files[-1])
-    return out
+        for f in sorted(RUNS_DIR.glob(g)):
+            key = (flow_of(f), is_determinism(f))
+            if key not in latest or f.name > latest[key].name:
+                latest[key] = f
+    return list(dict.fromkeys(latest.values()))
 
 
 def _f(v: Any) -> str:

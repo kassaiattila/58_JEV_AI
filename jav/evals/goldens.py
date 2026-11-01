@@ -48,16 +48,18 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
-from jav.core import values
+from jav.ai import engine as engines
+from jav.core import providers, values
 from jav.core.config import RUNS_DIR
 
 LAYERS = ("datapoints", "type", "intent", "rules", "logic_pack", "process_pack")  # 231: a process pack's too; D-c7h: the rules
-ENGINES = ("jev", "gpt")
+ENGINES = tuple(engines.ids())  # 265: every engine of the registry (until then "jev", "gpt")
+JUDGED = tuple(e for e in ENGINES if engines.get(e).judged)  # the engines a judgement service answers (the S path's)
 SYNTHETIC = "synthetic"
 RECEIPT = "measure"
 
-S_NEEDS_JEV = ("the S path needs JEV (JEV chooses among the candidates the code finds): measure it with --engine jev, "
-               "or measure the G path")
+S_NEEDS_JEV = ("the S path needs a judgement service (it chooses among the candidates the code finds): measure it with "
+               f"--engine {' or '.join(JUDGED)}, or measure the G path")
 
 
 class UnknownGolden(LookupError):
@@ -73,12 +75,14 @@ class RoundRefused(ValueError):
 class Options:
     """How a round measures.
 
-    - `engine`: "jev" (JEV, and GPT where the path asks it: the G path's extraction) or "gpt" (GPT alone, 160-D);
+    - `engine`: the AI engine (`configs/engines.json`): "jev" (JEV, and GPT where the path asks it: the G path's
+      extraction), "decisions" (OpenAI Decisions in JEV's place, 265) or "gpt" (GPT alone, 160-D);
     - `use_cache`: False asks every question again (live calls, so it needs a budget);
-    - `jev_again` (231, F1): asks JEV again without its cache but reuses the earlier GPT answers, so the G path's JEV
-      check can be measured again, and its determinism measured, without an OpenAI budget (a live call, so it needs a
-      JEV budget; only a set that runs the data points' flow takes it);
-    - `jev_budget_usd`, `budget_usd`: the owner's sub-budgets for JEV and OpenAI; without them earlier answers only.
+    - `jev_again` (231, F1): asks the judgement service again without its cache but reuses the earlier GPT answers, so
+      the G path's check can be measured again, and its determinism measured (a live call, so it needs the service's
+      budget; only a set that runs the data points' flow takes it);
+    - `jev_budget_usd`, `budget_usd`: the owner's sub-budgets for JEV and OpenAI (OpenAI Decisions spends from
+      OpenAI's, 265); without them earlier answers only.
     """
 
     engine: str = "jev"
@@ -90,8 +94,9 @@ class Options:
     def __post_init__(self) -> None:
         if self.engine not in ENGINES:
             raise ValueError(f"unknown engine {self.engine!r}: one of {ENGINES}")
-        if self.jev_again and (self.engine != "jev" or not self.use_cache):
-            raise RoundRefused("asking JEV again keeps the earlier GPT answers: it takes the JEV engine and not --no-cache")
+        if self.jev_again and (self.engine not in JUDGED or not self.use_cache):
+            raise RoundRefused("asking the judgement service again keeps the earlier GPT answers: it takes an engine "
+                               f"with one ({', '.join(JUDGED)}) and not --no-cache")
 
     @property
     def jev_cache(self) -> bool:
@@ -104,8 +109,9 @@ class Options:
         return {"reuse": True} if self.jev_again else {}
 
     @property
-    def jev(self) -> bool:
-        return self.engine == "jev"
+    def judged(self) -> bool:
+        """Whether a judgement service answers the engine's typed questions (265; until then `jev`)."""
+        return engines.get(self.engine).judged
 
     @property
     def budgeted(self) -> bool:
@@ -114,9 +120,10 @@ class Options:
     def answering_budget(self, what: str) -> tuple[Decimal | None, str | None]:
         """The budget of a golden set whose command takes one budget, for the engine that answers: (the budget, None),
         or (None, why it is refused) when only the other engine's budget is given, so a budget is never moved over."""
-        mine, other = (self.jev_budget_usd, self.budget_usd) if self.jev else (self.budget_usd, self.jev_budget_usd)
-        if other is not None and mine is None:
-            flag = "--jev-budget-usd" if self.jev else "--budget-usd"
+        given = {"jev": (self.jev_budget_usd, "--jev-budget-usd"), "openai": (self.budget_usd, "--budget-usd")}
+        pool = providers.budget_of(engines.get(self.engine).answerer)  # 265: OpenAI Decisions answers from OpenAI's
+        mine, flag = given[pool]
+        if mine is None and any(b is not None for p, (b, _) in given.items() if p != pool):
             return None, f"{what} with {self.engine} takes its budget from {flag}"
         return mine, None
 
@@ -212,20 +219,20 @@ def _datapoint_golden(type_key: str, arm: str, *, synthetic: bool) -> Golden:
     def measure(options: Options) -> Outcome:
         from jav.flows.flow import run_one
 
-        if arm == "S" and not options.jev:
+        if arm == "S" and not options.judged:
             return Outcome(unit="fields", refused=S_NEEDS_JEV)
         cases = evals.load_synthetic_cases(type_key) if synthetic else None
         if synthetic and not cases:
             return Outcome(unit="fields", refused=f"no synthetic case for {type_key}")
         rows = evals.golden(arm, run_one, cases=cases, tracker=False, use_cache=options.jev_cache, type_key=type_key,
-                            jev=options.jev, budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd,
+                            engine=options.engine, budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd,
                             label=SYNTHETIC if synthetic else "golden", **options.reuse_kwargs)
         return _datapoint_outcome(rows, type_key)
 
     where = "its synthetic cases (configs/golden_synthetic.json)" if synthetic else "the legacy golden documents"
     return Golden(key=f"datapoints:{type_key}:{arm}" + (f":{SYNTHETIC}" if synthetic else ""), layer="datapoints",
                   owner=type_key, what=f"the data points of {type_key} on the {arm} path, on {where}",
-                  engines=("jev",) if arm == "S" else ENGINES, count=count, measure=measure, module=__name__,
+                  engines=JUDGED if arm == "S" else ENGINES, count=count, measure=measure, module=__name__,
                   jev_again=True)
 
 
@@ -267,7 +274,7 @@ def _measure_types(options: Options) -> Outcome:
     budget, refused = options.answering_budget("the type recognition")
     if refused:
         return Outcome(refused=refused)
-    return _case_outcome(evals_detect.detect_golden(use_cache=options.use_cache, jev=options.jev, descriptions=True,
+    return _case_outcome(evals_detect.detect_golden(use_cache=options.use_cache, engine=options.engine, descriptions=True,
                                                     budget_usd=budget, cases=None, label="golden"))
 
 
@@ -281,7 +288,7 @@ def _measure_intents(options: Options) -> Outcome:
     """As `email-golden` measures it."""
     from jav.evals import evals_email
 
-    return _case_outcome(evals_email.email_golden(use_cache=options.use_cache, limit=None, jev=options.jev,
+    return _case_outcome(evals_email.email_golden(use_cache=options.use_cache, limit=None, engine=options.engine,
                                                   budget_usd=options.budget_usd,
                                                   jev_budget_usd=options.jev_budget_usd))
 
@@ -295,7 +302,7 @@ def _count_quote_intents() -> int:
 def _measure_quote_intents(options: Options) -> Outcome:
     from jav.evals import evals_quotes
 
-    return _case_outcome(evals_quotes.quote_intents(use_cache=options.use_cache, jev=options.jev,
+    return _case_outcome(evals_quotes.quote_intents(use_cache=options.use_cache, engine=options.engine,
                                                     budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd))
 
 
@@ -308,7 +315,7 @@ def _count_quote_requests() -> int:
 def _measure_quote_requests(options: Options) -> Outcome:
     from jav.evals import evals_quotes
 
-    rows = evals_quotes.quote_requests(use_cache=options.use_cache, jev=options.jev, budget_usd=options.budget_usd,
+    rows = evals_quotes.quote_requests(use_cache=options.use_cache, engine=options.engine, budget_usd=options.budget_usd,
                                        jev_budget_usd=options.jev_budget_usd)
     right, scored = evals_quotes.judgements(rows)
     return Outcome(cases=len(rows), answered=sum(1 for r in rows if r.get("score")), right=right, scored=scored,
@@ -339,7 +346,7 @@ def _fact_golden(family: str) -> Golden:
     from jav.evals import evals_facts
 
     def measure(options: Options) -> Outcome:
-        rows = evals_facts.measure(family, jev=options.jev, use_cache=options.use_cache, budget_usd=options.budget_usd,
+        rows = evals_facts.measure(family, engine=options.engine, use_cache=options.use_cache, budget_usd=options.budget_usd,
                                    jev_budget_usd=options.jev_budget_usd)
         t = evals_facts.totals(rows)
         return Outcome(cases=t["documents"], answered=t["answered"], right=t["found"], scored=t["expected"], unit="values")
@@ -381,7 +388,7 @@ def _taught_golden(key: str, half: str = "evaluation") -> Golden:
         from jav.flows.flow import run_one
 
         rows = evals.golden("G", run_one, cases=cases(), tracker=False, use_cache=options.jev_cache, type_key=key,
-                            jev=options.jev, budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd,
+                            engine=options.engine, budget_usd=options.budget_usd, jev_budget_usd=options.jev_budget_usd,
                             label="taught" if half == "evaluation" else "taught_development", **options.reuse_kwargs)
         return _datapoint_outcome(rows, key)
 
@@ -688,6 +695,6 @@ def latest_results(runs_dir: Path | None = None) -> dict[str, dict[str, Any]]:
     return latest
 
 
-__all__ = ["ENGINES", "FLOW_GOLDENS", "LAYERS", "QUOTE_GOLDENS", "Golden", "Options", "Outcome", "Result", "Round", "RoundRefused",
+__all__ = ["ENGINES", "FLOW_GOLDENS", "JUDGED", "LAYERS", "QUOTE_GOLDENS", "Golden", "Options", "Outcome", "Result", "Round", "RoundRefused",
            "UnknownGolden", "datapoint_goldens", "get", "latest_results", "logic_pack_goldens", "measure_round",
            "measurement_modules", "select", "sets"]

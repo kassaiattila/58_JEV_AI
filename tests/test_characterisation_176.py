@@ -239,7 +239,9 @@ def test_neither_kind_takes_documents_the_shared_way(db) -> None:
 
 # --- the fingerprint a reconciliation's approval records -------------------------------------------------------------------
 
-APPROVAL_FINGERPRINT = "60e7c20bbd733e5c279373b003dbb9a61d677ce2799dfe2b43fa6779746b9455"
+# 265 (DECISIONS 272): reconcile.json 1.14.1, its notes without the store's figures and the round numbers (the rules are
+# the same; the file's hash, part of the statement, is not)
+APPROVAL_FINGERPRINT = "1d883befcc71f1befa79e0bbd7ff4618a6dc3d885423113722619e06d8fec3c0"
 
 
 def test_the_statement_a_reconciliation_approves_has_this_fingerprint(db) -> None:

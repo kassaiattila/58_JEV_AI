@@ -88,13 +88,13 @@ def test_measured_once_per_file_and_free_again_from_the_earlier_answer(family, m
         {"entity": "ticket", "property": "seat", "value": "0012", "state": "stated",
          "citations": [{"occurrence_id": "o0", "element_id": "e0", "quote": "Order code: 0012"}]}], "gaps": []})
     assert evals_facts.count("belepo_jegy") == 1  # the repeated file is one document
-    [row] = evals_facts.measure("belepo_jegy", jev=False, budget_usd=Decimal("1"))
+    [row] = evals_facts.measure("belepo_jegy", engine="gpt", budget_usd=Decimal("1"))
     assert (row["outcome"], row["half"], row["sha256"]) == ("succeeded", "evaluation", family)
     assert row["scores"]["seat"]["found"] and not row["scores"]["row"]["found"]
     assert row["counts"]["facts"] == 1 and len(requests) == 1
-    [again] = evals_facts.measure("belepo_jegy", jev=False)  # no budget: the earlier answer only
+    [again] = evals_facts.measure("belepo_jegy", engine="gpt")  # no budget: the earlier answer only
     assert again["scores"] == row["scores"] and len(requests) == 1
-    [live] = evals_facts.measure("belepo_jegy", jev=False, use_cache=False)  # asking again without a budget: refused
+    [live] = evals_facts.measure("belepo_jegy", engine="gpt", use_cache=False)  # asking again without a budget: refused
     assert live["scores"] is None and live["outcome"] == "failed" and len(requests) == 1
 
 

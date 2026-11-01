@@ -41,14 +41,17 @@ from jav.documents import text_document
 from jav.core import store, trace
 from jav.domains.email import email_rules, email_store
 from jav.domains.email.emails import DOC_EXTS, Attachment, EmailMessage, body_coverage, document_text, load_message_dir
+from jav.ai import engine as engines
 from jav.ai.engine import with_engine
 from jav.domains.email.intent import IntentResult
+from jav.flows import persistence
 
 log = logging.getLogger("jav.domains.email.flow_email")
 
 TERMINALS = ["done"]
 PARTITION = "email_intent"  # partition of the durable state persistence (066 Á08: the worker looks up the saved state with it)
 TRACKER_PROJECT = "jav_email_intent"
+persistence.rename_saved_keys(PARTITION, {"jev": "engine"}, convert={"jev": engines.of_flag})  # 265: the engine's name
 
 
 class EmailState(BaseModel):
@@ -56,12 +59,13 @@ class EmailState(BaseModel):
     run_id: str = ""
     use_cache: bool = True
     detect_attachments: bool = True
-    jev: bool = True  # 086: False = processing without JEV: GPT recognises the intent (089), the attachments are not recognised here
+    engine: str = "jev"  # 265 (plan L): the AI engine; without a judgement service (086: until 265 `jev: False`) GPT
+    # recognises the intent (089) and the attachments are not recognised here
     message: EmailMessage | None = None
     result: IntentResult | None = None
     next_flow: str = ""
     uncertain: bool = False
-    review_reasons: list[str] = Field(default_factory=list)  # additive: jev_unavailable:<reason>, attachment:unreadable:<why>, ...
+    review_reasons: list[str] = Field(default_factory=list)  # additive: <service>_unavailable:<reason>, attachment:unreadable:<why>, ...
     final_status: str | None = None
     propose_tasks: bool = False  # 058 K5.3: whether the recipe asks for task proposals (off by default: GPT cost)
     tasks: dict | None = None  # the proposal after the gate: {status, tasks, rejected} (None = not requested)
@@ -86,8 +90,8 @@ def load_message(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "run_id", "use_cache", "detect_attachments", "review_reasons", "attachment_reads"],
-                 writes=["message", "review_reasons"])
+@action.pydantic(reads=["message", "run_id", "use_cache", "detect_attachments", "review_reasons", "attachment_reads",
+                        "engine"], writes=["message", "review_reasons"])
 def classify_attachments(state: EmailState) -> EmailState:
     """078: an attachment the PDF reader cannot read (corrupt, over the reader's time or memory limit, over an input
     limit) is marked `unreadable` and gives the email an `attachment:unreadable:<why>` to-do; the other attachments and
@@ -117,7 +121,7 @@ def classify_attachments(state: EmailState) -> EmailState:
         # 065: under the email's run ID, otherwise the attachment's to-do and cost would fall outside the run
         try:
             st = run_detect(att.path, use_cache=state.use_cache, run_id=f"{state.run_id}-doc_detect",
-                            read_path=state.attachment_reads.get(str(Path(att.path).resolve())))
+                            read_path=state.attachment_reads.get(str(Path(att.path).resolve())), engine=state.engine)
         except (PdfReaderError, PdfReaderLimit, DocumentTooLarge) as exc:
             why = exc.reason if isinstance(exc, PdfReaderLimit) else type(exc).__name__
             log.warning("email %s: a PDF attachment is unreadable: %s", msg.message_id, why)  # no file name in the log
@@ -132,7 +136,7 @@ def classify_attachments(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "run_id", "use_cache", "jev", "review_reasons"], writes=["result", "uncertain", "review_reasons"])
+@action.pydantic(reads=["message", "run_id", "use_cache", "engine", "review_reasons"], writes=["result", "uncertain", "review_reasons"])
 def intent(state: EmailState) -> EmailState:
     from jav.ai.jev import JevUnavailableError, get_adapter
     from jav.domains.email.intent import classify
@@ -141,14 +145,15 @@ def intent(state: EmailState) -> EmailState:
     if state.message.folder == "sent":  # 149: no sender's aim to recognise in a message we sent
         state.result, state.uncertain = None, False
         return state
-    if not state.jev:  # 089 (the owner's decision of 2026-10-02): without JEV, GPT recognises the intent
+    if not engines.get(state.engine).judged:  # 089 (the owner's decision of 2026-10-02): GPT recognises the intent
         return _intent_gpt(state)
     try:
-        state.result = classify(get_adapter(), state.message, run_id=state.run_id, use_cache=state.use_cache)
-    except JevUnavailableError as exc:  # JEV unavailable (in the ledger): no intent, to the manual queue; the flow does not fail
+        state.result = classify(get_adapter(), state.message, run_id=state.run_id, use_cache=state.use_cache,
+                                engine=state.engine)
+    except JevUnavailableError as exc:  # the service did not answer (in the ledger): no intent, to the manual queue
         state.result = None
         state.uncertain = True
-        state.review_reasons = state.review_reasons + [f"jev_unavailable:{exc.reason}"]
+        state.review_reasons = state.review_reasons + [engines.unavailable_todo(exc)]
         return state
     # M3 signals (v1.1.0): the yes band of an injected instruction is a review reason (additive, the policy decides
     # which signal); 218 (P3b): by the traced rule
@@ -202,9 +207,9 @@ def _intent_inputs(r: IntentResult) -> dict[str, Any]:
 
 def intent_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
     """Whether the recognised intent waits for a person (089: a GPT answer without a measured confidence, or a
-    confidence in the review band of `email.intent[.gpt]`), and the to-dos of the M3 signals in the yes band of
-    `email.signal` (an injected instruction). The intent stays either way."""
-    callsite = "email.intent" + (".gpt" if inputs["engine"] == "gpt" else "")
+    confidence in the review band of `email.intent` with the engine's band suffix), and the to-dos of the M3 signals
+    in the yes band of `email.signal` (an injected instruction). The intent stays either way."""
+    callsite = engines.get(inputs["engine"]).band_key("email.intent")
     measured = inputs["measured"]
     uncertain = not measured or policy.choice_needs_review(inputs["confidence"], inputs["probabilities"], callsite)
     reasons = ([] if measured else ["intent:confidence_unavailable"]) + email_rules.email_signal_reasons(inputs["signals"])
@@ -251,7 +256,7 @@ def _trace(c: Any, state: EmailState) -> None:
     subject = ("email", msg.message_id)
     if r is not None:
         inputs = _intent_inputs(r)
-        callsite = "email.intent" + (".gpt" if r.engine == "gpt" else "")
+        callsite = _band(r)
         trace.record_in(c, INTENT_POINT, subject=subject, inputs=inputs, outcome=intent_rule(inputs), run_id=state.run_id,
                         keys={"policy.json": (*policy.band_keys(callsite, *_CHOICE_FIELDS),
                                               *policy.band_keys("email.signal", *_SIGNAL_FIELDS)),
@@ -330,7 +335,7 @@ def tasks(state: EmailState) -> EmailState:
     return state
 
 
-@action.pydantic(reads=["message", "result", "next_flow", "uncertain", "run_id", "review_reasons", "tasks", "jev", "follow_up",
+@action.pydantic(reads=["message", "result", "next_flow", "uncertain", "run_id", "review_reasons", "tasks", "engine", "follow_up",
                          "source_dir"], writes=["final_status"])
 def save(state: EmailState) -> EmailState:
     """The email's row, its run's result row, its to-dos and (218, P3b) the traces of its decisions in one write
@@ -382,15 +387,15 @@ def _save(state: EmailState, c: Any) -> None:
     # 048 T2: the worker takes the item's status from this; an uncertain intent = a to-do
     if sent:
         state.final_status = "needs_review" if state.review_reasons else "done"
-    elif r is None:  # 089: without JEV a missing intent means GPT could not answer (as for the GPT type)
-        state.final_status = "jev_unavailable" if state.jev else "gpt_unavailable"
+    elif r is None:  # 089/265: the engine's answerer could not answer (the GPT type's too)
+        state.final_status = engines.get(state.engine).unavailable_status
     else:
         state.final_status = "needs_review" if state.uncertain or state.review_reasons else "done"
     _trace(c, state)
 
 
 def _band(r: IntentResult) -> str:
-    return "email.intent.gpt" if r.engine == "gpt" else "email.intent"
+    return engines.get(r.engine).band_key("email.intent")
 
 
 @action.pydantic(reads=[], writes=[])
@@ -439,18 +444,20 @@ def build_app(
     persister=None,
     propose_tasks: bool = False,
     attachment_reads: dict[str, str] | None = None,
-    jev: bool = True,
+    engine: str = "jev",
     extract_text: bool = False,
 ) -> Application:
     """`run_id` + `persister` (048 T2): when run from the worker, durable state persistence and resumption under the
-    same ID. `attachment_reads`: the source instances to read the package's attachment items from. `jev=False` (086,
-    089): GPT recognises the intent, and there is no attachment recognition here: the PDF attachments are items of the
-    package and are recognised there, by GPT. `extract_text` (190): the recipe's `email_text` setting is on, so a route to
+    same ID. `attachment_reads`: the source instances to read the package's attachment items from. `engine` (265): the
+    AI engine; one without a judgement service (086, 089: until 265 `jev=False`) has GPT recognise the intent, and
+    there is no attachment recognition here: the PDF attachments are items of the package and are recognised there, by
+    GPT; with one, the attachments are recognised with the same engine. `extract_text` (190): the recipe's `email_text` setting is on, so a route to
     a text-reading type pack names the extraction of the email's own text as the follow-up stage."""
     stem = (message.message_id if message else source_dir or "email").replace(":", "-").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1][:32]
     run_id = run_id or f"email-{stem}-{uuid.uuid4().hex[:8]}"
+    e = engines.get(engine)
     initial = EmailState(source_dir=source_dir, message=message, run_id=run_id, use_cache=use_cache,
-                         detect_attachments=detect_attachments and jev, jev=jev,
+                         detect_attachments=detect_attachments and e.judged, engine=e.id,
                          propose_tasks=propose_tasks, attachment_reads=attachment_reads or {}, extract_text=extract_text)
     b = (
         ApplicationBuilder()
@@ -466,7 +473,7 @@ def build_app(
         b = b.with_state(initial).with_entrypoint("load_message")
     if tracker:
         b = b.with_tracker("local", project=TRACKER_PROJECT)
-    return with_engine(b, jev_on=jev).build()  # 160: without JEV, a JEV question is refused
+    return with_engine(b, e).build()  # 160/265: the engine's judgement service; without one, a question is refused
 
 
 def run_email(
@@ -476,10 +483,11 @@ def run_email(
     tracker: bool = False,
     use_cache: bool = True,
     detect_attachments: bool = True,
-    jev: bool = True,
+    engine: str = "jev",
 ) -> EmailState:
-    """`jev=False` (089): GPT recognises the intent (paid OpenAI call)."""
+    """`engine` (265): the AI engine; one without a judgement service (089: `jev=False`) has GPT recognise the intent
+    (paid OpenAI call)."""
     app = build_app(source_dir=source_dir, message=message, tracker=tracker, use_cache=use_cache, detect_attachments=detect_attachments,
-                    jev=jev)
+                    engine=engine)
     _, _, state = app.run(halt_after=TERMINALS)
     return state.data

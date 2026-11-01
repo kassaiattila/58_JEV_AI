@@ -77,7 +77,7 @@ def test_email_golden_with_a_jev_budget_runs_under_that_budget_only(monkeypatch,
     scopes = []
     monkeypatch.setattr(evals_email, "_cases", lambda limit: [type("Case", (), {"case_id": "c1"})()])
 
-    def run_case(case, *, use_cache, jev):
+    def run_case(case, *, use_cache, engine):
         scopes.append(calls.current().budget_scope)
         return {"case_id": case.case_id, "got": "other", "confidence": 1.0}
 

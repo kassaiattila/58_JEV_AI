@@ -34,7 +34,7 @@ def isolated(tmp_path):
 def build(source, ref):
     return flow_native.build_app(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
         source_path=str(source), read_path=str(source), original_name="original.txt", expected_sha256=ref.source_sha256,
-        recipe_hash="a" * 16, jev=False, use_cache=False)
+        recipe_hash="a" * 16, engine="gpt", use_cache=False)
 
 
 def test_salvage_keeps_valid_facts_and_records_the_left_out_ones():

@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.172",
+    "version": "1.0.173",
     "description": "Language guard (jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.173",
+        "date": "2026-11-01",
+        "note": "baseline: the release's 1.0.172 (5634 -> 5630) and the engine registry's own steps (5634 -> 5642; accepted: docs/GLOSSARY.md, tests/test_decisions_265.py, tests/test_decisions_estimate_265.py) joined: 5638 Hungarian lines in 463 files"
+      },
       {
         "version": "1.0.172",
         "date": "2026-11-01",
@@ -1022,7 +1027,7 @@
     "configs/types/vizmuvek_szamla.json": 27,
     "docs/ARCHITECTURE.md": 14,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 381,
+    "docs/GLOSSARY.md": 387,
     "docs/SECURITY.md": 2,
     "docs/guides/DOCUMENTATION.md": 6,
     "docs/guides/USER_GUIDE.md": 303,
@@ -1123,6 +1128,8 @@
     "tests/test_datasets.py": 8,
     "tests/test_date_reading_084.py": 6,
     "tests/test_datetime_evidence_200.py": 6,
+    "tests/test_decisions_265.py": 1,
+    "tests/test_decisions_estimate_265.py": 1,
     "tests/test_detect.py": 4,
     "tests/test_detect_detail.py": 4,
     "tests/test_display_language_231.py": 14,

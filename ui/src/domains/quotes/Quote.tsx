@@ -10,7 +10,7 @@ import { api, ApiError } from "../../api";
 import type { QuoteBlockerCode, QuoteMatchAnswer, QuoteProposal, QuoteView } from "./api";
 import { BlockerList } from "../../components/BlockerList";
 import { t, useLocale } from "../../i18n";
-import { numText, usdBudget, when } from "../../labels";
+import { GPT_ONLY, judgeProvider, numText, providerName, usdBudget, when } from "../../labels";
 import { RecordData } from "../../elements/RecordData";
 
 export const QUOTE_BLOCKER: Record<QuoteBlockerCode, string> = {
@@ -97,7 +97,8 @@ export function ProposalPanel({ wpId, view, onChanged, askStep, pageAsks = false
         <p className="small">
           <span className={`status ${STATE[p.state].cls}`}>{t(STATE[p.state].label)}</span>{" "}
           <span className="muted tnum">
-            {[p.engine === "gpt" ? t("GPT only") : "JEV", t("price list version {{n}}", { n: p.version }),
+            {[p.engine === GPT_ONLY ? t("GPT only") : providerName(judgeProvider(p.engine) ?? "jev"),  // 274: its judge's name
+              t("price list version {{n}}", { n: p.version }),
               when(p.finished_at ?? p.requested_at)].join(" · ")}
           </span>
           {p.stale ? <>{" "}<span className="status s-warn">{t("the request or the price list changed since")}</span></> : null}

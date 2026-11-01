@@ -79,9 +79,9 @@ def _detect(tmp_path, pdf, engine, *, client=None, adapter=None, gpt=_by_questio
     if engine == "jev":
         adapter = adapter or jev_mod.JevAdapter(client=client or _Jev(), cache_dir=tmp_path / "cache", model="jev-1.13.0")
         with jev_mod.use_adapter(adapter):
-            return flow_detect.run_detect(str(pdf), run_id="r1", jev=True)
+            return flow_detect.run_detect(str(pdf), run_id="r1", engine="jev")
     with detect_gpt.use_agent_factory(gpt):
-        return flow_detect.run_detect(str(pdf), run_id="r1", jev=False)
+        return flow_detect.run_detect(str(pdf), run_id="r1", engine="gpt")
 
 
 # --- the type recognition -------------------------------------------------------------------------------------------
@@ -121,10 +121,10 @@ def _email(tmp_path, engine, msg, *, client=None, adapter=None, gpt=None):
     if engine == "jev":
         adapter = adapter or jev_mod.JevAdapter(client=client or _Jev(noul=0.05), cache_dir=tmp_path / "cache", model="jev-1.13.0")
         with jev_mod.use_adapter(adapter):
-            app = flow_email.build_app(message=msg, jev=True)
+            app = flow_email.build_app(message=msg, engine="jev")
             return app.run(halt_after=flow_email.TERMINALS)[2].data
     with gpt_choice.use_agent_factory(gpt or _factory(_answer())):
-        app = flow_email.build_app(message=msg, jev=False)
+        app = flow_email.build_app(message=msg, engine="gpt")
         return app.run(halt_after=flow_email.TERMINALS)[2].data
 
 

@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "naming",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "changelog": [
+   {
+    "version": "1.9.1",
+    "date": "2026-11-01",
+    "note": "An OpenAI Decisions question that could not be answered (decisions_unavailable) rests on the whole document, as JEV's does."
+   },
    {
     "version": "1.9.0",
     "date": "2026-10-29",
@@ -138,6 +143,7 @@
   "llm:failed": "*",
   "llm:truncated": "*",
   "jev_unavailable": "*",
+  "decisions_unavailable": "*",
   "signal:prompt_injection": "*",
   "ocr:escalation_blocked": "*"
  },

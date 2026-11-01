@@ -100,7 +100,8 @@ def test_the_view_shows_the_running_rules_in_their_areas(db, monkeypatch):  # no
     engine = _value(rows["ocr.escalation"], "escalation.engine")
     assert (engine["format"], engine["value"]) == ("name", "Azure DI")
     email = _value(rows["workflow.budget_gate"], "recipes[processing].max_item_usd_by_kind.email.*")
-    assert (email["format"], email["value"]) == ("usd", [["JEV", "0.05"]])
+    # 265: each judgement service's amount, under its name in the provider registry
+    assert (email["format"], email["value"]) == ("usd", [["JEV", "0.05"], ["OpenAI Decisions", "0.13"]])
     # a changed rule shows at once: the values are read from the loaded rule file, not kept
     monkeypatch.setitem(cfg.load("policy")["ocr"], "escalate_min_mean_conf", 0.9)
     assert _value(_rows()["ocr.escalation"], "ocr.escalate_min_mean_conf")["value"] == 0.9

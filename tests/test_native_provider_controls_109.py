@@ -17,10 +17,10 @@ def isolated(tmp_path):
         yield tmp_path
 
 
-def run_interpretation(ref, *, graph="native-graph", jev=False, use_cache=False, limits=None):
+def run_interpretation(ref, *, graph="native-graph", engine="gpt", use_cache=False, limits=None):
     return native_processing.interpret(work_run_id="native-run", item_id="native-item", graph_id=graph,
-        reading_id=ref.reading_id, jev=jev, use_cache=use_cache,
-        limits=limits or native_processing.estimate_limits({"jev": "on" if jev else "off"}))
+        reading_id=ref.reading_id, engine=engine, use_cache=use_cache,
+        limits=limits or native_processing.estimate_limits({"engine": engine}))
 
 
 @pytest.mark.parametrize("mode,expected", [("valid", "succeeded"), ("invalid", "rejected"), ("empty", "rejected"), ("timeout", "uncertain")])
@@ -146,14 +146,14 @@ def test_actual_jev_adapter_cache_live_control_and_cost_receipts(isolated, monke
     original = jev.JevAdapter
     monkeypatch.setattr(jev, "JevAdapter", lambda **kwargs: original(client=Client(), model="jev-9.9.9", **kwargs))
     with calls.measurement("native-run", {"openai": Decimal("2"), "jev": Decimal("2")}):
-        _, first, interpretation = native_results.load_outcome(run_interpretation(ref, graph="jev-first", jev=True, use_cache=True))
+        _, first, interpretation = native_results.load_outcome(run_interpretation(ref, graph="jev-first", engine="jev", use_cache=True))
         assert first.status == "succeeded" and interpretation.facts[0].semantic_support == 0.8
         assert len(requests) == 1 and first.receipt_refs[-1].provider == "jev"
         assert first.receipt_refs[-1].cost_usd > 0
-        _, cached, _ = native_results.load_outcome(run_interpretation(ref, graph="jev-cached", jev=True, use_cache=True))
+        _, cached, _ = native_results.load_outcome(run_interpretation(ref, graph="jev-cached", engine="jev", use_cache=True))
         assert len(requests) == 1
         assert cached.receipt_refs[-1].kind == "saved_cache" and cached.receipt_refs[-1].cost_usd == 0
         assert not [row for row in calls.journal("jev-cached") if row["provider"] == "jev"]
-        run_interpretation(ref, graph="jev-live", jev=True, use_cache=False)
+        run_interpretation(ref, graph="jev-live", engine="jev", use_cache=False)
         assert len(requests) == 2
     assert (isolated / "native" / "provider_cache").is_dir()

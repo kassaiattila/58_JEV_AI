@@ -112,7 +112,7 @@ def test_the_other_measurements_without_a_budget_use_earlier_answers_only(monkey
     scopes = []
     monkeypatch.setattr(evals, "_verifier_probe", lambda cases, use_cache, type_key: scopes.append(calls.current()) or [])
     monkeypatch.setattr(evals_email, "_cases", lambda limit: [type("Case", (), {"case_id": "c1"})()])
-    monkeypatch.setattr(evals_email, "_run_case", lambda case, *, use_cache, jev: scopes.append(calls.current()) or
+    monkeypatch.setattr(evals_email, "_run_case", lambda case, *, use_cache, engine: scopes.append(calls.current()) or
                         {"case_id": case.case_id, "got": "other", "confidence": 1.0})
     monkeypatch.setattr(evals_email, "RUNS_DIR", tmp_path)
     monkeypatch.setattr(evals_email, "print_email_report", lambda rows: None)

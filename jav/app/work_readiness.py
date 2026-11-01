@@ -10,8 +10,9 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from jav.ai import engine as engines
 from jav.app import item_kinds
-from jav.core import display, store
+from jav.core import display, providers, store
 from jav.documents.native_contracts import NATIVE_SUFFIXES
 from jav import flows
 from jav.app import work, work_recipes, work_runs
@@ -34,7 +35,9 @@ def item_budget(r: dict[str, Any], params: dict[str, Any], kind: str | None = No
     """The budget maximum of one item. A recipe handling several item kinds (058 K5.2) gives a budget per kind
     (`max_item_usd_by_kind`); where there is no path, the `*` row applies. `arm` (066 Á07): the item's actual path,
     known in advance; without it, the row of the requested path (a requested S path runs on G for a G-only type, which
-    needs the G row)."""
+    needs the G row). 265: a setting saved before the recipes named their engine (`jev: on | off`, e.g. a run frozen
+    then) counts by the engine it names."""
+    params = work_recipes.upgraded_params(params)
     table = (r.get("max_item_usd_by_kind") or {}).get(kind or "") or r["max_item_usd"]
     per = table.get(arm or params.get("arm", "*"), table.get(params.get("arm", "*"), table.get("*", {})))
     out = {provider: Decimal(v) for provider, v in per.items()}
@@ -46,20 +49,26 @@ def item_budget(r: dict[str, Any], params: dict[str, Any], kind: str | None = No
             for provider, v in extra["usd"].items():
                 out[provider] = out.get(provider, Decimal(0)) + Decimal(v)
             drop.update(extra.get("drop") or ())  # 086: e.g. without JEV the item has no JEV budget at all
+    # 265 (plan L): a judgement service's amount counts only for the engine whose service it is (without one: none)
+    drop.update(set(map(engines.judge_provider, engines.judges())) - {engine_of(params, r).judge_provider})
     return {provider: v for provider, v in out.items() if provider not in drop}
 
 
-def jev_off(r: dict[str, Any], params: dict[str, Any]) -> bool:
-    """086: processing without JEV (the `jev` setting off): every document on the G path, the type recognised by GPT,
-    no JEV budget."""
-    return params.get("jev", (r.get("params", {}).get("jev") or {}).get("default", "on")) == "off"
+def engine_of(params: dict[str, Any], r: dict[str, Any] | None = None) -> engines.Engine:
+    """265 (plan L): the AI engine of a setting (`engine`; saved before the registry, the `jev` switch). A setting that
+    names none runs with its recipe's default (`r`, a frozen run's own recipe too), and a recipe without the setting
+    with the registry's default, as before."""
+    if r is not None and not ({work_recipes.ENGINE_PARAM, engines.legacy_param()} & set(params)):
+        spec = r.get("params", {})
+        params = {k: spec[k]["default"] for k in (work_recipes.ENGINE_PARAM, engines.legacy_param())
+                  if "default" in (spec.get(k) or {})}
+    return engines.of_params(params)
 
 
 def run_engine(run: dict[str, Any]) -> str:
-    """160-D (plan F-csak-gpt L6, decision 160 D3): the AI engine a run ran with, from its frozen recipe and settings:
-    `gpt` (GPT only) when its `jev` setting is off, `jev` (JEV and GPT) otherwise, a recipe without the setting
-    included. The approval and the review show it with the results."""
-    return "gpt" if jev_off(run["recipe"], run["params"]) else "jev"
+    """160-D (plan F-csak-gpt L6, decision 160 D3): the AI engine a run ran with, from its frozen settings (265: the
+    engine's name, `configs/engines.json`). The approval and the review show it with the results."""
+    return engine_of(run["params"], run.get("recipe")).id
 
 
 def run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]]) -> dict[str, Decimal]:
@@ -114,10 +123,11 @@ def _run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str,
                 for provider, v in _extras(r, params, extra.extra).items():
                     per[provider] = per.get(provider, Decimal(0)) + v * n
         if arm == "S":
-            per.pop("openai", None)
+            per.pop("openai", None)  # GPT's part (265: a judgement service's own stays, OpenAI Decisions' too)
         for provider, v in per.items():
             out[provider] = out.get(provider, Decimal(0)) + v
-    return out
+    # 265 (plan L): the run's budget per budget its calls reserve from (OpenAI Decisions' in OpenAI's)
+    return providers.pooled(out)
 
 
 def _item_arms(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]]) -> list[str | None]:
@@ -154,7 +164,8 @@ def run_plan(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, An
             "azure": value("azure_ocr") == "on" and any(not native_flow(r, i) for i, _a in docs),
             "jev_reuse": value("jev_cache") != "live",
             "arm": value("arm"),  # 082: with S chosen, a document on the G path has a type without a JEV path
-            "jev": not jev_off(r, params)}  # 086: without JEV, GPT recognises the type and every document runs on G
+            # 086/265: the engine; without a judgement service GPT recognises the type and every document runs on G
+            "engine": engine_of(params, r).id}
     if r.get("flows_by_suffix"):
         plan.update(native_documents=sum(native_flow(r, i) for i, _a in docs),
                     item_flows={i["item_id"]: flow_for(r, i) for i in items})
@@ -183,7 +194,8 @@ def _item_arm(r: dict[str, Any], params: dict[str, Any], item: dict[str, Any], k
     # 173: where the document type is known before the run is the flow's registry entry
     doc_type = (params.get("doc_type") if spec.doc_type == "params"
                 else known.get(item.get("sha256", "")) if spec.doc_type == "detected" else None)
-    arm = "G" if jev_off(r, params) else params.get("arm", "auto")  # 086: without JEV only the G path runs
+    # 086: without a judgement service only the G path runs
+    arm = "G" if not engine_of(params, r).judged else params.get("arm", "auto")
     return typepack.resolve_arm(doc_type, arm) if doc_type in packs else None
 
 
@@ -247,7 +259,35 @@ def _readiness(wp_id: str, *, verify: bool) -> dict[str, Any]:
            "input_hash": _snapshot_hash(snapshot)}
     if supplement := _supplements(wp, r, params, warnings, checks):
         out["supplement"] = supplement
+    if (blocker := engine_blocker(out["plan"])) is not None:  # 265 (decision 4 of 2026-11-01)
+        out["blockers"].append(blocker)
+        out["ready"] = False
     return out
+
+
+ENGINE_UNAVAILABLE = {
+    "missing_key": "The batch's AI engine ({{engine}}) cannot run here: this installation has no {{provider}} key. "
+                   "Choose another engine in the batch's settings.",
+    "switched_off": "The batch's AI engine ({{engine}}) cannot run here: {{provider}} is switched off in this "
+                    "installation. Choose another engine in the batch's settings.",
+    "under_measurement": "The batch's AI engine ({{engine}}) cannot run yet: {{provider}} is being measured before an "
+                         "installation may choose it. Choose another engine in the batch's settings.",
+}
+
+
+def engine_blocker(plan: dict[str, Any]) -> dict[str, str] | None:
+    """265 (plan L; the owner's decision of 2026-11-01: stop and ask): a batch whose items ask AI cannot start with an
+    engine that cannot run in this installation (a missing key, a provider switched off); a person chooses another,
+    nothing switches by itself. Nothing is called to find out (`jav.ai.engine.availability`)."""
+    if not (plan.get("documents") or plan.get("emails")):
+        return None
+    engine = engines.get(plan["engine"])
+    state = engines.availability(engine.id)
+    if state.available:
+        return None
+    return {"code": "engine_unavailable", "message": display.text(
+        ENGINE_UNAVAILABLE.get(state.reason or "", ENGINE_UNAVAILABLE["missing_key"]), engine=display.text(engine.label),
+        provider=providers.label(state.provider) if state.provider else "-")}
 
 
 def _item_checks(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]], *,
@@ -299,9 +339,12 @@ def _supplements(wp: dict[str, Any], r: dict[str, Any], params: dict[str, Any], 
         items = [i for i in wp["items"] if i["item_id"] in pending]
         found = [(level, f) for item_id, level, f in checks if item_id in pending]
         arms = _item_arms(r, params, items)
-        out[mode] = {"items": len(items), "ready": not any(level == "blocker" for level, _f in found),
-                     "blockers": [f for level, f in found if level == "blocker"],
+        plan = run_plan(r, params, items, arms)
+        blockers = [f for level, f in found if level == "blocker"]
+        if (blocker := engine_blocker(plan)) is not None:  # 274: a run of the pending items stops on it too
+            blockers.append(blocker)
+        out[mode] = {"items": len(items), "ready": not blockers, "blockers": blockers,
                      "warnings": warnings + [f for level, f in found if level == "warning"],
-                     "budget": _run_budget(r, params, items, arms), "plan": run_plan(r, params, items, arms),
+                     "budget": _run_budget(r, params, items, arms), "plan": plan,
                      "input_hash": _snapshot_hash(_input_snapshot(wp, items))}
     return out

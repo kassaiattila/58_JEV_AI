@@ -19,10 +19,10 @@ const PROCESSING: Recipe = {
   result: "Eredmény.", manual_action: "Teendők.",
   params: { arm: { allowed: ["auto", "S", "G"], default: "auto" }, jev_cache: { allowed: ["reuse", "live"], default: "reuse" },
     tasks: { allowed: ["off", "propose"], default: "off" }, azure_ocr: { allowed: ["on", "off"], default: "on" },
-    jev: { allowed: ["on", "off"], default: "on" } },
+    engine: { allowed: ["jev", "decisions", "gpt"], default: "jev" } },
   max_item_usd: { auto: { jev: "0.07", openai: "0.15" } },
   max_item_usd_by_kind: { email: { "*": { jev: "0.05" } }, document: { auto: { jev: "0.07", openai: "0.15" } } },
-  param_item_usd: [{ param: "jev", value: "off", kind: "document", usd: { openai: "0.07" }, drop: ["jev"] }],
+  param_item_usd: [{ param: "engine", value: "gpt", kind: "document", usd: { openai: "0.07" } }],
 };
 
 const HELP: RecipeHelp = {
@@ -44,20 +44,25 @@ describe("090 the processing path: one choice", () => {
   });
 
   it("maps the four paths onto the saved values, and back", () => {
-    expect(pathValue({ arm: "S", jev: "on" })).toBe("S");
-    expect(pathValue({ arm: "S", jev: "off" })).toBe("gpt");
+    expect(pathValue({ arm: "S", engine: "jev" })).toBe("S");
+    expect(pathValue({ arm: "S", engine: "gpt" })).toBe("gpt");
+    expect(pathValue({ arm: "S", engine: "decisions" })).toBe("engine:decisions");  // 274: another judge, its own path
+    expect(pathValue({ arm: "S", jev: "off" })).toBe("gpt");  // a setting saved before 265
     expect(pathValue({ arm: "G" })).toBe("G");
     expect(pathValue({})).toBe("auto");
-    expect(applyPath({ arm: "S", jev: "on", tasks: "off" }, "gpt")).toEqual({ arm: "S", jev: "off", tasks: "off" });
-    expect(applyPath({ arm: "S", jev: "off" }, "G")).toEqual({ arm: "G", jev: "on" });
+    expect(applyPath({ arm: "S", engine: "jev", tasks: "off" }, "gpt")).toEqual({ arm: "S", engine: "gpt", tasks: "off" });
+    expect(applyPath({ arm: "S", engine: "gpt" }, "G")).toEqual({ arm: "G", engine: "jev" });
+    expect(applyPath({ arm: "S", engine: "decisions" }, "G")).toEqual({ arm: "G", engine: "jev" });  // 274: G is JEV's path
+    expect(applyPath({ arm: "S", engine: "jev" }, "engine:decisions")).toEqual({ arm: "auto", engine: "decisions" });
+    expect(applyPath({ arm: "S", jev: "on" }, "gpt")).toEqual({ arm: "S", engine: "gpt" });  // saved before 265
     expect(pathOptions(["auto", "S", "G"], ["document"])).toEqual(["auto", "S", "G", "gpt"]);
   });
 
   it("a package of emails only chooses between JEV and GPT only (the documents' path does not act on it)", () => {
     expect(pathOptions(["auto", "S", "G"], ["email"])).toEqual(["jev", "gpt"]);
-    expect(pathValue({ arm: "S", jev: "on" }, ["email"])).toBe("jev");
-    expect(pathValue({ arm: "S", jev: "off" }, ["email"])).toBe("gpt");
-    expect(applyPath({ arm: "S", jev: "off" }, "jev")).toEqual({ arm: "S", jev: "on" });
+    expect(pathValue({ arm: "S", engine: "jev" }, ["email"])).toBe("jev");
+    expect(pathValue({ arm: "S", engine: "gpt" }, ["email"])).toBe("gpt");
+    expect(applyPath({ arm: "S", engine: "gpt" }, "jev")).toEqual({ arm: "S", engine: "jev" });
   });
 
   it("the run summary names the path once", () => {
@@ -66,7 +71,7 @@ describe("090 the processing path: one choice", () => {
   });
 
   it("the settings card shows the path first, with its explanation, and no separate use of JEV", () => {
-    const { container } = render(<RecipeParamList recipe={PROCESSING} params={{ jev: "off" }} help={HELP} kinds={["document"]} />);
+    const { container } = render(<RecipeParamList recipe={PROCESSING} params={{ engine: "gpt" }} help={HELP} kinds={["document"]} />);
     expect(container.querySelector("dt")?.textContent).toBe("Feldolgozási út");
     expect(screen.getByText("Csak GPT, JEV nélkül (OpenAI)")).toBeTruthy();
     expect(screen.getByText("Csak GPT magyarázat.")).toBeTruthy();
@@ -114,7 +119,7 @@ describe("090 the processing path: one choice", () => {
     expect(within(form).getByRole("button", { name: "Korábbi válaszok" })).toBeTruthy();
     fireEvent.click(within(form).getByRole("button", { name: "Beállítások mentése" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-    expect(save.mock.calls[0][1].params).toMatchObject({ arm: "S", jev: "off", jev_cache: "reuse" });
+    expect(save.mock.calls[0][1].params).toMatchObject({ arm: "S", engine: "gpt", jev_cache: "reuse" });
   });
 });
 

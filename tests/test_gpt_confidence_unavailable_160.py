@@ -22,7 +22,7 @@ def _unmeasured(state) -> set[str]:
 
 
 def test_an_answer_without_token_probabilities_flags_each_accounting_field(tmp_path):
-    state = _run_g(tmp_path, {**GOOD, "supplier_address": "Minta utca 1. 1111 Budapest"}, jev=False)
+    state = _run_g(tmp_path, {**GOOD, "supplier_address": "Minta utca 1. 1111 Budapest"}, engine="gpt")
     expected = {f for f in PACK.header_fields if f in SCOPE and GOOD.get(f) not in (None, "")}
     assert _unmeasured(state) == expected and expected
     assert "supplier_address" not in _unmeasured(state)  # an informational field opens no to-do
@@ -30,18 +30,18 @@ def test_an_answer_without_token_probabilities_flags_each_accounting_field(tmp_p
 
 
 def test_a_measured_answer_gets_no_such_to_do(tmp_path, monkeypatch):
-    state = _run(tmp_path, GOOD, p=0.9999, jev=False, monkeypatch=monkeypatch)
+    state = _run(tmp_path, GOOD, p=0.9999, engine="gpt", monkeypatch=monkeypatch)
     assert _unmeasured(state) == set()
 
 
 def test_a_field_whose_check_failed_or_that_is_empty_adds_nothing(tmp_path):
     values = {**GOOD, "invoice_number": "INVENTED-999"}
     values.pop("due_date")
-    state = _run_g(tmp_path, values, jev=False)
+    state = _run_g(tmp_path, values, engine="gpt")
     assert "due_date" not in _unmeasured(state)
     assert "source:not_found:invoice_number" in state.review_reasons
 
 
 def test_a_run_with_jev_never_gets_it(tmp_path):
-    state = _run_g(tmp_path, GOOD, jev=True, adapter=_DownJev())
+    state = _run_g(tmp_path, GOOD, engine="jev", adapter=_DownJev())
     assert _unmeasured(state) == set()

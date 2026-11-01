@@ -67,7 +67,7 @@ def test_large_excel_reaches_provider_in_bounded_chunks_without_lost_cells(tmp_p
         monkeypatch.setattr(providers, "extract_gpt", lambda *a, **kw: original(*a, agent=agent, **kw))
         with calls.measurement("native-run", {"openai": Decimal("3")}):
             outcome_id = native_processing.interpret(work_run_id="native-run", item_id="native-item",
-                graph_id="native-graph", reading_id=ref.reading_id, jev=False, use_cache=False,
+                graph_id="native-graph", reading_id=ref.reading_id, engine="gpt", use_cache=False,
                 limits=native_processing.estimate_limits({"jev": "off"}))
         _, outcome, interpretation = native_results.load_outcome(outcome_id)
         assert outcome.status == "succeeded"
@@ -101,7 +101,7 @@ def test_large_excel_jev_checks_every_fact_in_bounded_requests(tmp_path, monkeyp
         monkeypatch.setattr(providers, "extract_gpt", lambda *a, **kw: original(*a, agent=agent, **kw))
         with calls.measurement("native-run", {"openai": Decimal("3"), "jev": Decimal("1")}):
             result = native_processing.interpret(work_run_id="native-run", item_id="native-item",
-                graph_id="native-graph", reading_id=ref.reading_id, jev=True, use_cache=False,
+                graph_id="native-graph", reading_id=ref.reading_id, engine="jev", use_cache=False,
                 limits=native_processing.estimate_limits({}))
         _, outcome, interpretation = native_results.load_outcome(result)
         assert outcome.status == "succeeded"
@@ -160,7 +160,7 @@ def test_currency_cannot_silently_be_accepted_as_hours(tmp_path, monkeypatch, pr
         with calls.measurement("native-run", {"openai": Decimal("1")}):
             _, _, state = flow_native.build_app(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
                 source_path=str(source), read_path=str(source), original_name="hours.csv", expected_sha256=ref.source_sha256,
-                recipe_hash="a" * 16, jev=False, use_cache=False).run(halt_after=flow_native.TERMINALS)
+                recipe_hash="a" * 16, engine="gpt", use_cache=False).run(halt_after=flow_native.TERMINALS)
         fact = native_results.get_publication("native-run", "native-item").interpretation.facts[0]
         assert fact.grounding == "literal_match"
         assert any("Currency" in reason for reason in fact.reasons) == warning
@@ -229,7 +229,7 @@ def test_interrupted_chunk_keeps_receipts_and_never_retries_automatically(tmp_pa
         original = providers.extract_gpt
         monkeypatch.setattr(providers, "extract_gpt", lambda *a, **kw: original(*a, agent=agent, **kw))
         params = dict(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
-            reading_id=ref.reading_id, jev=False, use_cache=False, limits=native_processing.estimate_limits({"jev": "off"}))
+            reading_id=ref.reading_id, engine="gpt", use_cache=False, limits=native_processing.estimate_limits({"jev": "off"}))
         with calls.measurement("native-run", {"openai": Decimal("3")}):
             first = native_processing.interpret(**params)
             assert native_processing.interpret(**params) == first

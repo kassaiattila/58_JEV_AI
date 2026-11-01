@@ -64,7 +64,7 @@ from typing import Any, Literal, Union, get_args, get_origin
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from jav.core import calls, cfg, completion, identity, rulebook, store
+from jav.core import calls, cfg, completion, identity, providers, rulebook, store
 from jav.core.process import cases, kinds, tasks
 from jav.core.process.engine import StepContext
 
@@ -75,7 +75,7 @@ __all__ = ["KEPT_RULES", "Action", "AtStart", "Capability", "CapabilityError", "
            "step_ref_expects", "step_ref_of", "step_ref_optional", "step_refs",
            "step_scopes"]
 
-PROVIDERS = ("jev", "openai", "azure_di")
+PROVIDERS = tuple(providers.ids())  # 265: any provider the registry describes (configs/providers.json)
 STEP_START = "step_start"  # 231 (A5): the human task of a step a person starts (a paid one, `_start: person`)
 AWAITING_START, STARTED = "awaiting_start", "started"  # the step's phases while it waits for a person's start
 MACHINE = "process-core"  # the machine that runs a step a person started, for that person

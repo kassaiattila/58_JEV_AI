@@ -174,7 +174,7 @@ def test_the_gpt_recognitions_contradiction_is_in_the_detailed_types_trace(tmp_p
     monkeypatch.setattr(detect_detail, "anchor_score", lambda detect, text: (True, 1.0))
     path = write_text_pdf(tmp_path / "szamla.pdf", INVOICE_LINES)
     with store.use_store(tmp_path / "g.sqlite"), detect_gpt.use_agent_factory(_contradicting), jev_mod.use_adapter(_NoJev()):
-        st_ = flow_detect.run_detect(str(path), run_id="r1", jev=False)
+        st_ = flow_detect.run_detect(str(path), run_id="r1", engine="gpt")
         row = trace.rows(point=flow_detect.DETAIL_TYPE_POINT, subject=("document", st_.doc_id))[0]
     assert row["inputs"]["engine"] == "gpt" and "detect:issuer_mismatch:invoice_hu" in row["outcome"]["reasons"]
     assert "detect_issuer.engines" in row["rules"][0]["keys"]
@@ -304,11 +304,11 @@ def test_an_s_path_records_route_and_to_dos_are_traced_with_its_save(db, tmp_pat
 def test_a_g_path_without_jev_traces_its_gpt_confidence_to_dos(tmp_path):
     from tests.test_no_jev_085 import GOOD, _run_g
 
-    st_ = _run_g(tmp_path, GOOD, jev=False)
+    st_ = _run_g(tmp_path, GOOD, engine="gpt")
     with store.use_store(tmp_path / "f.sqlite"):
         row = _the_route_row(st_)
     inputs = row["inputs"]
-    assert (inputs["arm"], inputs["jev"], inputs["verdicts"]["source"]) == ("G", False, "code")
+    assert (inputs["arm"], inputs["engine"], inputs["verdicts"]["source"]) == ("G", "gpt", "code")
     assert any(r.startswith("gpt:confidence_unavailable:") for r in row["outcome"]["reasons"])
     assert {"gpt_field_confidence.review_below", "gpt_field_confidence.measure"} <= set(row["rules"][0]["keys"])
 
@@ -369,8 +369,8 @@ def _s_state(draw):
 def _g_state(draw):
     from jav.ai.models import CheckResult, DocumentRecord, FlowState, JevVerdicts
 
-    jev = draw(st.booleans())
-    state = FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="h", arm="G", jev=jev)
+    engine = draw(st.sampled_from(["jev", "gpt"]))
+    state = FlowState(doc_type="invoice_hu", source_path="synthetic.pdf", case_id="h", arm="G", engine=engine)
     if draw(st.booleans()):
         state.record = DocumentRecord(supplier_name=draw(st.none() | st.just("Example Supplier Kft.")),
                                       invoice_number=draw(st.none() | st.just("INV-1")), currency="HUF")

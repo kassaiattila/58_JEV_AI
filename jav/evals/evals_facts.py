@@ -35,7 +35,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from jav.ai import policy
+from jav.ai import engine as engines, policy
 from jav.core import cfg
 from jav.core.config import RUNS_DIR
 from jav.evals.evals import GoldenCase, field_equal, load_cases
@@ -121,38 +121,42 @@ def _fact_counts(facts: list[dict[str, Any]]) -> dict[str, int]:
             "supported": sum(_band(f["semantic_support"]) == "yes" for f in facts if f["grounding"] == "literal_match")}
 
 
-def _run_case(fc: FactCase, *, scope: str, jev: bool, use_cache: bool) -> dict[str, Any]:
+def _run_case(fc: FactCase, *, scope: str, engine: str, use_cache: bool) -> dict[str, Any]:
     """One document through the native graph's reading and interpretation, its pack withheld, as an unknown document
     continues (120): a text PDF read as it is."""
     from jav.ai import native_processing
     from jav.documents import native_results
 
     pdf = fc.case.pdf
-    limits = native_processing.estimate_limits({"jev": "on" if jev else "off", "arm": "G"})
+    limits = native_processing.estimate_limits({"engine": engine, "arm": "G"})
     reading = native_results.prepare_reading(pdf, original_name=pdf.name, expected_sha256=fc.sha256,
                                              limits=limits.read_limits)
     outcome_id = native_processing.interpret(work_run_id=scope, item_id=fc.sha256, graph_id=f"{scope}:{fc.sha256[:16]}",
-                                             reading_id=reading.reading_id, jev=jev, use_cache=use_cache, limits=limits)
+                                             reading_id=reading.reading_id, engine=engine, use_cache=use_cache, limits=limits)
     _, outcome, interpretation = native_results.load_outcome(outcome_id)
     facts = [f.model_dump(mode="json") for f in interpretation.facts] if interpretation is not None else None
     return {"outcome": outcome.status, "reason": outcome.reason, "reading": reading.reading.status, "facts": facts}
 
 
-def measure(family: str, *, jev: bool = True, use_cache: bool = True, budget_usd: Decimal | None = None,
+def measure(family: str, *, engine: str = "jev", use_cache: bool = True, budget_usd: Decimal | None = None,
             jev_budget_usd: Decimal | None = None) -> list[dict[str, Any]]:
-    """Every distinct document of the family through the general facts, scored against its expected values."""
-    from jav.core import calls
+    """Every distinct document of the family through the general facts, scored against its expected values. `engine`
+    (265): the AI engine measured, whose judgement service checks the facts (none: GPT's facts unchecked)."""
+    from jav.core import calls, providers
 
     pack = get_pack(family)
+    e = engines.get(engine)
     if budget_usd is None and jev_budget_usd is None:
         print(calls.NO_BUDGET_NOTE)
-    limits = {"openai": budget_usd or Decimal(0)} | ({"jev": jev_budget_usd or Decimal(0)} if jev else {})
+    given = {"openai": budget_usd, "jev": jev_budget_usd}  # the commands' budgets, by the budget they set
+    pools = {"openai"} | ({providers.budget_of(e.judge_provider)} if e.judged else set())
+    limits = {pool: given.get(pool) or Decimal(0) for pool in sorted(pools)}
     rows: list[dict[str, Any]] = []
-    name = f"facts_{family}" + ("" if jev else "_gpt")
+    name = f"facts_{family}" + e.runs
     with calls.measurement(f"measure-{datetime.now():%Y%m%d_%H%M%S}-{name}", limits, reuse=use_cache) as scope:
         for fc in cases(family):
             t0 = time.perf_counter()
-            run = _run_case(fc, scope=scope, jev=jev, use_cache=use_cache)
+            run = _run_case(fc, scope=scope, engine=engine, use_cache=use_cache)
             facts = run.pop("facts")
             row = {"case_id": fc.case.case_id, "sha256": fc.sha256, "half": fc.half, **run,
                    "counts": _fact_counts(facts) if facts is not None else None,
@@ -163,7 +167,7 @@ def measure(family: str, *, jev: bool = True, use_cache: bool = True, budget_usd
             print(f"  {fc.case.case_id:40} {fc.half:11} " + (f"{sum(v['found'] for v in s.values())}/{len(s)} found"
                                                             if s is not None else f"without a result ({row['outcome']})"))
     path = _dump(rows, name)
-    print_report(rows, pack, jev=jev)
+    print_report(rows, pack, engine=engine)
     print(f"\nRaw rows: {path}")
     return rows
 
@@ -184,19 +188,25 @@ def totals(rows: list[dict[str, Any]]) -> dict[str, int]:
             "rejected_only": sum(v["rejected_only"] for v in vals)}
 
 
-def print_report(rows: list[dict[str, Any]], pack: TypePack, *, jev: bool) -> None:
-    print(f"\n### General facts - {pack.key}, its type pack withheld ({'GPT + JEV' if jev else 'GPT only'})\n")
+def print_report(rows: list[dict[str, Any]], pack: TypePack, *, engine: str = "jev") -> None:
+    from jav.core import providers
+
+    e = engines.get(engine)
+    judged = e.judged
+    checker = providers.label(e.judge_provider) if judged else None
+    print(f"\n### General facts - {pack.key}, its type pack withheld ({e.label})\n")
     print("| field | found | supported by JEV | only in a rejected fact |\n|---|---|---|---|")
     for field in pack.strict_scored:
         vals = [r["scores"][field] for r in rows if r["scores"] is not None and field in r["scores"]]
         if vals:
             print(f"| {field} | {sum(v['found'] for v in vals)}/{len(vals)} | "
-                  f"{sum(v['supported'] is True for v in vals) if jev else '-'} | {sum(v['rejected_only'] for v in vals)} |")
+                  f"{sum(v['supported'] is True for v in vals) if judged else '-'} | {sum(v['rejected_only'] for v in vals)} |")
     for half in HALVES:
         t = totals([r for r in rows if r["half"] == half])
         print(f"\n**{half.capitalize()} half:** {t['answered']}/{t['documents']} documents with a result; "
               f"{t['found']}/{t['expected']} expected values found"
-              + (f", {t['supported']} of them supported by JEV" if jev else "") + f"; {t['rejected_only']} only in a rejected fact")
+              + (f", {t['supported']} of them supported by {checker}" if judged else "")
+              + f"; {t['rejected_only']} only in a rejected fact")
     t = totals(rows)
     print(f"\n**Together:** {t['found']}/{t['expected']} = {t['found'] / max(t['expected'], 1):.1%} expected values found")
     counted = [r["counts"] for r in rows if r["counts"] is not None]

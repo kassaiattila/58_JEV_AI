@@ -92,7 +92,7 @@ export const KIND: Record<string, string> = tmap({
   other: "Other",
 });
 
-export const ENGINE: Record<string, string> = { jev: "JEV", gpt: "GPT" };
+export const ENGINE: Record<string, string> = { jev: "JEV", decisions: "OpenAI Decisions", gpt: "GPT" };  // 274: the registry's three
 
 /** A probability (0–1) as a decimal in the chosen language: 0.87 → "0,87". */
 export function probability(p: number | null | undefined): string {

@@ -38,27 +38,27 @@ def record(monkeypatch: pytest.MonkeyPatch, module: Any, name: str, result: Any)
     return fake
 
 
-def golden_call(arm: str, type_key: str, *, cases: Any = None, use_cache: bool = True, jev: bool = True,
+def golden_call(arm: str, type_key: str, *, cases: Any = None, use_cache: bool = True, engine: str = "jev",
                 budget_usd: Decimal | None = None, jev_budget_usd: Decimal | None = None,
                 label: str = "golden") -> tuple[tuple[Any, ...], dict[str, Any]]:
     """The call of `evals.golden` that measures one type pack's data points on one path."""
     from jav.flows.flow import run_one
 
-    return ((arm, run_one), {"cases": cases, "tracker": False, "use_cache": use_cache, "type_key": type_key, "jev": jev,
+    return ((arm, run_one), {"cases": cases, "tracker": False, "use_cache": use_cache, "type_key": type_key, "engine": engine,
                              "budget_usd": budget_usd, "jev_budget_usd": jev_budget_usd, "label": label})
 
 
-def detect_call(*, use_cache: bool = True, jev: bool = True,
+def detect_call(*, use_cache: bool = True, engine: str = "jev",
                 budget_usd: Decimal | None = None) -> tuple[tuple[Any, ...], dict[str, Any]]:
     """The call of `evals_detect.detect_golden` that measures the type recognition."""
-    return ((), {"use_cache": use_cache, "jev": jev, "descriptions": True, "budget_usd": budget_usd, "cases": None,
+    return ((), {"use_cache": use_cache, "engine": engine, "descriptions": True, "budget_usd": budget_usd, "cases": None,
                  "label": "golden"})
 
 
-def email_call(*, use_cache: bool = True, jev: bool = True, budget_usd: Decimal | None = None,
+def email_call(*, use_cache: bool = True, engine: str = "jev", budget_usd: Decimal | None = None,
                jev_budget_usd: Decimal | None = None) -> tuple[tuple[Any, ...], dict[str, Any]]:
     """The call of `evals_email.email_golden` that measures the email intent."""
-    return ((), {"use_cache": use_cache, "limit": None, "jev": jev, "budget_usd": budget_usd,
+    return ((), {"use_cache": use_cache, "limit": None, "engine": engine, "budget_usd": budget_usd,
                  "jev_budget_usd": jev_budget_usd})
 
 
@@ -78,7 +78,7 @@ CREDIT_RESULT = {"cases": 2, "golden_version": "1.0.0", "jev_config": "j", "gpt_
     (["golden", "--arm", "S", "--type", "viz_szamla", "--no-cache"], golden_call("S", "viz_szamla", use_cache=False)),
     (["golden", "--arm", "G", "--type", "invoice_foreign"], golden_call("G", "invoice_foreign")),
     (["golden", "--arm", "G", "--engine", "gpt", "--budget-usd", "0.10"],
-     golden_call("G", "invoice_hu", jev=False, budget_usd=Decimal("0.10"))),
+     golden_call("G", "invoice_hu", engine="gpt", budget_usd=Decimal("0.10"))),
     (["golden", "--arm", "S", "--jev-budget-usd", "0.02"], golden_call("S", "invoice_hu", jev_budget_usd=Decimal("0.02"))),
 ])
 def test_the_data_point_golden_command(monkeypatch, argv, expected):
@@ -103,7 +103,7 @@ def test_the_s_path_without_jev_is_refused_before_anything_runs(monkeypatch):
 @pytest.mark.parametrize(("argv", "expected"), [
     (["detect-golden"], detect_call()),
     (["detect-golden", "--no-cache"], detect_call(use_cache=False)),
-    (["detect-golden", "--engine", "gpt", "--budget-usd", "0.20"], detect_call(jev=False, budget_usd=Decimal("0.20"))),
+    (["detect-golden", "--engine", "gpt", "--budget-usd", "0.20"], detect_call(engine="gpt", budget_usd=Decimal("0.20"))),
 ])
 def test_the_type_golden_command(monkeypatch, argv, expected):
     fake = record(monkeypatch, evals_detect, "detect_golden", [])
@@ -113,7 +113,7 @@ def test_the_type_golden_command(monkeypatch, argv, expected):
 
 @pytest.mark.parametrize(("argv", "expected"), [
     (["email-golden"], email_call()),
-    (["email-golden", "--engine", "gpt", "--budget-usd", "0.30"], email_call(jev=False, budget_usd=Decimal("0.30"))),
+    (["email-golden", "--engine", "gpt", "--budget-usd", "0.30"], email_call(engine="gpt", budget_usd=Decimal("0.30"))),
     (["email-golden", "--jev-budget-usd", "0.03"], email_call(jev_budget_usd=Decimal("0.03"))),
 ])
 def test_the_intent_golden_command(monkeypatch, argv, expected):

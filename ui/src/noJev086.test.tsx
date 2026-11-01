@@ -15,13 +15,16 @@ const PLAN: RunPlan = { documents: 2, emails: 1, attachments: 0, paths: { S: 0, 
 describe("086 processing without JEV", () => {
   it("switched off, there is no JEV budget and the type and intent recognition get an OpenAI budget", () => {
     const settings = { arm: "auto", azure_ocr: "off", tasks: "off", email_text: "off" };
-    expect(itemBudget(RECIPE, { ...settings, jev: "on" }, "document")).toEqual({ jev: 0.07, openai: 0.15 });
-    expect(itemBudget(RECIPE, { ...settings, jev: "off" }, "document")).toEqual({ openai: 0.22 });
-    expect(itemBudget(RECIPE, { ...settings, jev: "off" }, "email")).toEqual({ openai: 0.07 });
+    expect(itemBudget(RECIPE, { ...settings, engine: "jev" }, "document")).toEqual({ jev: 0.07, openai: 0.15 });
+    // 265: OpenAI Decisions in JEV's place, its own amount (provisional) instead of JEV's
+    expect(itemBudget(RECIPE, { ...settings, engine: "decisions" }, "document")).toEqual({ openai_decisions: 0.18, openai: 0.15 });
+    expect(itemBudget(RECIPE, { ...settings, jev: "on" }, "document")).toEqual({ jev: 0.07, openai: 0.15 });  // saved before 265
+    expect(itemBudget(RECIPE, { ...settings, engine: "gpt" }, "document")).toEqual({ openai: 0.22 });
+    expect(itemBudget(RECIPE, { ...settings, engine: "gpt" }, "email")).toEqual({ openai: 0.07 });
     // 190: with the extraction of a quote request written in the email (the default), one more GPT request
-    expect(itemBudget(RECIPE, { ...settings, email_text: "extract", jev: "off" }, "email").openai).toBeCloseTo(0.1, 6);
-    expect(itemBudget(RECIPE, { ...settings, jev: "off" }, "statement_table")).toEqual({});
-    expect(itemBudgetLines(RECIPE, { ...settings, jev: "off" })).toEqual([
+    expect(itemBudget(RECIPE, { ...settings, email_text: "extract", engine: "gpt" }, "email").openai).toBeCloseTo(0.1, 6);
+    expect(itemBudget(RECIPE, { ...settings, engine: "gpt" }, "statement_table")).toEqual({});
+    expect(itemBudgetLines(RECIPE, { ...settings, engine: "gpt" })).toEqual([
       "táblázatos kivonatonként: nincs", "levelenként: OpenAI legfeljebb 0,07 USD", "PDF-iratonként: OpenAI legfeljebb 0,22 USD"]);
   });
 
@@ -34,7 +37,7 @@ describe("086 processing without JEV", () => {
   });
 
   it("the setting and the to-dos get plain names", () => {
-    expect(paramShort("jev", "off")).toBe("kikapcsolva — csak GPT (OpenAI)");
+    expect(paramShort("engine", "gpt")).toBe("csak GPT (OpenAI)");  // 274: the engine by its name, not a JEV switch
     expect(reasonText("intent:jev_off")).toMatch(/JEV nélküli feldolgozás/);
     expect(reasonText("detect:gpt_failed:BudgetExceeded")).toMatch(/GPT-s típusfelismerés nem sikerült \(BudgetExceeded\)/);
     expect(reasonText("detect:confidence_unavailable:invoice_hu")).toMatch(/bizonyossága nem mérhető/);

@@ -32,7 +32,7 @@ def _run(source, ref, monkeypatch):
     monkeypatch.setattr(jev_mod, "make_client", _no_key)  # JEV is unavailable (missing_key)
     app = flow_native.build_app(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
         source_path=str(source), read_path=str(source), original_name="original.txt", expected_sha256=ref.source_sha256,
-        recipe_hash="a" * 16, jev=True, use_cache=False)
+        recipe_hash="a" * 16, engine="jev", use_cache=False)
     with calls.measurement("native-run", {"openai": Decimal("1"), "jev": Decimal("1")}):
         _, _, state = app.run(halt_after=flow_native.TERMINALS)
     return state.data

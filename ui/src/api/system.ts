@@ -1,6 +1,7 @@
 // Settings and the system page: users, folders, the AI engine, the worker, backups and checks.
 import type { DocumentFormat } from "../native";
 import { enc, request } from "./client";
+import type { EngineChoice } from "./workflows";
 
 /** 064: the status of the store backup (store/backups/backup-status.json) and the settings of the daily backup. */
 export interface BackupRun {
@@ -56,9 +57,10 @@ export interface BackupInfo {
   config: { schedule?: string; keep?: number; copy_to?: string | null; with_burr?: boolean; with_docs?: boolean; with_env?: boolean; max_age_hours?: number };
 }
 /** 160-D: the AI engine — JEV and GPT (the default) or GPT only, without JEV. */
-export type Engine = "jev" | "gpt";
+export type Engine = string;  // 265: an engine of configs/engines.json (jev, decisions, gpt)
 /** 160-D: the application's AI engine, the default of every new processing setting that does not name one. */
-export interface EngineSetting { engine: Engine; actor: string | null; updated_at: string | null }
+export interface EngineSetting { engine: Engine; actor: string | null; updated_at: string | null;
+  choices?: EngineChoice[] }  // 274: every engine with whether it can run here (absent from an older service)
 /** 057: watched work folder (modelled on the legacy V4 „Figyelt mappák” (Watched folders)). */
 export interface WatchedFolder {
   id?: string | null; name: string; path: string; enabled: boolean; recursive: boolean; batch_mode: "folder" | "daily";

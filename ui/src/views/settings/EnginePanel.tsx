@@ -2,19 +2,28 @@
 // or GPT only. It is the default of every new processing setting that does not name one; saved package settings and
 // started runs keep their own, so the panel says so before anyone changes it. A choice is a selection (ink border on
 // the neutral tint), and its save is solid only while there is something to save (docs/guides/DESIGN.md).
+// 274: every engine of the registry, as the service lists them (`choices`); one that cannot run here is shown greyed with
+// its reason and cannot be chosen (the owner's decision of 2026-11-01), OpenAI Decisions while it is under measurement.
 import { useEffect, useState } from "react";
-import { api, ApiError, type Engine } from "../../api";
+import { api, ApiError, type Engine, type EngineChoice } from "../../api";
 import { FormActions } from "../../components/FormActions";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { ENGINE, when } from "../../labels";
+import { ENGINE, engineReason, tmap, when } from "../../labels";
 
-const CHOICES: { value: Engine; title: string; text: string }[] = [
-  { value: "jev", title: "JEV and GPT (recommended)",
-    text: "JEV recognises each document's type and each email's intent, and chooses or checks the extracted values; GPT extracts where a type's path needs it. This is the way the golden sets measure." },
-  { value: "gpt", title: "GPT only, without JEV",
-    text: "GPT recognises the type and the intent and extracts the data; the code checks each value against the document. No JEV cost, but more OpenAI cost per document; a value whose GPT confidence cannot be measured becomes a to-do." },
-];
+const TITLE: Record<string, string> = tmap({
+  jev: "JEV and GPT (recommended)",
+  decisions: "OpenAI Decisions and GPT",
+  gpt: "GPT only, without JEV",
+});
+const TEXT: Record<string, string> = tmap({
+  jev: "JEV recognises each document's type and each email's intent, and chooses or checks the extracted values; GPT extracts where a type's path needs it. This is the way the golden sets measure.",
+  decisions: "OpenAI's judgement service answers JEV's questions in its place: it recognises each document's type and each email's intent, and chooses or checks the extracted values; GPT extracts where a type's path needs it. It spends from the OpenAI budget.",
+  gpt: "GPT recognises the type and the intent and extracts the data; the code checks each value against the document. No JEV cost, but more OpenAI cost per document; a value whose GPT confidence cannot be measured becomes a to-do.",
+});
+// an older service sends no choices: its two engines, both selectable
+const OLDER: EngineChoice[] = ["jev", "gpt"].map((engine) => ({ engine, label: engine, available: true, reason: null,
+  provider: null, judge_provider: null }));
 
 export function EnginePanel() {
   useLocale();
@@ -25,6 +34,7 @@ export function EnginePanel() {
   useEffect(() => { if (setting.data) setChoice(setting.data.engine); }, [setting.data]);
   const saved = setting.data?.engine ?? null;
   const dirty = choice !== null && saved !== null && choice !== saved;
+  const choices = setting.data?.choices ?? OLDER;
 
   async function save() {
     if (!choice) return;
@@ -32,7 +42,7 @@ export function EnginePanel() {
     setMsg(null);
     try {
       const res = await api.saveEngine(choice);
-      setMsg({ error: false, text: t("Saved. New processing settings use: {{engine}}.", { engine: ENGINE[res.engine] }) });
+      setMsg({ error: false, text: t("Saved. New processing settings use: {{engine}}.", { engine: ENGINE[res.engine] ?? res.engine }) });
       setting.reload();
     } catch (e) {
       setMsg({ error: true, text: e instanceof ApiError ? e.message : String(e) });
@@ -57,12 +67,21 @@ export function EnginePanel() {
         <>
           <fieldset className="wizard-choices engine-choices">
             <legend className="sr-only">{t("AI engine")}</legend>
-            {CHOICES.map((c) => (
-              <label key={c.value} className="wizard-choice">
-                <input type="radio" name="app-engine" checked={choice === c.value} onChange={() => { setChoice(c.value); setMsg(null); }} />
-                <span><strong>{t(c.title)}</strong><span className="muted small">{t(c.text)}</span></span>
-              </label>
-            ))}
+            {choices.map((c) => {
+              // the saved engine stays selectable, so a person sees it chosen even when it can no longer run here
+              const off = !c.available && c.engine !== saved;
+              return (
+                <label key={c.engine} className="wizard-choice">
+                  <input type="radio" name="app-engine" checked={choice === c.engine} disabled={off}
+                    onChange={() => { setChoice(c.engine); setMsg(null); }} />
+                  <span>
+                    <strong>{TITLE[c.engine] ?? ENGINE[c.engine] ?? c.label}</strong>
+                    {TEXT[c.engine] ? <span className="muted small">{TEXT[c.engine]}</span> : null}
+                    {!c.available ? <span className="small choice-reason">{engineReason(c.reason, c.provider)}</span> : null}
+                  </span>
+                </label>
+              );
+            })}
           </fieldset>
           <FormActions busy={busy} note={dirty ? t("Packages with saved settings keep their engine; change those in the package's Processing section.") : null}>
             <button type="button" className={dirty ? "primary" : "secondary"} disabled={!dirty || busy} onClick={() => void save()}>

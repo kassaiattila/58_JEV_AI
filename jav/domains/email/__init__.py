@@ -75,7 +75,7 @@ def _build_email(mod: Any, b: Any) -> Any:
     # the shared flow registry's)
     return mod.build_app(source_dir=str(Path(b.source_path).parent), tracker=False, run_id=b.app_id,
                          persister=b.persister, use_cache=b.use_cache, propose_tasks=b.params.get("tasks") == "propose",
-                         attachment_reads=b.attachment_reads, jev=b.jev,
+                         attachment_reads=b.attachment_reads, engine=b.engine,
                          extract_text=b.params.get("email_text") == "extract")  # 190: a run before the setting: off
 
 

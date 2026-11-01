@@ -1,7 +1,8 @@
 """Work package and run commands (040 K1): a thin command-line interface over `jav.app.work` and `jav.runtime`.
 
   recipes                                  every recipe with its status (080: the UI offers only the active one)
-  processing-migrate [--write]             080: move packages and watched folders onto the default processing
+  processing-migrate [--write]             080: move packages and watched folders onto the default processing;
+                                           265: save the old JEV switch again under its engine's name
   wp-create <folder> [--name N]            work package from the PDFs in a folder
   wp-create --files <pdf>... --name N      work package from the given files (possibly from several folders)
   wp-list | wp-show <wp>                   work packages; one package's items, recipe and readiness
@@ -50,12 +51,13 @@ def cmd_recipes(args):
 
 def cmd_processing_migrate(args):
     """080: moves every package and watched folder still on an internal or retired recipe onto the default processing,
-    keeping its settings. Without --write it only lists them."""
+    keeping its settings; 265: saves an active recipe's settings that name the AI engine with the old JEV switch again
+    under the engine's name, on the same recipe. Without --write it only lists them."""
     from jav.app import app_settings, work_recipes
     packages = work_recipes.migrate_assignments(write=args.write)
     folders = app_settings.migrate_folder_recipes(write=args.write)
-    target, verb = work_recipes.default_recipe()["id"], "moved" if args.write else "would move"
-    lines = [f"{verb}: {p['workpackage_id']}  {p['from']} {p['from_params']} -> {target} {p['params']}" for p in packages]
+    target, verb = work_recipes.default_recipe()["id"], "saved" if args.write else "would save"
+    lines = [f"{verb}: {p['workpackage_id']}  {p['from']} {p['from_params']} -> {p['to']} {p['params']}" for p in packages]
     lines += [f"{verb}: watched folder {f['id']} ({f['name']})  {f['from']} -> {target} {f['params']}" for f in folders]
     lines.append(f"{len(packages)} package(s), {len(folders)} watched folder(s)" + ("" if args.write else "; run with --write to apply"))
     return _out(args, {"packages": packages, "folders": folders, "written": args.write}, "\n".join(lines))
@@ -117,10 +119,10 @@ def cmd_wp_assign(args):
     kept = current["params"] if current and current["recipe_id"] == args.recipe else {}
     named = {k: v for k, v in {"arm": args.arm, "doc_type": args.doc_type, "jev_cache": args.jev_cache}.items() if v is not None}
     if args.engine is not None:
-        if "jev" not in r["params"]:
+        if work_recipes.ENGINE_PARAM not in r["params"]:
             print(f"the recipe {args.recipe!r} has no engine setting")
             return 2
-        named["jev"] = "off" if args.engine == "gpt" else "on"
+        named[work_recipes.ENGINE_PARAM] = args.engine
     params = {**{k: v for k, v in kept.items() if k in r["params"]}, **named}
     a = work_recipes.assign_recipe(args.wp, args.recipe, params=params, expected_revision=current["revision"] if current else 0,
                            actor=args.actor, note=args.note)
@@ -301,7 +303,8 @@ def register(sub) -> None:
 
     add("recipes", cmd_recipes, "every recipe with its status (configs/recipes.json)")
     p = add("processing-migrate", cmd_processing_migrate,
-            "move packages and watched folders off internal or retired recipes onto the default processing")
+            "move packages and watched folders off internal or retired recipes onto the default processing, and save"
+            " the old JEV switch again under its engine's name")
     p.add_argument("--write", action="store_true", help="apply the changes (without it: only list them)")
     p = add("wp-create", cmd_wp_create, "a batch from a folder's PDFs or from the files given")
     p.add_argument("folder", nargs="?")
@@ -317,7 +320,10 @@ def register(sub) -> None:
     p.add_argument("--arm", choices=["S", "G"])
     p.add_argument("--doc-type")
     p.add_argument("--jev-cache", choices=["reuse", "live"], help="live: without reading the JEV cache (a live trial)")
-    p.add_argument("--engine", choices=["jev", "gpt"], help="gpt = processing without JEV (GPT only); jev = JEV and GPT")
+    from jav.ai import engine as engines
+
+    p.add_argument("--engine", choices=engines.ids(),  # 265: the engine registry's (configs/engines.json)
+                   help="; ".join(f"{e} = {engines.get(e).label}" for e in engines.ids()))
     p.add_argument("--note")
     p.add_argument("--actor", default="cli")
     p = add("run-start", cmd_run_start, "start a run with a fixed input (idempotent)")

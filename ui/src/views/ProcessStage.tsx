@@ -15,7 +15,7 @@ import { Picker } from "../components/Picker";
 import { PackageCosts } from "./PackageCosts";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
-import { applyPath, itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathOptions, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
+import { applyPath, itemBudgetLines, MODE, PARAM_LABEL, paramShort, paramsText, PATH, pathChoices, type PathChoice, planLines, providerName, RUN_STATUS, shownParams, shownValue, tmap, usdBudget, when, blockerText } from "../labels";
 import { processNotices } from "../logic/processNotices";
 import { go, wpHash } from "../route";
 import { type AddSource } from "./PackageAdd";
@@ -209,8 +209,9 @@ const PARAM_VALUE: Record<string, string> = tmap({
   // 190: a quote request written in the email itself
   "email_text:extract": "A quote request written in the email itself is extracted from its text (GPT + JEV, about 0.006 USD per such email, at most 0.03 USD reserved per email)",
   "email_text:off": "The email's own text is not extracted; its attachments still are",
-  "jev:on": "On: JEV recognises the type and the email's intent, and chooses or checks during extraction",
-  "jev:off": "Off: GPT only (OpenAI) — type recognition, extraction and email intent by GPT, checked by the code",
+  "engine:jev": "JEV and GPT: JEV recognises the type and the email's intent, and chooses or checks during extraction",
+  "engine:decisions": "OpenAI Decisions and GPT: OpenAI's judgement service recognises the type and the email's intent, and chooses or checks during extraction, in JEV's place",
+  "engine:gpt": "GPT only (OpenAI): type recognition, extraction and email intent by GPT, checked by the code",
   // 090: the processing path (the documents' path and the use of JEV as one choice)
   "path:auto": "Automatic (recommended) — JEV and GPT, the document type's recommended path for each document",
   "path:gpt": "GPT only, without JEV — type recognition, data extraction and email intent with GPT, checked in code (OpenAI)",
@@ -374,12 +375,15 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
               that count; without JEV the JEV answers are not shown */}
           {shownParams(Object.keys(options), full, kinds).map((k) => {
             const value = shownValue(k, full, kinds);
-            const choices = k === PATH ? pathOptions(options.arm ?? [], kinds) : options[k];
+            // 274: the path's choices with the registry's other judged engines (greyed with their reason when they
+            // cannot run here)
+            const choices: PathChoice[] = k === PATH ? pathChoices(options.arm ?? [], kinds, recipe.params.engine?.choices)
+              : options[k].map((value) => ({ value }));
             const explain = paramExplanation(help, k, value, recipe);
             return (
               <div key={k} className="param-field">
                 <Picker label={PARAM_LABEL[k] ?? k} className="block-picker" value={value}
-                  options={choices.map((o) => ({ value: o, label: paramValue(k, o) }))}
+                  options={choices.map((o) => ({ value: o.value, label: paramValue(k, o.value), detail: o.detail, disabled: o.disabled }))}
                   onChange={(v) => setParams((p) => (k === PATH ? applyPath({ ...full, ...p }, v) : { ...p, [k]: v }))} />
                 {explain ? <p className="param-note">{explain}</p> : null}
               </div>

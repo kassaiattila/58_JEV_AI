@@ -8,16 +8,18 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav.ai import native_processing, policy
+from jav.ai import engine as engines, native_processing, policy
 from jav.documents import native_results
 from jav.core import store
 from jav.ai.engine import with_engine
 from jav.documents.native_contracts import NativeLimits, NATIVE_CAPABLE_SUFFIXES
 from jav.documents.readers.pipeline import json_bytes
+from jav.flows import persistence
 
 PARTITION = "native"
 TERMINALS = {"done", "needs_review"}
 SUPPORT_BAND = "native.support"
+persistence.rename_saved_keys(PARTITION, {"jev": "engine"}, convert={"jev": engines.of_flag})  # 265: the engine's name
 
 
 class NativeState(BaseModel):
@@ -29,7 +31,7 @@ class NativeState(BaseModel):
     original_name: str
     expected_sha256: str
     recipe_hash: str
-    jev: bool
+    engine: str  # 265 (plan L): the AI engine, whose judgement service checks the facts (until 265 `jev: bool`)
     use_cache: bool
     limits: dict
     ocr: bool = False  # 120: a scanned PDF continuing from detection is read with local OCR
@@ -46,7 +48,7 @@ class NativeState(BaseModel):
 
 
 _INPUTS = ["work_run_id", "item_id", "graph_id", "source_path", "read_path", "original_name",
-           "expected_sha256", "recipe_hash", "jev", "use_cache", "limits", "ocr", "recognition"]
+           "expected_sha256", "recipe_hash", "engine", "use_cache", "limits", "ocr", "recognition"]
 
 
 @action.pydantic(reads=_INPUTS, writes=["reading_id", "recognition", "recognition_blocked"])
@@ -76,7 +78,7 @@ def interpret_native(state: NativeState) -> NativeState:
         state.outcome_id = publication.outcome_id
     else:
         state.outcome_id = native_processing.interpret(work_run_id=state.work_run_id, item_id=state.item_id,
-            graph_id=state.graph_id, reading_id=state.reading_id, jev=state.jev, use_cache=state.use_cache,
+            graph_id=state.graph_id, reading_id=state.reading_id, engine=state.engine, use_cache=state.use_cache,
             limits=NativeLimits.model_validate_json(json_bytes(state.limits)))
     return state
 
@@ -122,8 +124,9 @@ def review_native(state: NativeState) -> NativeState:
     if publication.interpretation_outcome.status != "succeeded":
         reasons.append("native:interpretation:" + publication.interpretation_outcome.status)
     else:
-        # 160 (review AI-5): the GPT facts were published without JEV support because JEV did not answer
-        if (publication.interpretation_outcome.reason or "").startswith("jev_unavailable:"):
+        # 160 (review AI-5): the GPT facts were published without the judgement service's support because it did not
+        # answer (265: any service's to-do, `jav.ai.engine.unavailable_prefixes`)
+        if (publication.interpretation_outcome.reason or "").startswith(engines.unavailable_prefixes()):
             reasons.append(publication.interpretation_outcome.reason)
         interpretation = publication.interpretation
         if not interpretation.facts:
@@ -143,8 +146,9 @@ def review_native(state: NativeState) -> NativeState:
             # 120: JEV's raw support is interpreted with the existing Noul band (`native.support` in policy.json);
             # the uncertain band opens a to-do only where the band enables it.
             if fact.semantic_support is not None and fact.grounding == "literal_match":
-                support = policy.noul_band(fact.semantic_support, SUPPORT_BAND)
-                if support == "no" or (support == "uncertain" and policy.band(SUPPORT_BAND)["uncertain_review"]):
+                band = engines.get(state.engine).band_key(SUPPORT_BAND)  # 265: the service's own band, if set
+                support = policy.noul_band(fact.semantic_support, band)
+                if support == "no" or (support == "uncertain" and policy.band(band)["uncertain_review"]):
                     label = "unsupported" if support == "no" else "uncertain"
                     reasons.append(f"native:fact:{index}:{label}:{fact.semantic_support:.2f}")
     state.review_reasons = sorted(set(reasons))
@@ -191,7 +195,7 @@ CONTRACT = {
 
 def build_app(*, work_run_id: str, item_id: str, graph_id: str, source_path: str,
               read_path: str, original_name: str, expected_sha256: str, recipe_hash: str,
-              jev: bool = True, use_cache: bool = True, requested_arm: str = "G",
+              engine: str = "jev", use_cache: bool = True, requested_arm: str = "G",
               persister=None, tracker: bool = False, limits: NativeLimits | None = None,
               ocr: bool = False, recognition: str | None = None) -> Application:
     """Build the native graph from explicit frozen work identities and limits."""
@@ -199,10 +203,11 @@ def build_app(*, work_run_id: str, item_id: str, graph_id: str, source_path: str
         raise ValueError("Native interpretation requires the G path")
     if Path(original_name).suffix.lower() not in NATIVE_CAPABLE_SUFFIXES:
         raise ValueError("Native flow requires a registered native document")
-    limits = limits or native_processing.estimate_limits({"jev": "on" if jev else "off", "arm": requested_arm})
+    e = engines.get(engine)
+    limits = limits or native_processing.estimate_limits({"engine": e.id, "arm": requested_arm})
     initial = NativeState(work_run_id=work_run_id, item_id=item_id, graph_id=graph_id,
         source_path=source_path, read_path=read_path, original_name=original_name, expected_sha256=expected_sha256,
-        recipe_hash=recipe_hash, jev=jev, use_cache=use_cache, limits=limits.model_dump(mode="json"), ocr=ocr,
+        recipe_hash=recipe_hash, engine=e.id, use_cache=use_cache, limits=limits.model_dump(mode="json"), ocr=ocr,
         recognition=recognition)
     builder = (ApplicationBuilder().with_typing(PydanticTypingSystem(NativeState))
         .with_actions(read_native, interpret_native, publish_native, review_native, done, needs_review)
@@ -214,4 +219,4 @@ def build_app(*, work_run_id: str, item_id: str, graph_id: str, source_path: str
         builder = builder.with_state(initial).with_entrypoint("read_native")
     if tracker:
         builder = builder.with_tracker("local", project="jav_native")
-    return with_engine(builder, jev_on=jev).build()  # 160: without JEV, a JEV question is refused
+    return with_engine(builder, e).build()  # 160/265: the engine's judgement service; without one, a question is refused

@@ -94,7 +94,7 @@ def test_a_test_cannot_make_a_live_gpt_call(isolated):
 
 def _run(msg, **kw):
     with jev_mod.use_adapter(_NoJev()):
-        app = flow_email.build_app(message=msg, jev=False, **kw)
+        app = flow_email.build_app(message=msg, engine="gpt", **kw)
         _, _, state = app.run(halt_after=flow_email.TERMINALS)
     return state.data
 
@@ -190,7 +190,7 @@ def golden_env(tmp_path: Path, monkeypatch):
 
 
 def test_email_golden_without_jev_runs_under_the_measurement_budget(golden_env, capsys):
-    rows = evals_email.email_golden(jev=False, budget_usd=Decimal("0.30"))
+    rows = evals_email.email_golden(engine="gpt", budget_usd=Decimal("0.30"))
     assert [(r["got"], r["engine"], r["measured"]) for r in rows] == [("szamlakuldes", "gpt", True)]
     assert list((golden_env / "runs").glob("*_email_golden_gpt.jsonl"))
     with store.connect() as c:
@@ -202,13 +202,13 @@ def test_email_golden_without_jev_runs_under_the_measurement_budget(golden_env, 
 
 
 def test_email_golden_a_spent_budget_is_a_row_not_a_crash(golden_env, capsys):
-    rows = evals_email.email_golden(jev=False, budget_usd=Decimal("0.000001"))
+    rows = evals_email.email_golden(engine="gpt", budget_usd=Decimal("0.000001"))
     assert rows[0]["got"] is None and "intent:gpt_failed:BudgetExceeded" in rows[0]["review_reasons"]
     assert "no answer (GPT call failed):** 1" in capsys.readouterr().out
 
 
 def test_the_injection_probe_without_jev_asks_gpt_under_the_budget(golden_env):
-    rows = evals_email.email_injection_probe(limit=1, jev=False, budget_usd=Decimal("0.50"))
+    rows = evals_email.email_injection_probe(limit=1, engine="gpt", budget_usd=Decimal("0.50"))
     assert [r["variant"] for r in rows] == list(evals_email.INJECTIONS)
     assert list((golden_env / "runs").glob("*_email_injection_probe_gpt.jsonl"))
     with store.connect() as c:

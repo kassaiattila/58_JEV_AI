@@ -219,7 +219,7 @@ def test_the_native_graph_reads_with_ocr_only_when_asked(tmp_path, monkeypatch):
         for ocr in (False, True):
             app = flow_native.build_app(work_run_id="r", item_id="i", graph_id=f"g{ocr}", source_path="C:/s/scan.pdf",
                                         read_path="C:/s/scan.pdf", original_name="scan.pdf", expected_sha256="a" * 64,
-                                        recipe_hash="b" * 16, jev=False, ocr=ocr)
+                                        recipe_hash="b" * 16, engine="gpt", ocr=ocr)
             with pytest.raises(RuntimeError):
                 app.run(halt_after=flow_native.TERMINALS)
     assert asked == [False, True]

@@ -76,14 +76,14 @@ python smoke_test.py [--jev-budget-usd X]         # venv + keys; with a budget o
 python -m jav.cli recall | golden --arm S|G [--synthetic] | determinism --arm S --n 5 | verifier-probe [--no-cache] [--type invoice_foreign]
 python -m jav.cli measure [<golden set> ...] [--list] [--store <copy>]   # 188: every golden set with one command (jav/evals/goldens.py); free from earlier answers, a paid round names one set
 # 160: every command that can make paid calls needs --jev-budget-usd / --budget-usd (OpenAI) for a live call; without them only earlier answers count
-# 160-D: every command that asks AI takes --engine jev|gpt (--no-jev = gpt); a processing command follows the application's engine, a measurement defaults to jev
+# 160-D/265: every command that asks AI takes --engine jev|decisions|gpt (configs/engines.json; --no-jev = gpt); a processing command follows the application's engine, a measurement defaults to jev
 python -m jav.cli detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> [--redo-unknown] | detect-sample <folder>
 python -m jav.cli email <folder> | email-golden | email-determinism --n 3 | email-inbox inbox/ | email-sample | email-injection-probe
 python -m jav.cli email-ingest-server --port 8931 --run [--jev-budget-usd X]   # receiver for scripts/outlook_bridge.ps1 (8901 = legacy Docker); without a budget only earlier answers
 python -m jav.cli recipes | wp-* | run-* | worker [--once] | worker-status | worker-stop   # work package → run (jav/cli/work_cli.py)
 python -m jav.cli calls-uncertain | calls-resolve <id> [--cost USD] --note N   # settle a paid call with an uncertain outcome by hand
 python -m jav.cli duplicates [--write] | own-tax [--write] | reconcile [--golden]   # duplicate invoices | an own tax number as the supplier's (--write: open their to-dos) | invoice <-> statement line pairs (counts)
-python -m jav.cli reconcile-ai <package> [--engine jev|gpt|both (default: the application's engine)] [--jev-budget-usd X] [--budget-usd Y] [--redo | --stale] [--incoming] | --evaluate | --golden   # 134 AI proposals for a package's lines (without a budget: free estimate; 136: only the new lines, the kind once per partner; 158: incoming money its own kinds) | 135 their hits against a person's decisions (free) | 158 the incoming kinds on invented lines (with a budget)
+python -m jav.cli reconcile-ai <package> [--engine jev|decisions|gpt|both (default: the application's engine, with GPT beside a judgement service)] [--jev-budget-usd X] [--budget-usd Y] [--redo | --stale] [--incoming] | --evaluate | --golden   # 134 AI proposals for a package's lines (without a budget: free estimate; 136: only the new lines, the kind once per partner; 158: incoming money its own kinds) | 135 their hits against a person's decisions (free) | 158 the incoming kinds on invented lines (with a budget)
 python -m jav.cli fx-rates [--fetch FROM TO] [--currency C]             # 130 stored MNB exchange rates (counts) | fetch a span (free; only dates and codes leave)
 python -m jav.cli statement-table <file.xlsx|file.csv|file.pdf|folder>  # 136 a bank statement export read by code (free): its accounts and checks (141: a CIB PDF or text statement, a camt.053 XML too)
 .\scripts\dev.ps1 start|status|stop                     # UI + local service (serve, 127.0.0.1:8930) + the configured workers (one by default)

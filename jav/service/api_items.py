@@ -71,7 +71,7 @@ def routes(app: FastAPI, r: str) -> None:
         from jav.documents.native_contracts import DOCUMENT_FORMATS
         from jav.ai.native_processing import estimate_limits
 
-        limits = estimate_limits({"jev": "off"})
+        limits = estimate_limits({"engine": "gpt"})
         return {"formats": [item.model_dump(mode="json") for item in DOCUMENT_FORMATS],
                 "native_limits": limits.model_dump(mode="json", exclude={"provider_limits_usd"})}
 

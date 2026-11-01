@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition, invoice data extraction and email intent — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.76.2`** (2026-11-01). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.77.0`** (2026-11-01). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -83,11 +83,11 @@ python -m jav.cli eval-report [runs/*.jsonl]                       # shared eval
 # every command that can make paid calls (also run, detect, detect-corpus, email, email-inbox and the determinism ones)
 # needs the sub-budget for live calls: --jev-budget-usd, --budget-usd (OpenAI); Azure is never called from the command
 # line; without a budget only earlier answers count (the JEV cache) and a live call becomes a to-do
-# every command that asks AI takes --engine jev|gpt (--no-jev = --engine gpt): run, detect, detect-corpus, email and
+# every command that asks AI takes --engine jev|decisions|gpt (configs/engines.json; --no-jev = --engine gpt): run, detect, detect-corpus, email and
 # email-inbox follow the application's AI engine (Settings > Processing) when they name none; the measurements measure
-# JEV and GPT unless told, and the S path needs JEV
+# JEV and GPT unless told, and the S path needs a judgement service (JEV or OpenAI Decisions)
 python -m jav.cli store | admin | configs | flows --check | docs   # store, admin screen, config versions, contract lint, generated docs
-python -m jav.cli recipes | wp-create <folder> [--recursive] | wp-assign <wp> processing [--engine jev|gpt] | wp-show <wp> | processing-migrate [--write]   # work packages and processing
+python -m jav.cli recipes | wp-create <folder> [--recursive] | wp-assign <wp> processing [--engine jev|decisions|gpt] | wp-show <wp> | processing-migrate [--write]   # work packages and processing
 python -m jav.cli run-start <wp> [--mode shadow|apply] | worker --once | run-show <run> | run-cancel <run> | run-approve <run> --actor <name>   # shadow = trial run, apply = live run
 cd ui; npm ci; npm run build; cd ..                               # build the UI (once, and after every ui/src change)
 .\scripts\dev.ps1 start | status | stop                          # UI + service: http://127.0.0.1:8930/ (endpoint list: /api/openapi.json) + worker

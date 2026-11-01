@@ -469,7 +469,8 @@ class FlowState(BaseModel):
     doc_id: str = ""  # sha256 of the file content
     doc_type: str  # the type pack (202: always named; every saved state carries it)
     use_cache: bool = True  # False when measuring determinism
-    jev: bool = True  # 085: False = processing without JEV (the G path with the code's own check)
+    engine: str = "jev"  # 265 (plan L): the AI engine (configs/engines.json); without a judgement service (085: until
+    # 265 `jev: False`) only the G path runs, with the code's own check
     detail_probabilities: dict[str, float] = Field(default_factory=dict)  # 149: the detection's detailed-type answer
     # 190 (plan 189 A2b): a document given as text (an email's own text), read by `load_text` instead of the file
     source_text: str | None = None

@@ -21,7 +21,7 @@ from jav.app import (
     app_settings, human_tasks, logic_packs, work, work_readiness,
     work_recipes, work_runs, workflow_cases, workflow_steps,
 )
-from jav.core import identity, store, trace
+from jav.core import identity, providers, store, trace
 from jav.core.process import cases as process_cases
 from jav.core.process import engine as process_engine
 from jav.core.process import kinds as process_kinds
@@ -221,7 +221,8 @@ def _give_engine(wp_id: str, engine: str | None, *, actor: identity.Who) -> None
     a = work_recipes.current_assignment(wp_id)
     r = work_recipes.recipe(a["recipe_id"]) if a else work_recipes.default_recipe()
     want = work_recipes.engine_params(r, engine)
-    if not want or (a is not None and a["params"].get("jev") == want["jev"]):
+    name = work_recipes.ENGINE_PARAM
+    if not want or (a is not None and a["params"].get(name) == want[name]):
         return
     kept = a["params"] if a else work_recipes.default_params(r, engine)
     work_recipes.assign_recipe(wp_id, r["id"], params={**kept, **want}, expected_revision=a["revision"] if a else 0, actor=actor,
@@ -529,8 +530,9 @@ trace.register(trace.Point(
 
 
 def _per_item(kind: str, engine: str | None = None) -> dict[str, Decimal]:
+    """160-D: with the step's engine or the application's; 265: per budget the calls reserve from, as the step's own."""
     r = work_recipes.default_recipe()
-    return work_readiness.item_budget(r, work_recipes.default_params(r, engine), kind)  # 160-D: the step's engine or the application's
+    return providers.pooled(work_readiness.item_budget(r, work_recipes.default_params(r, engine), kind))
 
 
 def _times(per: dict[str, Decimal], n: int) -> dict[str, str]:
