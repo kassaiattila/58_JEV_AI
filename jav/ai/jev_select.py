@@ -84,10 +84,13 @@ class SelectSite:
         head = f"{self.glossary}\n\n{self.document_guard}" if self.document_guard else self.glossary
         return f"{head}\n\n{question}"
 
-    def build_choice(self, field: str, cands: list[Candidate]) -> Choice:
+    def build_choice(self, field: str, cands: list[Candidate], ctx_max: int | None = None) -> Choice:
+        """The field's Choice; `ctx_max`: a narrower context per option than the site's, for a request over its size
+        budget. 265 (code review AI-13): given as a parameter; the site is shared (cached), so it is never changed."""
         criteria: dict[str, str | None] = {}
+        limit = self.option_context_max if ctx_max is None else ctx_max
         for c in cands[:MAX_OPTIONS]:
-            context = c.context if self.option_context_max is None else c.context[: self.option_context_max]
+            context = c.context if limit is None else c.context[:limit]
             desc = f"printed as '{c.raw}' at {context}"
             if c.ambiguous and c.kind != "date":  # 084: a date's to-do comes from code; the option text stays as it was
                 desc += " (separator ambiguous)"
@@ -165,7 +168,7 @@ class SelectSite:
                         priority = [c for c in items if _TOTAL_LINE_RE.search(lines[c.line_no - 1].text)]
                         rest = sorted((c for c in items if c not in priority), key=lambda c: c.line_no)
                         items = (priority + rest)[:cap]
-                    trimmed[qid] = self._build_choice_ctx(qid, items, ctx_max)
+                    trimmed[qid] = self.build_choice(qid, items, ctx_max)
                 else:
                     trimmed[qid] = q
             questions = trimmed
@@ -173,13 +176,6 @@ class SelectSite:
                 break
         return state, questions
 
-    def _build_choice_ctx(self, field: str, cands: list[Candidate], ctx_max: int) -> Choice:
-        saved = self.option_context_max
-        self.option_context_max = ctx_max
-        try:
-            return self.build_choice(field, cands)
-        finally:
-            self.option_context_max = saved
 
     def _select_request(
         self,
