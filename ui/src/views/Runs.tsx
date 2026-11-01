@@ -5,7 +5,7 @@ import { nameCell, NameModeSwitch } from "../components/NameCell";
 import { PageHeader } from "../components/PageHeader";
 import { ACTIVE_RUN, useLoad, useRunView } from "../hooks";
 import { getLocale, t, useLocale } from "../i18n";
-import { MODE, paramsText, providerName, reasonText, tmap, usd, when } from "../labels";
+import { MODE, paramsText, PROVIDER_ORDER, providerName, reasonText, tmap, usd, when } from "../labels";
 import { useNameMode } from "../names";
 import { batchOfCase, caseUnder, wpHash } from "../route";
 import { RunStatus } from "./Workpackages";
@@ -179,8 +179,7 @@ export function SupersedeOffer({ offer, trial = false, busy, onConfirm }: { offe
 
 const JOB: Record<string, string> = tmap({ queued: "queued", claimed: "running", done: "done", dead: "failed (given up)", cancelled: "stopped" });
 
-/** 083: the providers in the order of the cost list (JEV, OpenAI, Azure DI), not in the budget row's order. */
-const PROVIDER_ORDER = ["jev", "openai", "azure_di"];
+/** 083: the providers in the order of the cost list (265: the provider registry's), not in the budget row's order. */
 function byProvider<T>(entries: [string, T][]): [string, T][] {
   const rank = (p: string) => (PROVIDER_ORDER.includes(p) ? PROVIDER_ORDER.indexOf(p) : PROVIDER_ORDER.length);
   return [...entries].sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b));

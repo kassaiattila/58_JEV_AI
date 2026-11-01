@@ -21,7 +21,7 @@ from jav.app import (
     app_settings, human_tasks, logic_packs, work, work_readiness,
     work_recipes, work_runs, workflow_cases, workflow_steps,
 )
-from jav.core import identity, store, trace
+from jav.core import identity, providers, store, trace
 from jav.core.process import cases as process_cases
 from jav.core.process import engine as process_engine
 from jav.core.process import kinds as process_kinds
@@ -530,8 +530,9 @@ trace.register(trace.Point(
 
 
 def _per_item(kind: str, engine: str | None = None) -> dict[str, Decimal]:
+    """160-D: with the step's engine or the application's; 265: per budget the calls reserve from, as the step's own."""
     r = work_recipes.default_recipe()
-    return work_readiness.item_budget(r, work_recipes.default_params(r, engine), kind)  # 160-D: the step's engine or the application's
+    return providers.pooled(work_readiness.item_budget(r, work_recipes.default_params(r, engine), kind))
 
 
 def _times(per: dict[str, Decimal], n: int) -> dict[str, str]:

@@ -95,6 +95,37 @@ def test_a_judgement_services_amount_counts_only_for_its_engine(kind):
     assert work_readiness.item_budget(r, {**base, "jev": "off"}, kind) == gpt
 
 
+def test_a_decisions_run_reserves_both_its_parts_from_one_openai_budget(db, monkeypatch):
+    """OpenAI Decisions spends from OpenAI's budget (the owner's decision of 2026-11-01): the run's budget holds its
+    amount in OpenAI's, the budget its calls reserve from, never a budget of its own that no call would read."""
+    monkeypatch.setenv(providers.ON_ENV, "openai_decisions")
+    wp = _package(db / "in")
+    _assign(wp, {"engine": "decisions", "azure_ocr": "off"})
+    ready = work_readiness.readiness(wp)
+    r = work_recipes.recipe("processing")
+    per = work_readiness.item_budget(r, work_recipes.current_assignment(wp)["params"], "document")
+    assert set(ready["budget"]) == {"openai"} and ready["budget"]["openai"] == per["openai_decisions"] + per["openai"]
+    run_id = work_runs.start_run(wp, mode="shadow", expected_assignment_revision=ready["assignment_revision"],
+                                 input_hash=ready["input_hash"], actor="tester")["run_id"]
+    from jav.core import calls
+
+    assert calls.left(run_id, "openai_decisions") == calls.left(run_id, "openai") == ready["budget"]["openai"]
+    assert set(calls.budget_usage(run_id)["providers"]) == {"openai"}
+
+
+def test_on_the_s_path_only_gpts_part_is_left_out():
+    """A document whose S path is known in advance needs no GPT; a judgement service's part stays (JEV's, OpenAI
+    Decisions' in OpenAI's budget)."""
+    r = work_recipes.recipe("processing")
+    params = {"arm": "S", "azure_ocr": "off", "doc_type": "invoice_hu"}
+    item = {"item_id": "i", "kind": "document", "source_path": "a.pdf", "sha256": "0" * 64}
+    jev = work_readiness._run_budget(r, {**params, "engine": "jev"}, [item], ["S"])
+    decisions = work_readiness._run_budget(r, {**params, "engine": "decisions"}, [item], ["S"])
+    s_row = r["max_item_usd_by_kind"]["document"]["S"]
+    assert jev == {"jev": Decimal(s_row["jev"])}
+    assert decisions == {"openai": Decimal(s_row["openai_decisions"])}
+
+
 def test_the_rules_view_names_each_judgement_service_from_the_provider_registry():
     assert datasets.PROVIDER_NAMES == {p: providers.label(p) for p in providers.ids()}
     assert datasets.label_set("provider")["openai_decisions"] == "OpenAI Decisions"

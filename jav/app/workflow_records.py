@@ -18,7 +18,7 @@ from typing import Any
 from jav.app import (
     logic_packs, package_release, package_scope, parties, scopes, work, work_runs, workflow_cases, workflow_steps,
 )
-from jav.core import activity_kinds, cfg, identity, store
+from jav.core import activity_kinds, cfg, identity, providers, store
 from jav.core.process import cases as process_cases
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -30,7 +30,8 @@ log = logging.getLogger(__name__)
 CONFIG = "workflows"
 
 
-PROVIDERS = ("jev", "openai", "azure_di")  # the call log's providers (jav/core/calls.py)
+# the budgets a run's calls reserve from (265: the provider registry's, `jav.core.providers.budgets`)
+PROVIDERS = tuple(providers.budgets())
 
 
 # 181: the documents step's key in the templates and the work package kinds a package of it may have (the plain

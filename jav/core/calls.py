@@ -183,7 +183,7 @@ def outside_run(scope: str, limits: dict[str, Decimal], *, reuse: bool = True):
     under its cap: `scope` gets a budget per provider once (a scope used again keeps its cap and what it has spent, so a
     repeated job cannot spend it twice), and every call inside goes through the call log and may reuse an earlier
     answer. Unlike `measurement`, it is not a measurement: the work may read the store's earlier documents."""
-    for provider, limit in limits.items():
+    for provider, limit in providers.pooled(limits).items():  # 265: per budget the calls reserve from
         ensure_budget(scope, provider, limit)
     with use_run(budget_scope=scope, reuse=reuse):
         yield scope
@@ -203,6 +203,7 @@ def measurement(scope: str, limits: dict[str, Decimal], *, reuse: bool = False):
     (D-h): at its start it names a budgeted provider whose key this environment lacks (a live call to it is refused)."""
     for provider in missing_keys(limits):
         print(KEY_MISSING_NOTE.format(provider=providers.label(provider)), flush=True)
+    limits = providers.pooled(limits)  # 265: per budget the calls reserve from (OpenAI Decisions' in OpenAI's)
     scope = _fresh_scope(scope, set(limits))
     for provider, limit in limits.items():
         set_budget(scope, provider, limit)

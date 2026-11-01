@@ -15,7 +15,9 @@ switches a provider on or off with `JAV_PROVIDERS_ON` / `JAV_PROVIDERS_OFF` (com
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Annotated
 
 from pydantic import AfterValidator
@@ -89,6 +91,24 @@ def check_id(provider_id: str) -> str:
 ProviderId = Annotated[str, AfterValidator(check_id)]
 
 
+def budgets() -> list[str]:
+    """The budgets calls reserve from, in the file's order: every described provider that spends its own (OpenAI
+    Decisions spends OpenAI's, so it is none)."""
+    return [p for p in ids() if get(p).budget == p]
+
+
+def check_budget(budget_id: str) -> str:
+    """The name itself when calls reserve from such a budget (a budget field's check, `BudgetId`)."""
+    if budget_id not in budgets():
+        raise ValueError(f"unknown budget {budget_id!r}; expected one of {budgets()}")
+    return budget_id
+
+
+# A budget's key (a run's, a workflow step's, a case step's cap): a budget calls reserve from (until 265 a
+# hand-written list per form).
+BudgetId = Annotated[str, AfterValidator(check_budget)]
+
+
 def label(provider_id: str) -> str:
     """The provider's name on screen; an undescribed name (a connector's, an old row's) is shown as it is."""
     try:
@@ -103,6 +123,16 @@ def budget_of(provider_id: str) -> str:
         return get(provider_id).budget
     except UnknownProvider:
         return provider_id
+
+
+def pooled(amounts: Mapping[str, Decimal]) -> dict[str, Decimal]:
+    """Amounts per provider summed per budget they spend from (`budget_of`), in their order: a run's or a step's
+    budget is kept so, as the call log reserves (OpenAI Decisions' amount in OpenAI's budget)."""
+    out: dict[str, Decimal] = {}
+    for provider_id, amount in amounts.items():
+        budget = budget_of(provider_id)
+        out[budget] = out.get(budget, Decimal(0)) + amount
+    return out
 
 
 def sharing(budget: str) -> list[str]:
@@ -143,6 +173,6 @@ def availability(provider_id: str) -> Availability:
     return Availability(True, provider=provider_id)
 
 
-__all__ = ["Availability", "MISSING_KEY", "Provider", "ProviderId", "SWITCHED_OFF", "UnknownProvider", "availability",
-           "budget_of", "check_id",
-           "enabled", "get", "has_key", "ids", "label", "sharing"]
+__all__ = ["Availability", "BudgetId", "MISSING_KEY", "Provider", "ProviderId", "SWITCHED_OFF", "UnknownProvider",
+           "availability", "budget_of", "budgets", "check_budget", "check_id",
+           "enabled", "get", "has_key", "ids", "label", "pooled", "sharing"]

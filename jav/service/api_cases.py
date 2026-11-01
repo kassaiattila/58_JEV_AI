@@ -18,7 +18,7 @@ from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav.app import case_lists, case_views, process_runtime, process_settings, work_views
-from jav.core import identity
+from jav.core import identity, providers
 from jav.service.service_shared import Empty, In, IsoDay, PartyId, attachment_header, checked_path, human_actor
 
 CaseId = Annotated[str, PathParam(pattern=r"^wp-[0-9a-f]{12}$")]  # a case's id is its container's
@@ -85,7 +85,7 @@ class CaseIn(In):
     follows: Annotated[str, Field(pattern=r"^wp-[0-9a-f]{12}$")] | None = None
     # 261: the cap a person approves for each step's sub-case's live run, which then starts by itself within it
     step_budgets: Annotated[dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")],
-                                 dict[Literal["jev", "openai", "azure_di"], Annotated[str, Field(max_length=20)]]],
+                                 dict[providers.BudgetId, Annotated[str, Field(max_length=20)]]],
                             Field(min_length=1, max_length=20)] | None = None
 
 

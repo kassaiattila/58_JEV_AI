@@ -22,11 +22,11 @@ from typing import Any
 
 from jav.ai import engine as engines
 from jav.app import work, work_runs
-from jav.core import store
+from jav.core import providers, store
 from jav.core import calls
 
 AZURE_STEP = "azure_di:ocr:"
-PROVIDER_ORDER = ("jev", "openai", "azure_di")
+PROVIDER_ORDER = tuple(providers.ids())  # 265: the provider registry's order (configs/providers.json)
 
 
 @dataclass

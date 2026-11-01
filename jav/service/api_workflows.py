@@ -11,14 +11,14 @@ Layer: UI/CLI (the local service) → `jav.app.workflows`.
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any
 
 from fastapi import Depends, FastAPI
 from fastapi import Path as PathParam
 from pydantic import Field
 
 from jav.ai import engine as engines
-from jav.core import identity
+from jav.core import identity, providers
 from jav.app import work_views, workflows
 from jav.service.service_shared import In, IsoDay, PartyId, checked_path, human_actor
 
@@ -28,7 +28,7 @@ StepId = Annotated[str, PathParam(pattern=r"^[a-z_]{1,40}$")]  # 146: a workflow
 
 
 StepKey = Annotated[str, Field(pattern=r"^[a-z_]{1,40}$")]
-Budget = dict[Literal["jev", "openai", "azure_di"], Annotated[str, Field(pattern=r"^\d{1,4}(\.\d{1,6})?$")]]
+Budget = dict[providers.BudgetId, Annotated[str, Field(pattern=r"^\d{1,4}(\.\d{1,6})?$")]]  # 265: the registry's budgets
 
 
 class WorkflowSource(In):

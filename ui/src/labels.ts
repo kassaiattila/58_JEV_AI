@@ -6,6 +6,7 @@ import fieldLabels from "../../configs/field_labels.json";
 import intentRegistry from "../../configs/intents.json";
 import emailTasks from "../../configs/email_tasks.json";
 import engineRegistry from "../../configs/engines.json";
+import providerRegistry from "../../configs/providers.json";
 import type { Recipe, RunPlan, Said } from "./api";
 import { getLocale, t } from "./i18n";
 
@@ -354,8 +355,12 @@ export function usdBudget(v: string | number | null | undefined): string {
     ? `${n.toLocaleString(getLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD` : usd(v);
 }
 
-/** The provider's name in the interface (058: instead of the key). */
-export const providerName = (p: string): string => ({ jev: "JEV", openai: "OpenAI", azure_di: "Azure DI" } as Record<string, string>)[p] ?? p;
+/** 265 (plan L): the providers in the registry's order (configs/providers.json; the service: `jav/core/providers.py`). */
+export const PROVIDER_ORDER: string[] = Object.keys(providerRegistry.providers);
+const PROVIDER_LABEL: Record<string, string> = Object.fromEntries(
+  Object.entries(providerRegistry.providers).map(([id, p]) => [id, p.label]));
+/** The provider's name in the interface (058: instead of the key; 265: the registry's `label`). */
+export const providerName = (p: string): string => PROVIDER_LABEL[p] ?? p;
 
 /** An item's name: for an email, the subject and the sender (the service's `titles`); for a document, the file name
  *  (048 T2). */

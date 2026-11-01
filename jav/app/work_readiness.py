@@ -12,7 +12,7 @@ from typing import Any
 
 from jav.ai import engine as engines
 from jav.app import item_kinds
-from jav.core import display, store
+from jav.core import display, providers, store
 from jav.documents.native_contracts import NATIVE_SUFFIXES
 from jav import flows
 from jav.app import work, work_recipes, work_runs
@@ -123,10 +123,11 @@ def _run_budget(r: dict[str, Any], params: dict[str, Any], items: list[dict[str,
                 for provider, v in _extras(r, params, extra.extra).items():
                     per[provider] = per.get(provider, Decimal(0)) + v * n
         if arm == "S":
-            per.pop("openai", None)
+            per.pop("openai", None)  # GPT's part (265: a judgement service's own stays, OpenAI Decisions' too)
         for provider, v in per.items():
             out[provider] = out.get(provider, Decimal(0)) + v
-    return out
+    # 265 (plan L): the run's budget per budget its calls reserve from (OpenAI Decisions' in OpenAI's)
+    return providers.pooled(out)
 
 
 def _item_arms(r: dict[str, Any], params: dict[str, Any], items: list[dict[str, Any]]) -> list[str | None]:
@@ -276,8 +277,6 @@ def engine_blocker(plan: dict[str, Any]) -> dict[str, str] | None:
     """265 (plan L; the owner's decision of 2026-11-01: stop and ask): a batch whose items ask AI cannot start with an
     engine that cannot run in this installation (a missing key, a provider switched off); a person chooses another,
     nothing switches by itself. Nothing is called to find out (`jav.ai.engine.availability`)."""
-    from jav.core import providers
-
     if not (plan.get("documents") or plan.get("emails")):
         return None
     engine = engines.get(plan["engine"])
