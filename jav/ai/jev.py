@@ -313,7 +313,8 @@ class JevAdapter:
 
         try:
             result = calls.invoke(run_id=run_id, step_id=f"jev:{request_id}:{key[:16]}", provider="jev", model=model,
-                                  max_cost_usd=max_cost, fn=physical, budget_scope=ctx.budget_scope, request_hash=key)
+                                  max_cost_usd=max_cost, fn=physical, budget_scope=ctx.budget_scope, request_hash=key,
+                                  retried_inside=attempts > 1)  # 272 (K2): the SDK repeats a failure by itself
         except calls.BudgetExceeded as exc:
             raise JevUnavailableError("budget_exceeded") from exc
         except calls.UncertainAttempt as exc:

@@ -573,13 +573,15 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
 def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_cost_usd: Decimal,
            fn: Callable[[], Outcome], budget_scope: str | None = None, request_hash: str | None = None,
            reusable: bool = False, lean: tuple[Decimal, Callable[[], Outcome]] | None = None,
-           repeatable: bool = False, per_minute: int | None = None) -> Result:
+           repeatable: bool = False, per_minute: int | None = None, retried_inside: bool = False) -> Result:
     """One physical call through the call log and the budget. Repeating a successful step returns the saved response.
     090: a `reusable` caller (its `request_hash` is an `answer_key`) gets an earlier answer to the same question when
     the run allows it (`use_run(reuse=True)`): no call, cost 0, a cached row in the ledger. 149: `lean` = (a lower
     bound, the call that keeps to it), sent instead of `fn` when only the lower bound fits the budget left; it must be
     a true bound as well (e.g. the same request without validation retries). 231 (C2a): a `repeatable` call is free
-    and changes nothing (a connector's lookup): a failure of it is never uncertain."""
+    and changes nothing (a connector's lookup): a failure of it is never uncertain. 272 (K2): `retried_inside` when
+    `fn` repeats a failed request by itself (the JEV SDK's retry policy) and raises only its last attempt's error: a
+    last attempt that could not connect may follow one that was sent, so such a failure is not settled at 0."""
     if repeatable and (max_cost_usd != 0 or lean is not None):
         raise ValueError("only a free call without a lean bound is repeatable")
     ctx = current()
@@ -610,7 +612,7 @@ def invoke(*, run_id: str, step_id: str, provider: str, model: str | None, max_c
         # 202: a definite failure whose cost is certain is settled at that cost, not at its reserved maximum; 265 (code
         # review X-12): a request that never reached the provider is certain too, at 0
         known = known_outcome(exc) if status == "failed" else None
-        if known is None and status == "failed" and never_sent(exc):
+        if known is None and status == "failed" and not retried_inside and never_sent(exc):
             known = Outcome(response=None, cost_usd=Decimal(0))
         with store.connect() as c:
             if known is None:
