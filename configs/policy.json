@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.26.0",
+  "version": "1.27.0",
   "changelog": [
+   {
+    "version": "1.27.0",
+    "date": "2026-11-01",
+    "note": "265 (code review AI-09): validators - the arithmetic checks' tolerances, until now constants in jav/ai/validators.py, with the same values: the header totals (net + VAT - gross) within 1 forint, or 0.02 in another currency; the line items' sum within 2 forints or half a forint per item (0.02 or 0.005 per item in another currency); a line's quantity x price and net x (1 + VAT) within 1 or 1% of the printed amount. missing_currency names how a document without a currency is checked, as before: the totals as another currency's, the line items' sum as forints. No result changes."
+   },
    {
     "version": "1.26.0",
     "date": "2026-10-24",
@@ -198,5 +203,11 @@
   "bands": {"confident": 0.98, "check": 0.5},
   "review_below": 0.98,
   "info_only": {"invoice_out": ["buyer_address"]}
+ },
+ "validators": {
+  "totals": {"huf": "1", "other": "0.02"},
+  "line_sum": {"huf_min": "2", "huf_per_item": "0.5", "other_min": "0.02", "other_per_item": "0.005"},
+  "line_arithmetic": {"min": "1", "percent": "1"},
+  "missing_currency": {"totals": "other", "line_sum": "huf"}
  }
 }
