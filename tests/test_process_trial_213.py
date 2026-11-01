@@ -28,6 +28,8 @@ from jav.core.process import engine, outbox
 from tests import process_quote as quote
 from tests import process_worker
 
+pytestmark = pytest.mark.slow  # 265 (code review TOOL-08): about 53 s for the file
+
 ROOT = Path(__file__).resolve().parents[1]
 POLL_S = 0.1
 WAIT_S = 30.0

@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from bisect import bisect_right
 import subprocess
 import sys
 from collections.abc import Iterable, Iterator
@@ -67,6 +68,8 @@ _VALUE_KINDS = frozenset({"hu_tax_id", "eu_vat", "iban", "bank_account", "email"
                           "env_secret", "deny_term"})
 _PATH_KINDS = frozenset({"internal_doc", "blocked_path", "blocked_file", "binary_file"})
 _TOKEN = re.compile(r"\w+")
+# 265 (code review TOOL-07): a wider, cheaper pattern a whole file is searched with first (a superset of the real one)
+_WIDER = {"card_number": re.compile(r"\d{4}[ .-]?\d{4}")}
 _HUNK = re.compile(r"^@@ -\d+(?:,(?P<old>\d+))? \+(?P<start>\d+)(?:,(?P<new>\d+))? @@")
 
 
@@ -249,6 +252,42 @@ class Guard:
             out.extend(Finding(path, line, "deny_term", f"(forbidden phrase {d[:8]})", self._is_known(d, path))
                        for d in sorted(hits))
         return out
+
+    def lines_to_scan(self, text: str) -> list[int]:
+        """265 (code review TOOL-07): the numbers (from 1) of the lines of a whole text that could hold a finding
+        `scan_line` reports: where a pattern, a key pattern, a secret or a forbidden phrase is found in the text. A
+        match within a line is a match within the text (the patterns hold no line anchor and cross no line break), so
+        the other lines would give nothing; the tracked tree's scan took about 17 s line by line. A pattern with a
+        cheaper, wider pattern (`_WIDER`: a card number's shape needs eight digits with at most one separator after the
+        fourth) is searched only in a text where that one is found."""
+        lines = text.splitlines(keepends=True)  # the same lines `scan_tracked` numbers
+        offsets, at = [], 0
+        for line in lines:
+            offsets.append(at)
+            at += len(line)
+        starts: set[int] = set()
+        for kind, pat in self.patterns.items():
+            wider = _WIDER.get(kind)
+            if wider is None or wider.search(text):
+                starts.update(m.start() for m in pat.finditer(text))
+        for pat in self.key_patterns:
+            starts.update(m.start() for m in pat.finditer(text))
+        for secret in self.env_secrets.values():
+            found = text.find(secret) if secret else -1
+            while found >= 0:
+                starts.add(found)
+                found = text.find(secret, found + 1)
+        hit = {bisect_right(offsets, s) for s in starts}
+        if self.deny:  # by line, as `scan_line`: lower-casing may change a text's length
+            denied: dict[str, bool] = {}
+            for n, line in enumerate(lines, start=1):
+                for token in set(_TOKEN.findall(line.lower())):
+                    if token not in denied:
+                        denied[token] = bool(self._deny_in_token(token))
+                    if denied[token]:
+                        hit.add(n)
+                        break
+        return sorted(hit)
 
     # --- path ---
 
@@ -477,8 +516,10 @@ def scan_tracked(root: Path, guard: Guard) -> list[Finding]:
             if not guard.binary_allowed(name):
                 found.append(Finding(name, 0, "binary_file", "a binary file goes into git only on the exception list"))
             continue
-        for i, text in enumerate(data.decode("utf-8", "replace").splitlines(), start=1):
-            found.extend(guard.scan_line(name, i, text))
+        text = data.decode("utf-8", "replace")
+        lines = text.splitlines()
+        for i in guard.lines_to_scan(text):  # 265 (code review TOOL-07): only the lines that could hold a finding
+            found.extend(guard.scan_line(name, i, lines[i - 1]))
     return found
 
 

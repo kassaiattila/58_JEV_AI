@@ -10,9 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 CONFIG = ROOT / "scripts" / "hooks" / "codex-hooks.json"
 
 
+@pytest.mark.slow
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows launcher contract")
-@pytest.mark.parametrize("event", ["SessionStart", "PreCompact", "Stop"])
-@pytest.mark.parametrize("exit_code", [0, 2, 7])
+# 265 (code review TOOL-08): each event and each exit code once - three PowerShell processes, not nine
+@pytest.mark.parametrize(("event", "exit_code"), [("SessionStart", 0), ("PreCompact", 2), ("Stop", 7)])
 def test_windows_launcher_preserves_guard_exit_code(tmp_path, event, exit_code):
     command = json.loads(CONFIG.read_text(encoding="utf-8"))["hooks"][event][0]["hooks"][0]["commandWindows"]
     guard = tmp_path / "synthetic_guard.py"
