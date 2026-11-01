@@ -13,6 +13,7 @@ uv venv --python 3.12.15 .venv   # the latest 3.12 patch release; uv fetches it 
 uv pip install -r requirements.lock
 .\.venv\Scripts\Activate.ps1
 python -m jav.cli hooks-install      # data guard: a check before every commit and push; once per clone
+uv tool install ruff==0.16.4         # the code check, in the version preflight counts with (pyproject.toml, ruff_version)
 python -m jav.cli preflight          # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
 ```
 

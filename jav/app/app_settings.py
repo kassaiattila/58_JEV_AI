@@ -317,7 +317,7 @@ def _own_case(wp_id: str, actor: identity.Who) -> None:
     try:
         owner = work.get(wp_id).get("owner") or actor
         process_runtime.wrap_into(DOCUMENTS, wp_id, scope={}, actor=owner)
-    except Exception:  # noqa: BLE001 - the batch stays, as an ordinary one
+    except Exception:  # the batch stays, as an ordinary one
         log.exception("the watched folder's batch %s got no case", wp_id)
 
 
@@ -373,7 +373,7 @@ def _scan(folder: dict[str, Any], now: datetime, actor: identity.Who) -> dict[st
         status = "ok"
     except (OSError, ValueError) as exc:
         result, status = {"error": str(exc)}, "error"
-    except Exception as exc:  # noqa: BLE001 - 063: e.g. concurrent package edit; error shown on the folder, files kept
+    except Exception as exc:  # 063: e.g. concurrent package edit; error shown on the folder, files kept
         log.exception("watched folder %s scan failed", folder["id"])
         result, status = {"error": f"{type(exc).__name__}: {exc}"}, "error"
     with store.connect() as c:

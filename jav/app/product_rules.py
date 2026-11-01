@@ -266,9 +266,9 @@ def add_in(c: Any, kind: str, ident: str, content: dict[str, Any], *, actor: ide
     model = _MODELS[_kind(kind)].model_validate(content)
     text = json.dumps(model.model_dump(mode="json"), ensure_ascii=False, sort_keys=True)
     table = _TABLES[kind]
-    latest = c.execute(f"SELECT MAX(version) FROM {table} WHERE ident=?", (ident,)).fetchone()[0]  # noqa: S608 - own table name
+    latest = c.execute(f"SELECT MAX(version) FROM {table} WHERE ident=?", (ident,)).fetchone()[0]  # own table name
     version = int(latest or 0) + 1
-    c.execute(f"INSERT INTO {table}(ident, version, state, name, content, fingerprint, made_by, made_by_id, made_at)"  # noqa: S608
+    c.execute(f"INSERT INTO {table}(ident, version, state, name, content, fingerprint, made_by, made_by_id, made_at)"
               " VALUES (?,?,?,?,?,?,?,?,?)",
               (ident, version, versions.DRAFT, _content_name(kind, model), text,
                hashlib.sha256(text.encode("utf-8")).hexdigest(), identity.name_of(actor), identity.id_of(actor), _now()))
@@ -291,7 +291,7 @@ def get(kind: str, ident: str, version: int) -> dict[str, Any]:
 def latest(kind: str, ident: str) -> dict[str, Any] | None:
     """D-c5: a thing's newest version, whatever its state; None when it has none."""
     with store.connect() as c:
-        row = c.execute(f"SELECT * FROM {_TABLES[_kind(kind)]} WHERE ident=? ORDER BY version DESC LIMIT 1",  # noqa: S608
+        row = c.execute(f"SELECT * FROM {_TABLES[_kind(kind)]} WHERE ident=? ORDER BY version DESC LIMIT 1",
                         (ident,)).fetchone()
     return _view(row) if row is not None else None
 
@@ -313,7 +313,7 @@ def resolve_in(c: Any, kind: str, reference: str) -> dict[str, Any]:
 def listing(kind: str) -> list[dict[str, Any]]:
     """Every thing of the kind, newest first, each with its versions and its active one."""
     with store.connect() as c:
-        rows = c.execute(f"SELECT * FROM {_TABLES[_kind(kind)]} ORDER BY id DESC").fetchall()  # noqa: S608
+        rows = c.execute(f"SELECT * FROM {_TABLES[_kind(kind)]} ORDER BY id DESC").fetchall()
     return _VERSIONS[kind].grouped(rows, lambda r: {"ident": r["ident"], "name": r["name"]}, _view)
 
 
@@ -370,19 +370,19 @@ def overview() -> dict[str, Any]:
 
 def made_by_ids_in(c: Any, kind: str, ident: str) -> set[str | None]:
     """231 (stage U, U0): who made each version of a thing (their stable ids)."""
-    return {r[0] for r in c.execute(f"SELECT made_by_id FROM {_TABLES[_kind(kind)]} WHERE ident=?", (ident,))}  # noqa: S608
+    return {r[0] for r in c.execute(f"SELECT made_by_id FROM {_TABLES[_kind(kind)]} WHERE ident=?", (ident,))}
 
 
 def origins_in(c: Any, kind: str, ident: str) -> list[dict[str, Any]]:
     """231 (U-A4): where each version of a thing came from (its content's `origin`, a rule's proposal; none: `{}`)."""
     return [json.loads(r[0]).get("origin") or {} for r in c.execute(
-        f"SELECT content FROM {_TABLES[_kind(kind)]} WHERE ident=? ORDER BY version", (ident,))]  # noqa: S608
+        f"SELECT content FROM {_TABLES[_kind(kind)]} WHERE ident=? ORDER BY version", (ident,))]
 
 
 def remove_in(c: Any, kind: str, ident: str) -> int:
     """231 (U0): every version of a thing taken out of the store, inside the caller's write transaction; only for a
     process's example material that nothing keeps (`jav/app/examples.py` checks); the versions removed."""
-    return c.execute(f"DELETE FROM {_TABLES[_kind(kind)]} WHERE ident=?", (ident,)).rowcount  # noqa: S608 - own table name
+    return c.execute(f"DELETE FROM {_TABLES[_kind(kind)]} WHERE ident=?", (ident,)).rowcount  # own table name
 
 
 def retire(kind: str, ident: str, *, actor: identity.Who) -> dict[str, Any]:

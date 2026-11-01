@@ -329,8 +329,12 @@ def preflight(*, skip_pytest: bool = False) -> int:
     ok, msg = jev_version.verdict(jev_version.status())  # 200: a newer version is a notice, the pinned one answers
     results.append(("JEV version", ok, msg))
 
-    found = devstate.ruff_findings()
-    ok, msg = devstate.lint_verdict(found[0] if found else None, devstate.lint_limit())
+    try:
+        found = devstate.ruff_findings()
+        ok, msg = devstate.lint_verdict(found[0] if found else None, devstate.lint_limit(),
+                                        version=devstate.ruff_version() if found else None, pinned=devstate.ruff_pinned())
+    except devstate.RuffFailed as exc:  # 265 (code review TOOL-09): installed but failed is an error
+        ok, msg = False, f"Ruff failed: {exc}"
     results.append(("ruff", ok, msg))
 
     path = write_state()

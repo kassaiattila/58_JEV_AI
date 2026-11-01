@@ -20,7 +20,7 @@ def _refresh_jev_version() -> None:
 
     try:
         st = jev_version.refresh()
-    except Exception:  # noqa: BLE001 - the look is a side task of the backup; logged with its traceback
+    except Exception:  # the look is a side task of the backup; logged with its traceback
         logging.getLogger("jav.runtime.backup").exception("JEV version look failed")
         return
     logging.getLogger("jav.runtime.backup").info("JEV version: %s", jev_version.verdict(st)[1])
@@ -34,7 +34,7 @@ def _refresh_deps_audit() -> None:
 
     try:
         fresh = deps_audit.refresh_if_stale()
-    except Exception:  # noqa: BLE001 - the audit is a side task of the backup; logged with its traceback
+    except Exception:  # the audit is a side task of the backup; logged with its traceback
         logging.getLogger("jav.runtime.backup").exception("dependency audit failed")
         return
     if fresh is not None:

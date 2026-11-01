@@ -816,7 +816,7 @@ def backfill(*, dry_run: bool = False) -> list[dict[str, Any]]:
             "SELECT DISTINCT r.workpackage_id FROM runs r JOIN workpackages w ON w.id=r.workpackage_id"
             " WHERE r.mode='apply' AND r.approval='approved' AND w.source_kind NOT IN (%s)"
             " AND NOT EXISTS (SELECT 1 FROM package_versions v WHERE v.workpackage_id=r.workpackage_id)"
-            " ORDER BY r.workpackage_id" % ",".join("?" * len(without_runs)), without_runs)]  # noqa: S608 - placeholders
+            " ORDER BY r.workpackage_id" % ",".join("?" * len(without_runs)), without_runs)]  # placeholders
     out = []
     for wp_id in ids:
         wp = work.get(wp_id)

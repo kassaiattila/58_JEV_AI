@@ -243,7 +243,7 @@ def test_a04_a_sidecar_that_never_answered_is_not_uncertain():
         try:
             raise TimeoutError("timed out")
         except TimeoutError as low:
-            raise urllib.error.URLError(low)  # noqa: B904 - urllib's own shape: the cause is only the context
+            raise urllib.error.URLError(low)  # urllib's own shape: the cause is only the context
     except urllib.error.URLError as exc:
         assert calls.outcome_unknown(exc) is False
     assert calls.outcome_unknown(TimeoutError("read timed out")) is True

@@ -42,7 +42,7 @@ def _open(kind: str, subject: str) -> list[str]:
     return [r["reason"] for r in store.review_open_reasons(kind, subject)]
 
 
-def test_a_duplicate_decision_stopped_at_its_to_do_keeps_nothing(db, monkeypatch):  # noqa: F811
+def test_a_duplicate_decision_stopped_at_its_to_do_keeps_nothing(db, monkeypatch):
     earlier, now = d126._pair_in_run()
     _stop_at_the_to_do(monkeypatch)
     with pytest.raises(RuntimeError, match="process stopped"):
@@ -52,7 +52,7 @@ def test_a_duplicate_decision_stopped_at_its_to_do_keeps_nothing(db, monkeypatch
     assert _open("document", now) == [f"duplicate:variant:{earlier[:16]}"]
 
 
-def test_a_statement_choice_stopped_at_its_to_do_keeps_nothing(db, monkeypatch):  # noqa: F811
+def test_a_statement_choice_stopped_at_its_to_do_keeps_nothing(db, monkeypatch):
     a, b = _statement_pair()
     _stop_at_the_to_do(monkeypatch)
     with pytest.raises(RuntimeError, match="process stopped"):

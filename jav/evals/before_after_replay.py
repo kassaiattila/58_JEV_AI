@@ -200,7 +200,7 @@ def _network_closed() -> None:
     else:
         raise SnapshotError("the network is open for httpx2: the replay could reach a provider")
     try:
-        urllib.request.urlopen(_NETWORK_PROBE, timeout=5)  # noqa: S310 - a fixed https address
+        urllib.request.urlopen(_NETWORK_PROBE, timeout=5)  # a fixed https address
     except urllib.error.HTTPError as exc:  # an answer: the request left
         raise SnapshotError("the network is open for urllib: the replay could reach a provider") from exc
     except OSError:  # URLError is one: the connection to the closed port was refused
@@ -343,7 +343,7 @@ def live_calls(c: sqlite3.Connection, run_ids: list[str]) -> list[dict[str, Any]
     found: list[dict[str, Any]] = []
     for rid in run_ids:
         mine = "(budget_scope = ? OR substr(run_id, 1, ?) = ?)"
-        for r in c.execute(f"SELECT run_id, step_id, provider, status, note FROM invocations WHERE {mine} ORDER BY id",  # noqa: S608 - fixed text
+        for r in c.execute(f"SELECT run_id, step_id, provider, status, note FROM invocations WHERE {mine} ORDER BY id",  # fixed text
                            (rid, len(rid) + 1, f"{rid}:")):
             if not (r["status"] == "succeeded" and str(r["note"] or "").startswith(f"{calls.REUSED_NOTE}:")):
                 found.append({"source": "invocations", "run_id": r["run_id"], "step": r["step_id"],

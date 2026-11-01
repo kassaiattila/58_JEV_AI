@@ -126,7 +126,7 @@ def _npm(root: Path) -> dict[str, Any]:
 
 def _fetch_json(url: str) -> dict[str, Any]:
     req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "jav-deps-audit"})
-    with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT_S) as res:  # noqa: S310 - a fixed https address
+    with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT_S) as res:  # a fixed https address
         return json.loads(res.read().decode("utf-8"))
 
 

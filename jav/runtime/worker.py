@@ -394,7 +394,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
         log.warning("item %s of %s is over a document limit: %s", item_id, run_id, exc)
         work_runs.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))
         result = queue.fail(job.id, error_text(exc), max_attempts=1, backoff_s=0)
-    except Exception as exc:  # noqa: BLE001 - every other error is item-level; the queue's attempt limit decides
+    except Exception as exc:  # every other error is item-level; the queue's attempt limit decides
         log.exception("item %s of %s failed", item_id, run_id)  # 063: full traceback to the log (item: 300 chars)
         work_runs.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))
         result = queue.fail(job.id, error_text(exc), max_attempts=int(run["recipe"].get("max_attempts", 2)),
@@ -413,7 +413,7 @@ def _prune_state(app_id: str) -> None:
     error does not affect the item's result; it is logged."""
     try:
         persistence.prune_to_last(persister_path(), app_id=app_id)
-    except Exception:  # noqa: BLE001 - store pruning must never block processing
+    except Exception:  # store pruning must never block processing
         log.exception("could not prune the saved state of %s", app_id)
 
 
@@ -444,7 +444,7 @@ def _fail_unexpected(job: queue.Job, exc: Exception) -> str:
     result = queue.fail(job.id, error, max_attempts=1, backoff_s=0)
     try:
         _settle_abandoned(job, "failed", error)
-    except Exception:  # noqa: BLE001 - a settling error must not stop the worker either; logged
+    except Exception:  # a settling error must not stop the worker either; logged
         log.exception("could not settle job %s after an unexpected error", job.id)
     return result
 
@@ -579,7 +579,7 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
                 recovered_at = time.monotonic()
                 try:
                     _recover()
-                except Exception:  # noqa: BLE001 - operational safety net, logged; tried again next time
+                except Exception:  # operational safety net, logged; tried again next time
                     log.exception("recovering stopped claims failed")
                     info["errors"] += 1
             # 048 T2: a download job for each due mailbox schedule (185: a domain's tick, `jav/runtime/job_kinds.py`);
@@ -595,12 +595,12 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
             for name, tick in ticks:
                 try:
                     tick()
-                except Exception:  # noqa: BLE001 - operational safety net, logged
+                except Exception:  # operational safety net, logged
                     log.exception("%s failed", name)
                     info["errors"] += 1
             try:
                 job = queue.claim(worker, kinds=(work.JOB_KIND, *(k.kind for k in job_kinds.kinds())), holder=holder)
-            except Exception:  # noqa: BLE001 - e.g. a store locked for long: wait, then try again
+            except Exception:  # e.g. a store locked for long: wait, then try again
                 log.exception("claim failed")
                 info["errors"] += 1
                 if once:
@@ -614,7 +614,7 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
                 continue
             try:
                 res = handle(job)
-            except Exception as exc:  # noqa: BLE001 - operational safety net: the job is closed, the loop carries on
+            except Exception as exc:  # operational safety net: the job is closed, the loop carries on
                 log.exception("job %s (%s) failed unexpectedly", job.id, job.kind)
                 info["errors"] += 1
                 res = _fail_unexpected(job, exc)

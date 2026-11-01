@@ -256,7 +256,7 @@ def turn_due(now: float | None = None, *, passes: int = DUE_PASSES) -> int:
         for case_id in todo:
             try:
                 moved += turn(case_id, now=now)
-            except Exception:  # noqa: BLE001 - operational safety net: logged, the case is turned again next round
+            except Exception:  # operational safety net: logged, the case is turned again next round
                 log.exception("case %s could not take its turn", case_id)
                 failed.add(case_id)
     return moved
@@ -406,7 +406,7 @@ def _run_step(case_id: str, step: StepDef, *, rerun: bool = False) -> bool:
     try:
         with observability.measured(f"step:{step.kind}"):
             outcome = kinds.of(step.kind).run(ctx)
-    except Exception as exc:  # noqa: BLE001 - the step fails with the reason; a person retries it
+    except Exception as exc:  # the step fails with the reason; a person retries it
         log.exception("case %s step %s failed", case_id, step.id)
         with cases.transaction() as c:
             cases.fail(c, case_id, step.id, ctx.actor, f"{type(exc).__name__}: {exc}")
@@ -454,7 +454,7 @@ def run(*, stop: Callable[[], bool], poll_s: float = POLL_S) -> dict[str, int]:
     while not stop():
         try:
             moved = run_once()
-        except Exception:  # noqa: BLE001 - operational safety net: logged, the case is claimed again later
+        except Exception:  # operational safety net: logged, the case is claimed again later
             log.exception("a process turn failed")
             info["errors"] += 1
             moved = False
