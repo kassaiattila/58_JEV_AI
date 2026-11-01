@@ -25,7 +25,8 @@ def verify_jev(delivery: Delivery, interpretation: Interpretation, *, run_id: st
                receipt_observer: Callable | None = None) -> Interpretation:
     from typesafe_sdk import Noul
 
-    from jav.ai.jev import JevAdapter
+    from jav.ai.jev import JevAdapter, JevUnavailableError
+    from jav.core import calls
 
     adapter = adapter or JevAdapter()
     require_measurement(getattr(adapter, "provider", "jev"), isolated_store)
@@ -43,6 +44,14 @@ def verify_jev(delivery: Delivery, interpretation: Interpretation, *, run_id: st
     if not questions:
         return interpretation
     chunks = verification_chunks(view, questions, interpretation.facts, max_transfer_bytes)
+    # 272 (K2, the rest of AI-01): the check of several parts is asked only when the budget left covers every part not
+    # answered before; otherwise nothing is spent (the second part used to be refused after the first was paid for)
+    ctx = calls.current()
+    unanswered = getattr(adapter, "unanswered_cost", None)  # a stand-in adapter (a test's) has no bound
+    if unanswered is not None and ctx is not None and ctx.budget_scope is not None and len(chunks) > 1:
+        room = calls.left(ctx.budget_scope, getattr(adapter, "provider", "jev"))
+        if room is not None and unanswered(chunks, use_cache=use_cache) > room:
+            raise JevUnavailableError("budget_exceeded")
     answers, models = {}, []
     with nullcontext() if use_cache else adapter.no_cache_write():
         for part, batch in chunks:

@@ -74,6 +74,7 @@ class ProbeClient:
 
 def test_the_daily_look_asks_the_moving_name_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(store, "STORE_PATH", tmp_path / "t.sqlite")
+    monkeypatch.setattr(jev_version, "LOOK_PATH", tmp_path / "jev-version-look.json")
     client = ProbeClient("jev-1.15.0")
     adapter = JevAdapter(client=client, cache_dir=tmp_path / "cache", model="jev-1.14.0")
     st = jev_version.refresh(adapter=adapter, pinned="jev-1.14.0")

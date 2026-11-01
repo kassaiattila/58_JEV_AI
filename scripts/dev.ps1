@@ -1,10 +1,10 @@
-# Helyi szolgaltatas + feldolgozo inditasa / leallitasa (040 K2).
-#   .\scripts\dev.ps1 start    # API (127.0.0.1:8930) + egy feldolgozo, hatterben; naplo: runs\dev\*.log
-#                              # 231 E1: as many workers as configs\service.json "workers" says (one by default)
-#                              # 231 U0: also the invented registers (127.0.0.1:8941) the insurance case asks
-#   .\scripts\dev.ps1 status   # futnak-e, es mennyi feladat var
-#   .\scripts\dev.ps1 stop     # a feldolgozo a folyamatban levo tetel utan lep ki, az API azonnal all le
-# A szoveg szandekosan ASCII: a Windows PowerShell 5.1 a nem ASCII literalt hibasan olvashatja (CLAUDE.md 7.).
+# Starts and stops the local service and its workers.
+#   .\scripts\dev.ps1 start    # the API (127.0.0.1:8930) and the workers in the background; logs: runs\dev\*.log
+#                              # as many workers as configs\service.json "workers" says (one by default)
+#                              # also the invented registers (127.0.0.1:8941) the insurance case asks
+#   .\scripts\dev.ps1 status   # whether they run, and how many jobs wait
+#   .\scripts\dev.ps1 stop     # a worker leaves after the item it is working on, the API stops at once
+# The script's strings are ASCII on purpose: Windows PowerShell 5.1 can misread a non-ASCII literal (CLAUDE.md 7).
 param(
     [Parameter(Mandatory = $true)][ValidateSet("start", "stop", "status")][string]$Action,
     [int]$Port = 8930,
@@ -40,8 +40,8 @@ function Start-Tracked([string]$Name, [string[]]$CliArgs) {
     if ($null -ne $existing) { Write-Output "$Name already running (pid $($existing.Id))"; return }
     $out = Join-Path $DevDir "$Name.log"
     $err = Join-Path $DevDir "$Name.err.log"
-    # 063: az elozo inditas kimenete megmarad (*.prev), hogy egy osszeomlas nyoma ujrainditas utan is olvashato legyen;
-    # az allando, forgo naplo: runs\logs\api.log es runs\logs\worker.log
+    # the previous start's output is kept (*.prev), so a crash's trace can still be read after a restart; the lasting,
+    # rotating logs are runs\logs\api.log and runs\logs\worker.log
     foreach ($f in @($out, $err)) { if ((Test-Path $f) -and ((Get-Item $f).Length -gt 0)) { Move-Item $f "$f.prev" -Force } }
     $proc = Start-Process -FilePath $Python -ArgumentList (@("-X", "utf8", "-m", "jav.cli") + $CliArgs) `
         -WorkingDirectory $Root -WindowStyle Hidden -RedirectStandardOutput $out -RedirectStandardError $err -PassThru

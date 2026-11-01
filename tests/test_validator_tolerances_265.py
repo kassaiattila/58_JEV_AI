@@ -1,8 +1,7 @@
 """265 (code review AI-09): the arithmetic checks' tolerances come from configs/policy.json, with the values the code had.
 
-A document without a currency is checked as before: its totals as another currency's (within 0.02), its line items' sum
-as forints (within 2 or half a forint per item). Unifying the two is the owner's decision; the file names both. Synthetic
-records, offline.
+A document without a currency was checked two ways: its totals as another currency's (within 0.02), its line items' sum
+as forints. The owner's decision of 2026-11-01: both as forints (policy.json 1.28.0). Synthetic records, offline.
 """
 
 from __future__ import annotations
@@ -30,14 +29,15 @@ def test_the_tolerances_are_the_policy_files() -> None:
         "totals": {"huf": "1", "other": "0.02"},
         "line_sum": {"huf_min": "2", "huf_per_item": "0.5", "other_min": "0.02", "other_per_item": "0.005"},
         "line_arithmetic": {"min": "1", "percent": "1"},
-        "missing_currency": {"totals": "other", "line_sum": "huf"},
+        "missing_currency": {"totals": "huf", "line_sum": "huf"},
     }
 
 
-def test_the_totals_keep_their_tolerances_and_a_missing_currency_is_another_currencys() -> None:
+def test_the_totals_keep_their_tolerances_and_a_missing_currency_is_forints() -> None:
     assert _totals("HUF", "128.00") == "totals.ok" and _totals("HUF", "128.01") == "totals.mismatch"
     assert _totals("EUR", "127.02") == "totals.ok" and _totals("EUR", "127.03") == "totals.mismatch"
-    assert _totals(None, "127.02") == "totals.ok" and _totals(None, "127.50") == "totals.mismatch"
+    # the owner's decision of 2026-11-01 (policy.json 1.28.0): as forints, as the line items' sum (it was 0.02)
+    assert _totals(None, "127.50") == "totals.ok" and _totals(None, "128.01") == "totals.mismatch"
 
 
 def test_the_line_sum_keeps_its_tolerances_and_a_missing_currency_is_forints() -> None:

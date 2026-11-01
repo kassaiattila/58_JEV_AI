@@ -52,12 +52,16 @@ class Lookup(BaseModel):
 
     @model_validator(mode="after")
     def _within_what_it_sends(self) -> Lookup:
-        """265 (code review X-19): a lookup sends no more kinds of data than its connector says it sends (`sends` in
-        configs/connectors.json, the owner's list of what may leave the machine)."""
-        declared = connectors.of(self.connector).sends
-        if len(self.asks) + len(self.asks_if_known) > len(declared):
-            raise ValueError(f"the lookup sends {len(self.asks) + len(self.asks_if_known)} kinds of data, its connector "
-                             f"{self.connector!r} says it sends {len(declared)}: {', '.join(declared)}")
+        """265 (code review X-19): a lookup sends no more than its connector says it sends (configs/connectors.json,
+        the owner's list of what may leave the machine). 272 (K2): by the facts themselves (`sends_facts`), not by how
+        many there are: a name may not leave where a tax number is declared."""
+        declared = set(connectors.of(self.connector).sends_facts)
+        if not declared:
+            raise ValueError(f"the connector {self.connector!r} names no facts a lookup may send (sends_facts)")
+        undeclared = sorted((set(self.asks.values()) | set(self.asks_if_known.values())) - declared)
+        if undeclared:
+            raise ValueError(f"the lookup would send {', '.join(undeclared)}, which its connector {self.connector!r} "
+                             f"does not name; it may send {', '.join(sorted(declared))}")
         return self
 
 

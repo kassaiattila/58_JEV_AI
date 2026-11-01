@@ -243,6 +243,7 @@ def test_pre_push_blocks_forbidden_history_and_scans_new_commits(repo, guard):
     zero = "0" * 40
     conf = data_guard.load_config()
     conf["forbidden_history"] = [old]
+    conf["push"] = {**conf["push"], "root": None}  # 272: the root rule has its own test (test_data_guard_root_272)
     g = data_guard.Guard(conf, env_secrets={})
     found = data_guard.check_push(repo, g, [f"refs/heads/main {head} refs/heads/main {zero}"])
     assert _kinds(found) == ["forbidden_history"]

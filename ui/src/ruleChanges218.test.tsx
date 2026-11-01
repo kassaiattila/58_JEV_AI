@@ -12,7 +12,7 @@ import { ResultStage } from "./views/ResultStage";
 vi.mock("./components/DataTable", async () => {
   const React = await import("react");
   return { DataTable: ({ onPage }: { onPage?: (p: DsPage) => void }) => {
-    React.useEffect(() => { onPage?.({ rows: [], review_version: "v1" } as unknown as DsPage); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    React.useEffect(() => { onPage?.({ rows: [], review_version: "v1" } as unknown as DsPage); }, []); // eslint-disable-line react-hooks/exhaustive-deps -- the stand-in reports its page once, when it mounts
     return <div data-testid="table" />;
   } };
 });

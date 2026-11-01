@@ -19,7 +19,7 @@ def test_the_tests_run_in_the_chosen_number_of_processes_with_the_slowest_listed
     seen: list = []
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
     monkeypatch.setattr(preflight, "parallel_workers", lambda: 4)
-    monkeypatch.setattr(preflight.subprocess, "run", lambda cmd, **kw: seen.append(cmd) or DONE)
+    monkeypatch.setattr(preflight, "_bounded", lambda cmd, **kw: seen.append(cmd) or DONE)
     ok, summary = preflight.run_pytest()
     assert ok and summary == "3 passed in 1.00s"
     cmd = seen[0]
@@ -31,7 +31,7 @@ def test_without_parallel_processes_the_tests_run_in_one_as_before(tmp_path, mon
     seen: list = []
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
     monkeypatch.setattr(preflight, "parallel_workers", lambda: 0)
-    monkeypatch.setattr(preflight.subprocess, "run", lambda cmd, **kw: seen.append(cmd) or DONE)
+    monkeypatch.setattr(preflight, "_bounded", lambda cmd, **kw: seen.append(cmd) or DONE)
     preflight.run_pytest()
     assert "-n" not in seen[0] and "--dist" not in seen[0]
 

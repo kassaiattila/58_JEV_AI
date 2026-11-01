@@ -27,8 +27,8 @@ from jav.core import decisions, identity, store
 from jav.core.clock import utc_stamp as _now
 from jav.core.user_messages import explained
 
-__all__ = ["KIND", "UnitRemoved", "UnknownUnit", "add", "checked_input", "history", "reference", "register", "remove",
-           "save", "state", "unit", "units"]
+__all__ = ["KIND", "UnitHasParts", "UnitRemoved", "UnknownUnit", "add", "checked_input", "history", "reference", "register",
+           "remove", "save", "state", "unit", "units"]
 
 KIND = "assessed_unit"
 DATASET = "assessed_units"

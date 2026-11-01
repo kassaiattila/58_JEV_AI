@@ -404,10 +404,10 @@ def serve(port: int = DEFAULT_PORT, *, run_flow: bool = False, inbox_root: Path 
     configured = token or os.environ.get(TOKEN_ENV)
     httpd = make_server(port, run_flow=run_flow, inbox_root=inbox_root, token=token,
                         flow_context=contextvars.copy_context() if run_flow else None)
-    auth = "kulccsal (Authorization: Bearer)" if configured else \
-        (f"egyszeri kulccsal: a híd -ApiToken kapcsolójának értéke {httpd.RequestHandlerClass.token} "
-         f"(állandó kulcs: a {TOKEN_ENV} környezeti változó)")
-    print(f"jav M3 ingest-fogadó: http://127.0.0.1:{port}/ingest/email  ->  {inbox_root}  (run_flow={run_flow}; {auth}; Ctrl+C: leállítás)")
+    auth = "with a key (Authorization: Bearer)" if configured else \
+        (f"with a one-time key: the bridge's -ApiToken value is {httpd.RequestHandlerClass.token} "
+         f"(a lasting key: the {TOKEN_ENV} environment variable)")
+    print(f"jav email receiver: http://127.0.0.1:{port}/ingest/email  ->  {inbox_root}  (run_flow={run_flow}; {auth}; Ctrl+C: stop)")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

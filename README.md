@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition, invoice data extraction and email intent — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.76.0`** (2026-11-01). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.76.2`** (2026-11-01). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -37,7 +37,7 @@ The system reads invoices, other documents and emails. It recognises what type e
 | | **Operations**: a verified daily backup with an optional second location, persistent logs, thinning of the flow-state store and a weekly dependency audit; JEV asked by a pinned version, with a daily look for a newer one; the Operations page shows the running version, the worker, the backup, the audit and the JEV version | Works |
 | | **Repository safeguards**: a data guard before every commit and push, so that personal data, keys, internal working documents and document files cannot get into git | Works |
 | | **Rules and their trace**: Settings › Rules shows, for each kind of decision the system makes on its own, what it decides, the values it decides with, the version of its rule files in use and how many decisions it has made; every such decision is recorded with its inputs, its outcome and the rule versions it used (`python -m jav.cli trace`), and every run, item, case and approval names the code and the rule files it was computed with (`python -m jav.cli snapshot`); a proposed version of a rule file can first be tried on the earlier decisions, free (`python -m jav.cli rules-preview`), and each field of work keeps its rules in a file of its own (the email routes `configs/email.json`, the finance rules `configs/finance.json`) | Works |
-| Learning | **Teaching a document type**: field proposals from the general facts of a held-out family's development documents, an edited draft from which code makes the type pack, a measurement on documents the draft has not seen, and turning the type on or off by command (a taught type only with that measurement) | Works on one family (the admission ticket: 40/40 fields on its unseen half); one layout of one issuer |
+| Learning | **Teaching a document type**: field proposals from the general facts of a held-out family's development documents, an edited draft from which code makes the type pack, a measurement on documents the draft has not seen, and turning the type on or off by command (a taught type only with that measurement) | Works on one family (the admission ticket, measured on its unseen half); one layout of one issuer |
 | Measurement | Golden-set runs, determinism runs, a shared evaluation report and a cost ledger | Works; the golden sets live in the legacy project |
 
 How it is built: [architecture](docs/ARCHITECTURE.md). How to use the workspace: [user guide](docs/guides/USER_GUIDE.md).

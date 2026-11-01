@@ -305,16 +305,19 @@ def _names(ids: set[str]) -> dict[str, str]:
 
 
 def _held(atts: list[dict[str, Any]], decided: dict[str, dict[str, Any]]) -> dict[str, bool]:
-    """Whether the package an attachment was accepted into still holds it (a person may have removed it there)."""
-    out: dict[str, bool] = {}
+    """Whether the package an attachment was accepted into still holds it (a person may have removed it there). 272
+    (K4, the rest of DOM-10): one query for every accepted attachment (in parts below SQLite's parameter limit)."""
+    wanted = {a["item_id"]: dec["target"] for a in atts
+              if (dec := decided.get(a["item_id"])) and dec["decision"] == "accepted" and dec["target"]}
+    held: set[tuple[str, str]] = set()
+    ids = sorted(wanted)
     with store.connect() as c:
-        for a in atts:
-            dec = decided.get(a["item_id"])
-            if dec and dec["decision"] == "accepted" and dec["target"]:
-                row = c.execute("SELECT removed_revision FROM workpackage_items WHERE workpackage_id=? AND item_id=?",
-                                (dec["target"], a["item_id"])).fetchone()
-                out[a["item_id"]] = row is not None and row["removed_revision"] is None
-    return out
+        for start in range(0, len(ids), 500):
+            part = ids[start:start + 500]
+            held |= {(r["workpackage_id"], r["item_id"]) for r in c.execute(
+                "SELECT workpackage_id, item_id, removed_revision FROM workpackage_items"
+                f" WHERE item_id IN ({','.join('?' * len(part))})", part) if r["removed_revision"] is None}
+    return {item_id: (target, item_id) in held for item_id, target in wanted.items()}
 
 
 # --- a person's decisions --------------------------------------------------------------------------------------------------
@@ -406,9 +409,13 @@ def accept(wp_id: str, item_ids: list[str], *, actor: identity.Who, target: str 
     return view(wp_id)
 
 
-def _accept(wp_id: str, item_ids: list[str], *, actor: identity.Who, target: str | None, titles: dict[str, str] | None,
-            expected_states: dict[str, int] | None) -> None:
+def _accept(wp_id: str, item_ids: list[str] | None, *, actor: identity.Who, target: str | None,
+            titles: dict[str, str] | None, expected_states: dict[str, int] | None) -> None:
+    """`item_ids` None: every clear proposal not decided yet, listed from the view read here under the lock (272, K4:
+    the rest of DOM-10; it was listed from a view of its own before)."""
     rows = view(wp_id)["items"]
+    if item_ids is None:
+        item_ids = [r["item_id"] for r in rows if r["proposal"] and not r["decision"]]
     files = {a["item_id"]: a for a in _attachments(sources_of(wp_id))}
     made_now: dict[tuple[str, str, str, str], str] = {}  # one new package per party, month and role in one call
     for item_id in dict.fromkeys(item_ids):
@@ -446,8 +453,9 @@ def _accept(wp_id: str, item_ids: list[str], *, actor: identity.Who, target: str
 
 def accept_clear(wp_id: str, *, actor: identity.Who, titles: dict[str, str] | None = None) -> dict[str, Any]:
     """Accepts every proposal without a blocker that is not decided yet."""
-    rows = view(wp_id)["items"]
-    return accept(wp_id, [r["item_id"] for r in rows if r["proposal"] and not r["decision"]], actor=actor, titles=titles)
+    with decisions.one_at_a_time(ROUTING_KIND, wp_id):
+        _accept(wp_id, None, actor=actor, target=None, titles=titles, expected_states=None)
+    return view(wp_id)
 
 
 def reject(wp_id: str, item_ids: list[str], *, actor: identity.Who, expected_states: dict[str, int] | None = None) -> dict[str, Any]:

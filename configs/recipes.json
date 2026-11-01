@@ -71,7 +71,7 @@
    {
     "version": "1.0.0",
     "date": "2026-09-27",
-    "note": "The catalogue of process recipes (the structure of the V4 flows/business-workflows.json); the first recipe is invoice extraction (decision 040/3)"
+    "note": "The catalogue of process recipes (the structure of the V4 flows/business-workflows.json); the first recipe is invoice extraction"
    },
    {
     "version": "1.2.0",

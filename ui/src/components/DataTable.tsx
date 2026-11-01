@@ -358,7 +358,7 @@ export function DataTable(p: Props) {
   const debounced = useDebounced(search);
   useEffect(() => {
     if (debounced !== state.q) patch({ q: debounced });
-  }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps -- only the debounced search asks for a new page
 
   const scope = p.scope ?? {};
   const query = useMemo(() => ({ q: state.q || undefined, filters: state.filters, sort: state.sort, offset: state.offset, limit: state.limit,
@@ -376,7 +376,7 @@ export function DataTable(p: Props) {
     page.reload();
   }, [p.refreshKey, page]);
   const data = page.data;
-  useEffect(() => { if (data) p.onPage?.(data); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (data) p.onPage?.(data); }, [data]); // eslint-disable-line react-hooks/exhaustive-deps -- the caller hears of a new page, not of its own new callback
   useEffect(() => { // 263: the order of the rows' pages, for a thing's previous and next
     if (!data || !p.persist) return;
     const linked = data.columns.find((c) => c.link);
@@ -427,7 +427,7 @@ export function DataTable(p: Props) {
       });
     }
     return cols;
-  }, [columns, p.selectable, Boolean(p.actions), lang]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [columns, p.selectable, Boolean(p.actions), lang]); // eslint-disable-line react-hooks/exhaustive-deps -- the column set changes with these, not with every new callback
 
   const sorting: SortingState = state.sort.map((s) => ({ id: s.col, desc: Boolean(s.desc) }));
   const natural = data?.dataset.natural_sort ?? [];

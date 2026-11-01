@@ -1,13 +1,14 @@
-# Napi adattar-mentes a Windows Feladatutemezoben (064, dontes 2026-09-29).
-#   .\scripts\backup-task.ps1 install   # naponta (configs\service.json backup.schedule, 12:00); kimaradaskor a kovetkezo bekapcsolaskor
-#   .\scripts\backup-task.ps1 status    # a feladat allapota, utolso es kovetkezo futas, utolso eredmenykod
-#   .\scripts\backup-task.ps1 run       # azonnali futtatas a Feladatutemezon at (probahoz)
-#   .\scripts\backup-task.ps1 remove    # a feladat torlese
-# A feladat a bejelentkezett felhasznalo neveben fut, jelszo nelkul (csak bejelentkezve), ablakot nem nyit (pythonw).
-# Mit csinal: python -m jav.cli backup --scheduled (helyi mentes + ellenorzott masolat a NAS-ra, 14 marad).
-# Eredmeny: store\backups\backup-status.json es runs\logs\backup.log; a feluleten: Beallitasok > Rendszer.
-# Eredmenykod: 0 rendben, 1 a helyi mentes hibas, 2 a helyi rendben, de a masolat nem sikerult.
-# A szoveg szandekosan ASCII: a Windows PowerShell 5.1 a nem ASCII literalt hibasan olvashatja (CLAUDE.md 7.).
+# The store's daily backup in the Windows Task Scheduler.
+#   .\scripts\backup-task.ps1 install   # daily (configs\service.json backup.schedule, 12:00); a missed run runs at the next start
+#   .\scripts\backup-task.ps1 status    # the task's state, its last and next run, its last result code
+#   .\scripts\backup-task.ps1 run       # run it now through the Task Scheduler (to try it)
+#   .\scripts\backup-task.ps1 remove    # delete the task
+# The task runs as the signed-in user, without a password (only while signed in), and opens no window (pythonw).
+# What it does: python -m jav.cli backup --scheduled (a local backup and a checked copy to the second location).
+# Result: store\backups\backup-status.json and runs\logs\backup.log; in the interface: Settings > System.
+# Result code: 0 fine, 1 the local backup failed, 2 the local one is fine but the copy failed.
+# The script's strings are ASCII on purpose: Windows PowerShell 5.1 can misread a non-ASCII literal (CLAUDE.md 7).
+# The task's name below stays as it was installed (renaming it would leave the installed task behind).
 param(
     [Parameter(Mandatory = $true)][ValidateSet("install", "remove", "status", "run")][string]$Action
 )
@@ -24,7 +25,7 @@ switch ($Action) {
         if (-not (Test-Path $PythonW)) { throw "Missing: $PythonW (see docs\guides\SETUP.md)" }
         $config = Get-Content (Join-Path $Root "configs\service.json") -Raw -Encoding UTF8 | ConvertFrom-Json
         $time = $config.backup.schedule
-        # a valtozonevek nem utkozhetnek a $Action parameterrel (a PowerShell nem kulonbozteti meg a kis- es nagybetut)
+        # the variable names may not clash with the $Action parameter (PowerShell does not tell upper and lower case apart)
         $taskAction = New-ScheduledTaskAction -Execute $PythonW -Argument "-X utf8 -m jav.cli backup --scheduled" -WorkingDirectory $Root
         $taskTrigger = New-ScheduledTaskTrigger -Daily -At $time
         $taskSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `

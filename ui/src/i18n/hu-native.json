@@ -5407,5 +5407,11 @@
   "The helper is starting.": "Az olvasó segédfolyamata indul.",
   "The memory limit could not be established.": "A memóriakorlátot nem sikerült létrehozni.",
   "The status request failed.": "Az állapot lekérése sikertelen.",
-  "Strict mode refuses PDF reading without a memory limit. It is off by default.": "A szigorú mód memóriakorlát nélkül nem engedi a PDF olvasását. Alapból ki van kapcsolva."
+  "Strict mode refuses PDF reading without a memory limit. It is off by default.": "A szigorú mód memóriakorlát nélkül nem engedi a PDF olvasását. Alapból ki van kapcsolva.",
+  "the invoice is excluded from the pairing: it is an undecided duplicate; decide the duplicate first": "a számla ki van zárva a párosításból: eldöntetlen ismétlődés; előbb az ismétlődésről kell dönteni",
+  "the invoice is excluded from the pairing: it is a confirmed duplicate copy": "a számla ki van zárva a párosításból: megerősített ismétlődő másolat",
+  "the invoice is excluded from the pairing: it has no issue date": "a számla ki van zárva a párosításból: nincs kiállítási dátuma",
+  "the invoice is excluded from the pairing: its currency is not handled here": "a számla ki van zárva a párosításból: a pénzneme itt nem kezelt",
+  "the invoice is excluded from the pairing: it has no positive, readable amount": "a számla ki van zárva a párosításból: nincs pozitív, olvasható összege",
+  "its stored version does not pass the tariff's checks: {{problem}}": "a tárolt változata nem felel meg a díjtábla ellenőrzéseinek: {{problem}}"
 }

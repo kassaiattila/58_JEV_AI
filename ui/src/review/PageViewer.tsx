@@ -53,7 +53,7 @@ export function PageViewer(props: Props) {
   // turn to the selected field's page (on a new selection, even if we have paged elsewhere by hand)
   useEffect(() => {
     if (frameBoxes(active).length && active?.page && active.page !== page) setPage(active.page);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- turns the page on a new selection only, not when the reader pages by hand
   }, [activeField, focusRequest]);
 
   useEffect(() => setFailed(false), [src]);

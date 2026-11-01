@@ -50,3 +50,22 @@ def test_a_misfit_is_named() -> None:
     assert found == ["module {{module}} is not the product's", "no level {{level}} in the catalogue {{catalogue}}",
                      "prices by {{fact}}, which is not an amount in {{currency}}",
                      "reads the outcome {{outcome}}, which the catalogue {{catalogue}} does not have"]
+
+
+def test_a_stored_tariff_the_checks_now_refuse_is_a_named_problem_not_an_error(tmp_path) -> None:
+    """272 (K5, the rest of APPR-08): a tariff stored before its checks became stricter (a negative rate) made the
+    product's manifest raise instead of listing the problem."""
+    import json
+
+    from jav.app import registrations
+    from jav.core import store
+
+    registrations.load_all()
+    bad = _with()
+    bad["modules"]["property"]["rate"]["value"] = "-1.2"
+    with store.use_store(tmp_path / "t.sqlite"):
+        product_rules.add("tariff", "shop", TARIFF.model_dump(mode="json"), actor="anna")
+        with store.connect() as c:
+            c.execute("UPDATE tariffs SET content=?, state='active' WHERE ident='shop'", (json.dumps(bad),))
+        problems = [str(p) for p in product_rules.problems_of("product", PRODUCT.model_dump(mode="json"))]
+    assert any("does not pass the tariff's checks" in p and "below zero" in p for p in problems), problems

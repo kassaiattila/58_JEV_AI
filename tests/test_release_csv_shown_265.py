@@ -36,3 +36,14 @@ def test_a_released_version_s_csvs_carry_the_shown_headers(env):
     datapoints = _head(c.get(f"/api/workpackages/{wp['id']}/versions/1/files/datapoints.csv").content)
     with display.use("hu"):
         assert datapoints == export.shown_table("datapoints", export.TABLES["datapoints"]([])[0], [])[0]
+
+
+def test_the_datapoints_marks_follow_the_request_s_language():
+    """272 (K3): the "igen" code of a data point's mark in the stored CSV, which the test above checks only by headers
+    (its invented invoices have no marked row)."""
+    head = export.TABLES["datapoints"]([])[0]
+    row = ["cell"] * 8 + ["igen", "kept"]
+    with display.use("en"):
+        assert export.shown_table("datapoints", head, [row])[1] == [["cell"] * 8 + ["yes", "kept"]]
+    with display.use("hu"):
+        assert export.shown_table("datapoints", head, [row])[1] == [["cell"] * 8 + ["igen", "kept"]]

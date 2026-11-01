@@ -516,8 +516,14 @@ def _manifest_problems(c: Any, product: Product) -> list[Said]:
         if row is None:
             problems.append(said("no version that is not a draft", within=_thing("tariff", product.tariff)))
         else:
-            problems += [inside(_thing("tariff", product.tariff), p)
-                         for p in tariff_problems(Tariff.model_validate(json.loads(row["content"])), product)]
+            try:
+                stored = Tariff.model_validate(json.loads(row["content"]))
+            except ValidationError as exc:  # 272 (K5): stored before its checks became stricter: named, not raised
+                problems.append(said("its stored version does not pass the tariff's checks: {{problem}}",
+                                     within=_thing("tariff", product.tariff),
+                                     problem="; ".join(e["msg"].removeprefix("Value error, ") for e in exc.errors())))
+            else:
+                problems += [inside(_thing("tariff", product.tariff), p) for p in tariff_problems(stored, product)]
     for m in product.modules:
         problems += [said("module {{module}} requires {{required}}, which the product does not have", module=m.code, required=r)
                      for r in m.requires if r not in codes]

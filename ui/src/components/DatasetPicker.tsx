@@ -47,7 +47,7 @@ export function DatasetPicker(p: Props) {
       .catch(() => alive && setRows([]))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
-  }, [p.dataset, scopeKey, debounced]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [p.dataset, scopeKey, debounced]); // eslint-disable-line react-hooks/exhaustive-deps -- a new query only for another dataset, scope or search
 
   useEffect(() => {
     if (!p.value || p.extra?.some((o) => o.value === p.value)) { setSelected(null); return; }
@@ -59,7 +59,7 @@ export function DatasetPicker(p: Props) {
       .then((page) => alive && setSelected({ value: p.value!, row: page.rows[0] ?? null }))
       .catch(() => alive && setSelected({ value: p.value!, row: null }));
     return () => { alive = false; };
-  }, [p.value, rows]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [p.value, rows]); // eslint-disable-line react-hooks/exhaustive-deps -- follows the chosen value and the rows only
 
   const options = [...(p.extra ?? []), ...rows.map(p.toOption)];
   const fixed = p.extra?.find((o) => o.value === p.value);

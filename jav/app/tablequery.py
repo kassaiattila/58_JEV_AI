@@ -80,6 +80,8 @@ class Query(BaseModel):
     limit: int = Field(default=100, ge=1, le=1000)
     keys: list[Annotated[str, Field(max_length=200)]] | None = Field(default=None, max_length=10000)  # only these rows
     group: str | None = Field(default=None, max_length=60)  # 263: the column whose values group the rows
+    # 272 (K3, UI-10): the only columns the page carries (the rows keep their own `_` keys); None: every column
+    fields: list[Annotated[str, Field(max_length=80)]] | None = Field(default=None, max_length=30)
 
 
 # --- normalisation ---------------------------------------------------------------------------------------------
@@ -260,8 +262,14 @@ def groups(rows: list[dict[str, Any]], key: str) -> list[dict[str, Any]]:
 def run_query(columns: list[Column], rows: list[dict[str, Any]], q: Query) -> dict[str, Any]:
     """One page of the filtered, sorted rows; `total` is the full count, `matched` the count after filtering."""
     matched = select(columns, rows, q)
-    return {"columns": [c.spec() for c in columns], "rows": matched[q.offset: q.offset + q.limit], "total": len(rows),
-            "matched": len(matched), "offset": q.offset, "limit": q.limit, "facets": facets(columns, rows),
+    shown_cols, page = columns, matched[q.offset: q.offset + q.limit]
+    if q.fields is not None:  # 272 (K3, UI-10): only the columns asked for; the counts are still the whole list's
+        by_key = {c.key: c for c in columns}
+        keep = {_check_col(by_key, f).key for f in q.fields}
+        shown_cols = [c for c in columns if c.key in keep]
+        page = [{k: v for k, v in r.items() if k in keep or k.startswith("_")} for r in page]
+    return {"columns": [c.spec() for c in shown_cols], "rows": page, "total": len(rows),
+            "matched": len(matched), "offset": q.offset, "limit": q.limit, "facets": facets(shown_cols, rows),
             # 263: a grouped page names its column and its groups (an ungrouped one stays as it was)
             **({"group": q.group, "groups": groups(matched, q.group)} if q.group else {})}
 

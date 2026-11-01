@@ -12,6 +12,9 @@ const OWNS_KEYS = "[aria-haspopup], [role='combobox'], [role='listbox'], [role='
 // a control that gives Enter and Space their own meaning (the arrows and letters still move the page)
 const CLICKS = "button, a[href], summary";
 
+/** 272 (K3): whether the element is, or lies in, a control that owns the keys (a picker, a menu, a drop-down). */
+export const ownsKeys = (el: Element | null): boolean => el !== null && el.closest(OWNS_KEYS) !== null;
+
 /** Whether a page's shortcut may act on this key: nothing handled it before (`defaultPrevented`), it does not go into a
  *  text field or a control that owns the keys, and it is no Enter or Space on a button or a link. */
 export function isShortcutTarget(e: KeyboardEvent): boolean {

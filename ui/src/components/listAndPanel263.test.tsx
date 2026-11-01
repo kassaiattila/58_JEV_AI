@@ -134,4 +134,18 @@ describe("the one list, grouped (263)", () => {
     expect(screen.queryByRole("link", { name: "One" })).toBeNull();
     expect(query).toHaveBeenLastCalledWith("things", {}, expect.objectContaining({ group: "kind" }));
   });
+
+  // 272 (K3): UI-05's fix (265) had no test: with every group closed the list said it had no data
+  it("says nothing about empty data when every group is only closed", async () => {
+    vi.spyOn(api, "datasetQuery").mockImplementation(async (_n, _s, q) => page(q.group));
+    render(<DataTable dataset="things" label="Things" persist="closed-groups" />);
+    await screen.findByRole("link", { name: "One" });
+    fireEvent.click(screen.getByRole("button", { name: "Group by" }));
+    fireEvent.click(screen.getByRole("option", { name: "Grouped by Kind" }));
+    fireEvent.click(await screen.findByRole("button", { name: /Alpha/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Beta/ }));
+    await waitFor(() => expect(screen.queryByRole("link", { name: "Three" })).toBeNull());
+    expect(screen.queryByText("No data.")).toBeNull();
+    expect(screen.queryByText("No rows match the filter.")).toBeNull();
+  });
 });

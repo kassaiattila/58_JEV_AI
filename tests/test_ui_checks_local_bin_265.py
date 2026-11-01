@@ -36,7 +36,7 @@ def test_eslint_runs_after_the_type_check_and_its_failure_is_named(tmp_path, mon
         linting = Path(cmd[0]).stem == "eslint"
         return SimpleNamespace(stdout=out if linting else "", stderr="", returncode=1 if linting else 0)
 
-    monkeypatch.setattr(preflight.subprocess, "run", run)
+    monkeypatch.setattr(preflight, "_bounded", run)
     assert preflight.run_ui_checks(tmp_path, ui_dir=ui) == (
         False, "the UI's eslint is not installed in ui/node_modules (npm ci)")
     (ui / "node_modules" / ".bin" / "eslint.cmd").write_text("", encoding="utf-8")

@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "service",
-    "version": "1.12.0",
+    "version": "1.13.0",
     "changelog": [
+      {
+        "version": "1.13.0",
+        "date": "2026-11-01",
+        "note": "The owner's decision of 2026-11-01: `backup.jev_version_usd`, the daily look at JEV's moving name runs under its own JEV budget per day, through the call log (0 turns the look off)."
+      },
       {
         "version": "1.12.0",
         "date": "2026-10-29",
@@ -102,7 +107,8 @@
     "with_burr": false,
     "with_docs": true,
     "with_env": true,
-    "max_age_hours": 36
+    "max_age_hours": 36,
+    "jev_version_usd": 0.001
   },
   "input_limits": {
     "max_document_mb": 100,

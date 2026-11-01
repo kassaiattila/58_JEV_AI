@@ -73,6 +73,9 @@ class Connector:
     retry_wait_s: float
     max_per_minute: int
     max_response_bytes: int
+    # 272 (K2, X-19): the facts a lookup step may send through it (`sends_facts`), beside the readable `sends`; empty
+    # for a connector no lookup step asks (the exchange rates are asked by their own module)
+    sends_facts: tuple[str, ...] = ()
 
     @property
     def free(self) -> bool:
@@ -97,6 +100,9 @@ def _read(name: str, raw: dict[str, Any]) -> Connector:
     sends = raw.get("sends")
     if not isinstance(sends, list) or not sends or not all(isinstance(s, str) and s.strip() for s in sends):
         problems.append("it names what leaves the machine")
+    facts = raw.get("sends_facts", [])
+    if not isinstance(facts, list) or not all(isinstance(f, str) and f.strip() for f in facts):
+        problems.append("its sends_facts names facts")
     price = _decimal(raw.get("price_usd"))
     if price is None or price < 0:
         problems.append("its price is an amount of at least 0")
@@ -118,7 +124,8 @@ def _read(name: str, raw: dict[str, Any]) -> Connector:
     return Connector(name=name, what=str(raw["what"]), kind=str(raw["kind"]), url=url, headers=dict(headers),
                      sends=tuple(sends), price_usd=Decimal(str(raw["price_usd"])), timeout_s=float(raw["timeout_s"]),
                      retries=int(raw["retries"]), retry_wait_s=float(raw["retry_wait_s"]),
-                     max_per_minute=int(raw["max_per_minute"]), max_response_bytes=int(raw["max_response_bytes"]))
+                     max_per_minute=int(raw["max_per_minute"]), max_response_bytes=int(raw["max_response_bytes"]),
+                     sends_facts=tuple(facts))
 
 
 def _described() -> dict[str, Any]:

@@ -18,6 +18,8 @@ export interface ElementProps {
   /** 261 (Q-rogzites-409): the case's page as an action answered it, taken at once instead of reloading it, so the next
    *  action is made on the state the person sees (the case page gives it) */
   onView?: (view: CaseView) => void;
+  /** 272 (K3, UI-11): the case's page asks again by itself now (a step works), so an element need not ask too */
+  polling?: boolean;
 }
 export interface ElementSpec {
   render: (p: ElementProps) => ReactNode;

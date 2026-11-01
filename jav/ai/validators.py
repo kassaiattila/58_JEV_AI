@@ -43,7 +43,8 @@ TOLERANCES = cfg.Section("policy", "validators")
 
 def _is_huf(inv: DocumentRecord, check: str) -> bool:
     """Whether a document's amounts are checked as forints; without a currency, as `missing_currency` names it for the
-    check (the totals as another currency's, the line items' sum as forints: two rules, kept as they were)."""
+    check (both as forints since policy.json 1.28.0, the owner's decision of 2026-11-01; the totals were checked as
+    another currency's before)."""
     if not inv.currency:
         return TOLERANCES["missing_currency"][check] == "huf"
     return inv.currency.upper() == "HUF"

@@ -47,7 +47,7 @@ def engine_args(p: argparse.ArgumentParser, *, measurement: bool) -> None:
                else f"{engines.default_id()} (a measurement does not follow the application)")
     named = "; ".join(f"{e} = {engines.get(e).label}" for e in engines.ids())
     p.add_argument("--engine", choices=engines.ids(), default=engines.default_id() if measurement else None,
-                   help=f"160-D/265: {named}; default: {default}")
+                   help=f"{named}; default: {default}")
     p.add_argument("--no-jev", dest="engine", action="store_const", const="gpt", help="the same as --engine gpt")
 
 
