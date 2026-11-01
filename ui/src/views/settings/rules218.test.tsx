@@ -159,7 +159,7 @@ describe("Settings › Rules (218)", () => {
     const shown = (text: string) => text.replace(/\bwork package/g, "document batch").replace(/\bpackage\(s\)/g, "batch(es)")
       .replace(/\bpackages\b/g, "batches").replace(/\bpackage\b/g, "batch");
     for (const text of texts) {
-      expect(en[text], text).toBe(shown(text));
+      expect(en[text] ?? text, text).toBe(shown(text));  // 265 (UI-03): an English source needs no identity entry
       expect(hu[text]?.trim(), text).toBeTruthy();
     }
   });

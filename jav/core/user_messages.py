@@ -7,8 +7,9 @@ to the filled message, and the interface translates the template like any of its
 Hungarian interface no longer shows the service's English text. `str(exc)` stays the filled English message, for the
 log, the command line and the existing callers.
 
-Every template must be a translated interface label: an identity entry in `ui/src/i18n/en-native.json` and a
-Hungarian one in `hu-native.json` (checked by `tests/test_user_messages_167.py`). A template is a single literal, so
+Every template must be a translated interface label: a Hungarian entry in `ui/src/i18n/hu-native.json`, and an
+English one in `en-native.json` only where the English differs from the source (a work package is a batch there;
+checked by `tests/test_user_messages_167.py`). A template is a single literal, so
 the check can find it; the values go into the parameters, never into the template.
 
 231 (stage D, D-c6): a sentence a person reads that is not an error - a problem a check lists - is built with

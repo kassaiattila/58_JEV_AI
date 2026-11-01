@@ -1,5 +1,4 @@
 {
-  "=": "=",
   "A helyi szolgáltatás nem érhető el": "The local service is not reachable",
   "A helyi szolgáltatás nem érhető el. Fut a scripts\\dev.ps1 start?": "The local service is not reachable. Is scripts\\dev.ps1 start running?",
   "A kijelölt sorok (nincs kijelölés)": "Selected rows (no selection)",
@@ -102,9 +101,6 @@
   "Üres értékek": "Empty values",
   "üres": "is empty",
   "…és még {{n}} találat — szűkíts a kereséssel.": "…and {{n}} more results — refine your search.",
-  "≠": "≠",
-  "≤": "≤",
-  "≥": "≥",
   "Váratlan hiba a felületen": "Unexpected error in the interface",
   "Az oldal egy része nem jeleníthető meg. A mentetlen mezőjavításaid megmaradtak; töltsd újra az oldalt.": "Part of the page cannot be shown. Your unsaved field corrections have been kept; reload the page.",
   "Újratöltés": "Reload",
