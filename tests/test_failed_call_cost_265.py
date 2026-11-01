@@ -50,3 +50,32 @@ def test_the_choices_agent_stops_at_a_cut_off_answer(monkeypatch) -> None:
     with gpt_choice.use_agent_factory(None):  # the real construction, with the model and the agent stood in for
         gpt_choice._agent(type("Out", (), {}), "pick", gpt_choice.Limits(top_logprobs=1, max_output_tokens=10, config_hash="h"))
     assert isinstance(seen["model"], output_cap.StopOnTruncation)
+
+
+class _Failing:
+    """An agent whose run fails after it was asked (as a reply that does not fit its form would)."""
+
+    def run_sync(self, prompt, **_kw):
+        raise ValueError("the answer did not fit its form")
+
+
+@pytest.mark.parametrize("site", ["quote_letter", "email_tasks"])
+def test_the_two_own_agents_settle_a_failure_by_the_shared_rule(db, monkeypatch, site) -> None:
+    """272 (K3, the check of X-11): the reply letter's paragraph and the email tasks have agents of their own; their
+    failure goes through the shared rule (a ledger row with why, the certain cost on the error) and is raised again."""
+    from jav.domains.email import email_tasks
+    from jav.domains.quotes import quote_letter
+
+    seen: list[tuple[str, BaseException]] = []
+    real = output_cap.ledger_failure
+    monkeypatch.setattr(output_cap, "ledger_failure", lambda messages, exc, **kw: seen.append((kw["step"], exc)) or real(messages, exc, **kw))
+    with pytest.raises(ValueError):
+        if site == "quote_letter":
+            monkeypatch.setattr(quote_letter, "config_hash", lambda: "h")
+            quote_letter._physical(_Failing(), "a prompt", run_id="run-x", rounds=1)
+        else:
+            email_tasks._physical(_Failing(), "a prompt", run_id="run-x", limited=True)
+    assert [step for step, _exc in seen] == [("quote_letter_gpt" if site == "quote_letter" else "email_tasks")]
+    with store.connect() as c:
+        row = c.execute("SELECT error FROM ledger WHERE run_id='run-x'").fetchone()
+    assert row["error"].startswith("ValueError")
