@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.14",
+    "version": "1.0.15",
     "description": "Adatőr (070 terv 2.1 S-adatőr, jav/devtools/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
     "changelog": [
+      {
+        "version": "1.0.15",
+        "date": "2026-11-01",
+        "note": "265 (the owner's decision of 2026-11-01): the forbidden history's baseline-039 tag left the list; it no longer exists in this clone, so it could not be checked, and the old history stays guarded by its starting commit."
+      },
       {
         "version": "1.0.14",
         "date": "2026-10-31",
@@ -82,7 +87,6 @@
     ]
   },
   "forbidden_history": [
-    "baseline-039",
     "669e851cd9ab07673a129452af7d2f0160a8af19"
   ],
   "allowed_paths": [

@@ -3,7 +3,9 @@
 Plain-language summary: the normalisation of names, numbers and amounts (ported from the legacy `payables.py`), the
 stable line ids, an invoice's partner and direction, and the signals with their strength (the invoice number or a
 reference in the memo, the supplier's account or name, a looser name, the payment app, a learnt name). The rules they
-follow are described in `reconcile.py` (131, 134, 141); their parameters are `configs/reconcile.json`.
+follow are described in `reconcile.py` (131, 134, 141); their parameters are `configs/reconcile.json`, read through
+`reconcile_rules.py` when a rule applies. The memoised helpers here keep only pure results (a normalised text, a
+compiled pattern), never a rule.
 """
 
 from __future__ import annotations

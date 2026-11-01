@@ -6,7 +6,7 @@
 ## Phases and steps
 
 ### load
-- **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id, year hint from the folder; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do, kept open by the ocr_coverage producer)
+- **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id, year hint from the folder; the text-layer test of the document and of each page (scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do, kept open by the ocr_coverage producer)
 - **ocr_pdf** _(det)_ — a PDF without text: OCR (jav/documents/ocr.py: page images and tesseract, native or the legacy sidecar image, a disk cache) onto the same layout; the quality signals in the state
 
 ### classify
@@ -17,7 +17,7 @@
 
 ### terminal
 - **done** _(terminal)_ — typed
-- **needs_ocr** _(terminal)_ — a PDF without text or with a broken text layer, and OCR gave no text either (or there is no engine): documents has_text=0; a to-do (producer `ocr`, ocr:*), closed by a save with text; 218: one write transaction with the OCR escalation's trace (ocr.escalation)
+- **needs_ocr** _(terminal)_ — a PDF without text or with a broken text layer, and OCR gave no text either (or there is no engine): documents has_text=0; a to-do (producer `ocr`, ocr:*), closed by a save with text; one write transaction with the OCR escalation's trace (ocr.escalation)
 
 Terminal steps: done, needs_ocr
 

@@ -4,13 +4,13 @@
   recall                      candidate recall on the golden set (no API) - the ceiling of the S path
   run <pdf> --arm S|G         runs one invoice through the Burr graph
   golden --arm S|G            golden eval for one path
-  measure [golden ...] [--list]   188: every golden set with one command (data points, types, intents, logic packs)
+  measure [golden ...] [--list]   every golden set with one command (data points, types, intents, logic packs)
   determinism --arm S --n 5   repeated runs, per-field agreement (no cache)
   store                       store statistics
   detect <pdf> | detect-golden | detect-determinism --n 3 | detect-corpus <folder> | detect-sample <folder>
                               M1 categorisation
   email <folder> | email-inbox <root> | email-golden | email-determinism --n 3   M3 email intent
-  email-ingest-server [--port 8901] [--run]   receiver for the legacy 10_AIFLOW_V4 outlook_bridge.ps1
+  email-ingest-server [--port 8931] [--run]   receiver for the Outlook bridge (scripts/outlook_bridge.ps1)
   eval-report [files]         shared eval report from runs/*.jsonl ($0): bands, calibration, policy re-evaluation,
                               determinism
   configs                     configs/*.json versions + config_hash (config as data)
@@ -18,7 +18,7 @@
   docs                        generated docs: call-site catalogue + flow contracts
   admin [--write]             control screen: configs, models, lint, store, golden, review; --write -> docs/STATE.md
   preflight [--skip-pytest]   session-start check: pytest + lint + configs + handoff freshness + STATE.md
-  test-worktree [--no-ui]     231: the full test suite in a separate git worktree (the main tree stays free)
+  test-worktree [--no-ui]     the full test suite in a separate git worktree (the main tree stays free)
   recipes | wp-* | run-* | worker   work package → run (040 K1; details: jav/cli/work_cli.py)
 """
 

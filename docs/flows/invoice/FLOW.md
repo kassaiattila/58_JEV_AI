@@ -6,9 +6,9 @@
 ## Phases and steps
 
 ### load
-- **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (167: scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do); the word layer (word boxes) is saved
+- **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do); the word layer (word boxes) is saved
 - **ocr_pdf** _(det)_ — a PDF without text: page images (pypdfium2) and tesseract word boxes (native, or the legacy sidecar image) -> the same line and cell building; the word layer is saved; a disk cache in runs/ocr/; the quality signals raw, weak OCR a review reason (policy ocr)
-- **load_text** _(det)_ — 190: a pack that reads text or tables: an email's own text (the text's digest is the doc_id) or a text / table file (the table through the isolated native reader), laid out by the PDF reader's line and cell builder (three spaces = a column); no word layer; an empty text is a text:empty to-do
+- **load_text** _(det)_ — A pack that reads text or tables: an email's own text (the text's digest is the doc_id) or a text / table file (the table through the isolated native reader), laid out by the PDF reader's line and cell builder (three spaces = a column); no word layer; an empty text is a text:empty to-do
 
 ### extract
 - **find_candidates** _(det)_ — S path: deterministic, ordered, masking candidate finders with the S path's candidate profile (configs/candidate_profiles.json): iban -> tax_id -> date -> invoice_number -> money; names and addresses on cells
@@ -27,12 +27,12 @@
 
 ### persist
 - **ground** _(det)_ — each field's source place on the word layer (S: the chosen candidate's line and the other candidates; G: a code search with the label, configs/grounding.json); on an error it goes on without a source place
-- **save** _(store)_ — documents + datapoints (a confidence per field, the call site's config_hash) + review_queue; 149: an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction); 218: one write transaction with the route decision's trace (extract.route) and the OCR escalation's (ocr.escalation)
+- **save** _(store)_ — documents + datapoints (a confidence per field, the call site's config_hash) + review_queue; an uncertain detailed type between an outgoing and an incoming pack is settled by the own parties' direction (confirm_detail_by_direction); one write transaction with the route decision's trace (extract.route) and the OCR escalation's (ocr.escalation)
 
 ### terminal
 - **done** _(terminal)_ — auto - accepted
 - **needs_review** _(terminal)_ — human - in the review queue, with reasons
-- **needs_ocr** _(terminal)_ — a PDF without text, and OCR gave no usable text either (or there is no OCR engine): documents has_text=0; a to-do (producer `ocr`, ocr:*), closed by a save with text; 218: one write transaction with the OCR escalation's trace (ocr.escalation)
+- **needs_ocr** _(terminal)_ — a PDF without text, and OCR gave no usable text either (or there is no OCR engine): documents has_text=0; a to-do (producer `ocr`, ocr:*), closed by a save with text; one write transaction with the OCR escalation's trace (ocr.escalation)
 
 Terminal steps: done, needs_review, needs_ocr
 

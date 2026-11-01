@@ -183,42 +183,42 @@ def cmd_fx_rates(args: argparse.Namespace) -> int:
 
 
 def register(sub) -> None:
-    p = sub.add_parser("duplicates", help="126: duplicate invoices in the store (read only); --write opens the to-do on runs not yet approved")
+    p = sub.add_parser("duplicates", help="duplicate invoices in the store (read only); --write opens the to-do on runs not yet approved")
     p.add_argument("--write", action="store_true", help="open the duplicate to-dos (once; a decided pair or an approved run is skipped)")
     p.set_defaults(fn=cmd_duplicates)
-    p = sub.add_parser("own-tax", help="157: incoming invoices whose supplier tax number is an own party's (read only); --write opens the to-do on runs not yet approved")
+    p = sub.add_parser("own-tax", help="incoming invoices whose supplier tax number is an own party's (read only); --write opens the to-do on runs not yet approved")
     p.add_argument("--write", action="store_true", help="open the to-dos (once; an approved run or a command-line result is skipped)")
     p.set_defaults(fn=cmd_own_tax)
-    p = sub.add_parser("reconcile", help="128: invoice <-> bank statement line pairs proposed by code (read only); --golden: the synthetic cases")
+    p = sub.add_parser("reconcile", help="invoice <-> bank statement line pairs proposed by code (read only); --golden: the synthetic cases")
     p.add_argument("--golden", action="store_true", help="score the synthetic golden cases (configs/golden_reconcile.json)")
     p.set_defaults(fn=cmd_reconcile)
-    p = sub.add_parser("reconcile-ai", help="134: AI proposals (JEV / GPT) for a reconciliation package's lines; without a budget only the free estimate")
+    p = sub.add_parser("reconcile-ai", help="AI proposals (JEV / GPT) for a reconciliation package's lines; without a budget only the free estimate")
     p.add_argument("workpackage_id", nargs="?", help="the reconciliation package (wp-...); not with --golden")
     p.add_argument("--engine", choices=["jev", "gpt", "both"],
-                   help="160-D: default: both with the application's JEV and GPT, gpt with GPT only; --golden: both")
+                   help="Default: both with the application's JEV and GPT, gpt with GPT only; --golden: both")
     p.add_argument("--no-jev", dest="engine", action="store_const", const="gpt", help="the same as --engine gpt")
     p.add_argument("--jev-budget-usd", help="the JEV sub-budget of the measurement (USD)")
     p.add_argument("--budget-usd", help="the OpenAI sub-budget of the measurement (USD)")
     p.add_argument("--max-lines", type=int, help="ask only the first N lines")
     p.add_argument("--no-cache", action="store_true", help="JEV: no cached answers (live calls)")
-    p.add_argument("--redo", action="store_true", help="136: ask the lines that have an answer again (default: only the new ones)")
-    p.add_argument("--stale", action="store_true", help="147: also ask the lines whose answer came from an older version of the question")
-    p.add_argument("--incoming", action="store_true", help="158: ask about the incoming money alone")
+    p.add_argument("--redo", action="store_true", help="ask the lines that have an answer again (default: only the new ones)")
+    p.add_argument("--stale", action="store_true", help="also ask the lines whose answer came from an older version of the question")
+    p.add_argument("--incoming", action="store_true", help="ask about the incoming money alone")
     p.add_argument("--evaluate", action="store_true",
                    help="free: compare the stored answers with a person's decisions on the package's lines")
     p.add_argument("--golden", action="store_true",
-                   help="158: the incoming money kind question on the invented golden lines (configs/golden_credit_kinds.json);"
+                   help="the incoming money kind question on the invented golden lines (configs/golden_credit_kinds.json);"
                         " needs the sub-budget of each engine, stores nothing")
     p.set_defaults(fn=cmd_reconcile_ai)
-    p = sub.add_parser("statement-table", help="136: a tabular bank statement export read by code (free): the accounts found and their checks;"
+    p = sub.add_parser("statement-table", help="A tabular bank statement export read by code (free): the accounts found and their checks;"
                                                " 141: also a statement printed as text (a CIB PDF or text export), a camt.053 XML statement or a folder of them")
     p.add_argument("file", help="the workbook (.xlsx), CSV, Excel 2003 XML, PDF or text file, or a folder")
     p.set_defaults(fn=cmd_statement_table)
-    p = sub.add_parser("reconcile-versions-backfill", help="178: the stored file of every approved reconciliation statement"
+    p = sub.add_parser("reconcile-versions-backfill", help="the stored file of every approved reconciliation statement"
                                                            " approved or reopened before v1.23.0 (idempotent)")
     p.add_argument("--dry-run", action="store_true", help="list the versions, write nothing")
     p.set_defaults(fn=cmd_reconcile_versions_backfill)
-    p = sub.add_parser("fx-rates", help="130: the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
+    p = sub.add_parser("fx-rates", help="the stored MNB exchange rates (counts); --fetch FROM TO: fetch a span (free)")
     p.add_argument("--fetch", nargs=2, metavar=("FROM", "TO"), help="fetch the published days of the span (YYYY-MM-DD)")
     p.add_argument("--currency", help="comma separated codes (default: configs/fx.json currencies)")
     p.set_defaults(fn=cmd_fx_rates)

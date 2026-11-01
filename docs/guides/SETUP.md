@@ -60,7 +60,7 @@ Optional environment variables (in `.env` or in the shell):
 
 ## 4. Dependency on the legacy project: what works in a fresh clone
 
-`jav/core/config.py` finds the golden sets, the legacy data folder and the Outlook bridge under `<legacy-root>`, the root folder of the legacy project. They are only read. `<legacy-root>` comes from the `JAV_LEGACY_ROOT` environment variable (or a line in `.env`); without it, `jav/core/config.py` falls back to a built-in default path (`DEFAULT_OLD_PROJECT_ROOT`), which is unlikely to exist on another machine, so set the variable there.
+`jav/core/config.py` finds the golden sets and the legacy data folder under `<legacy-root>`, the root folder of the legacy project. They are only read. `<legacy-root>` comes from the `JAV_LEGACY_ROOT` environment variable (or a line in `.env`); without it, `jav/core/config.py` falls back to a built-in default path (`DEFAULT_OLD_PROJECT_ROOT`), which is unlikely to exist on another machine, so set the variable there.
 
 A fresh GitHub clone has neither the legacy project, nor the golden sets, nor the internal working documents. In that case:
 
@@ -69,7 +69,7 @@ A fresh GitHub clone has neither the legacy project, nor the golden sets, nor th
 | the full test suite (tests that rely on a golden set are skipped without it, so the coverage is smaller) | `recall`, `golden`, `determinism`, `verifier-probe` (invoice golden set) |
 | the user interface, the local service and the worker; work packages, recipes, trial and live runs with the keys | `detect-golden`, `detect-determinism` (detection golden set) |
 | local OCR (the language packs have to be obtained separately, section 3) | `email-golden`, `email-determinism`, `email-injection-probe` (email golden set) |
-| downloads, reports and the local backup (the second backup location has to be set for the machine, section 6) | mailbox download and the standalone email receiver (the legacy Outlook bridge script) |
+| downloads, reports and the local backup (the second backup location has to be set for the machine, section 6); the mailbox download and the standalone email receiver (the Outlook bridge, `scripts/outlook_bridge.ps1`, is in this repository) | |
 | the data guard and the start-up check (a missing handoff is only a note) | Azure recognition without its own keys and the legacy Docker OCR (the legacy sidecar), and `legacy-import` |
 
 The start-up check is green on a fresh clone too, once the hooks are installed (`python -m jav.cli hooks-install`).
@@ -111,7 +111,7 @@ Start the second installation's service and worker from a shell with `JAV_START`
 
 ## 6. Backup, restore and logs
 
-**Plain-language summary:** the database (work packages, runs, corrections and decisions) can be backed up with one command, even while the local service is running. The backup also checks that the database is intact. It can run by itself every day at a set time (12:00 by default), and a verified copy can also go to a second location, such as a network drive; both places keep the last 14 daily backups. Manual backups (the command below, or Back up now on the System page) are kept apart, the last 14 of them, so they never push out a daily one. The daily backup also takes the internal working documents (handoffs, plans, reports, the backlog, the decisions log), because git does not track them, the copies the system keeps of the documents added to work packages, each only once, and this machine's local settings (`.env`: the keys and the second backup location), so the machine can be set up again from a backup alone. The state of the last backup is shown on the Settings › System page. Errors of the local service and the worker go to permanent log files, so the cause of a stop can be found later.
+**Plain-language summary:** the database (work packages, runs, corrections and decisions) can be backed up with one command, even while the local service is running. The backup also checks that the database is intact. It can run by itself every day at a set time (12:00 by default), and a verified copy can also go to a second location, such as a network drive; both places keep the last 14 daily backups. Manual backups (the command below, or Back up now on the Operations page) are kept apart, the last 14 of them, so they never push out a daily one. The daily backup also takes the internal working documents (handoffs, plans, reports, the backlog, the decisions log), because git does not track them, the copies the system keeps of the documents added to work packages, each only once, and this machine's local settings (`.env`: the keys and the second backup location), so the machine can be set up again from a backup alone. The state of the last backup is shown on the Settings › Operations page. Errors of the local service and the worker go to permanent log files, so the cause of a stop can be found later.
 
 **Backup:**
 

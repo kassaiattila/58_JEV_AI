@@ -44,7 +44,7 @@ separate even when their content can share a reading. A fixture cannot share a
 reading key with a real parser. Evidence bytes are checked using
 `verify_evidence`; no OCR or other reader is invoked during that check.
 
-An attempt may name an external recognition it took over (124). Its request
+An attempt may name an external recognition it took over. Its request
 must be the attempt's own source, it excludes local recognition, and it is part
 of the reading identity. Attempts without one omit the field, so their saved
 bytes and digests are unchanged.

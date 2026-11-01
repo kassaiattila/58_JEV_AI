@@ -324,8 +324,8 @@ def register(sub) -> None:
     p.add_argument("--keys-only", action="store_true", help="086: with --engine gpt, offer the types by their keys only")
     p.add_argument("--budget-usd", help="086/122: hard budget for the whole measurement, for the engine that answers "
                                         "(OpenAI with --engine gpt, JEV otherwise); the other providers and Azure get none")
-    p.add_argument("--cases", help="122: a local case list (JSON, outside git) instead of the golden set")
-    p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
+    p.add_argument("--cases", help="A local case list (JSON, outside git) instead of the golden set")
+    p.add_argument("--store", help="A separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_detect_golden)
     p = sub.add_parser("detect-determinism", help="M1: repeated runs without the cache on the detect golden set, type flips and confidence spread")
     p.add_argument("--n", type=int, default=3)
@@ -353,7 +353,7 @@ def register(sub) -> None:
     p.add_argument("--limit", type=int)
     engine_args(p, measurement=True)  # 089: GPT recognises the intent
     p.add_argument("--budget-usd", help="089: hard OpenAI budget for the whole measurement")
-    p.add_argument("--jev-budget-usd", help="127: hard JEV budget for the whole measurement; with either budget, a provider "
+    p.add_argument("--jev-budget-usd", help="hard JEV budget for the whole measurement; with either budget, a provider "
                                             "without one (Azure always) cannot be called")
     p.set_defaults(fn=cmd_email_golden)
     p = sub.add_parser("email-inbox", help="M3: walks the inbox/<mailbox>/<msgid>/ folders (after an Outlook download), resumable")
@@ -386,7 +386,7 @@ def register(sub) -> None:
     p = sub.add_parser("verifier-probe", help="a calibration probe of the JEV verifier on the golden extractions (without OpenAI); raw run runs/*_verifier_probe.jsonl")
     p.add_argument("--no-cache", action="store_true")
     p.add_argument("--type", default=REFERENCE_TYPE, help=type_help)
-    p.add_argument("--jev-budget-usd", help="127: hard JEV budget for the whole probe (no other provider can be called)")
+    p.add_argument("--jev-budget-usd", help="hard JEV budget for the whole probe (no other provider can be called)")
     p.set_defaults(fn=cmd_verifier_probe)
     p = sub.add_parser("golden", help="M2 golden for one path and type pack (runs/[<type>_]golden_<path>.jsonl)")
     p.add_argument("--arm", choices=["S", "G"], required=True)
@@ -395,25 +395,25 @@ def register(sub) -> None:
     p.add_argument("--no-cache", action="store_true")
     engine_args(p, measurement=True)  # 086: the G path verified by the code alone (runs/*_golden_G_nojev.jsonl)
     p.add_argument("--budget-usd", help="086: hard OpenAI budget for the whole measurement")
-    p.add_argument("--jev-budget-usd", help="127: hard JEV budget for the whole measurement; with either budget, a provider "
+    p.add_argument("--jev-budget-usd", help="hard JEV budget for the whole measurement; with either budget, a provider "
                                             "without one (Azure always) cannot be called")
-    p.add_argument("--synthetic", action="store_true", help="127: the synthetic golden cases of the type "
+    p.add_argument("--synthetic", action="store_true", help="the synthetic golden cases of the type "
                                                              "(configs/golden_synthetic.json) instead of the legacy set")
-    p.add_argument("--cases", help="151: a local case list (JSON, outside git) with reference values; the run file is "
+    p.add_argument("--cases", help="A local case list (JSON, outside git) with reference values; the run file is "
                                    "named <type>_local_<arm> and its scores are an agreement, not an accuracy")
-    p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
+    p.add_argument("--store", help="A separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_golden)
-    p = sub.add_parser("measure", help="188: every golden set with one command (data points, types, intents, logic "
+    p = sub.add_parser("measure", help="every golden set with one command (data points, types, intents, logic "
                                        "packs); without a budget only earlier answers count")
     p.add_argument("golden", nargs="*", help="golden sets by key or its first parts (datapoints:invoice_hu, types, "
                                              "reconcile); a whole key names its own set alone; none: every golden set")
     p.add_argument("--list", action="store_true", help="list the golden sets with their case counts, measure nothing")
     p.add_argument("--no-cache", action="store_true", help="ask again (live calls; needs a budget)")
-    p.add_argument("--jev-again", action="store_true", help="231 (F1): ask JEV again but keep the earlier GPT answers "
+    p.add_argument("--jev-again", action="store_true", help="Ask JEV again but keep the earlier GPT answers "
                                                             "(live JEV calls; needs a JEV budget; the data points' sets)")
     engine_args(p, measurement=True)
     budget_args(p)
-    p.add_argument("--store", help="122: a separate measurement store (results, to-dos and call log stay out of the work store)")
+    p.add_argument("--store", help="A separate measurement store (results, to-dos and call log stay out of the work store)")
     p.set_defaults(fn=cmd_measure)
     p = sub.add_parser("determinism")
     p.add_argument("--arm", choices=["S", "G"], required=True)

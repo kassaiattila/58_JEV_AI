@@ -6,9 +6,9 @@ Invariants kept from V4:
 - Claiming happens in a short `BEGIN IMMEDIATE` transaction; the work then runs without a lock.
 - The attempt count survives a restart; beyond the limit the job is `dead`. Releasing (`release`) does not burn an
   attempt.
-- Orphaned claims are reset ONLY at start-up (`recover_orphans`): there is one worker, so at start-up every `claimed`
-  row is provably dead. Several workers would first need a lease/heartbeat (V4 has none either). 231 (stage E, E1; the
-  owner's decisions of 2026-10-29: several workers): a worker's claim records its process's holder (`calls.holder`, a
+- Orphaned claims (`recover_orphans`): until 231 they were reset only at start-up, as there was one worker and every
+  `claimed` row was provably dead then. 231 (stage E, E1; the owner's decisions of 2026-10-29: several workers): a
+  worker's claim records its process's holder (`calls.holder`, a
   lock file the process keeps locked while it lives, as a paid call's reservation and a case's claim do), and the
   recovery resets only the claims whose holder has stopped (a claim without one, as before, counts as stopped); the
   workers run it at start-up and every so often, so a crashed worker's items go back to the queue at once while the

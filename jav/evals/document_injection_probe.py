@@ -224,10 +224,10 @@ def summarize(rows: list[dict[str, Any]]) -> str:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--live", action="store_true", help="a live, paid run (needs a clean working tree)")
-    ap.add_argument("--flows", help="122: comma-separated subset of detect,S,G")
-    ap.add_argument("--no-jev", action="store_true", help="122: GPT recognises the type, the code verifies the G path; no S path")
+    ap.add_argument("--flows", help="comma-separated subset of detect,S,G")
+    ap.add_argument("--no-jev", action="store_true", help="GPT recognises the type, the code verifies the G path; no S path")
     ap.add_argument("--budget-usd", action="append", default=[], metavar="PROVIDER=USD",
-                    help="122: hard limit in code for one provider (openai, jev); repeatable")
+                    help="hard limit in code for one provider (openai, jev); repeatable")
     args = ap.parse_args(argv)
     cfg = load_config()
     flows = set(args.flows.split(",")) if args.flows else None

@@ -1,8 +1,8 @@
 # 58_JAV_AI — an AI-flow framework for documents and email
 
-A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition (M1), invoice data extraction (M2) and email intent (M3) — are the reference flows against which the framework's quality is measured.
+A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition, invoice data extraction and email intent — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.73.0`** (2026-11-01). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.74.0`** (2026-11-01). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -13,12 +13,12 @@ The system reads invoices, other documents and emails. It recognises what type e
 | Area | Capability | Status |
 |---|---|---|
 | Native documents | **DOCX, XLSX, TXT and CSV** through the work-package workflow: preserve paragraphs, cells and text positions; extract source-linked facts in bounded requests with recorded source coverage; review and correct values or citations; approve the displayed version and export the results. Excel links remain inert, and saved formula values retain their unverified status. Partial readings and failed interpretations remain visible. [Native processing](docs/guides/NATIVE_PROCESSING.md) | Works within reader limits; model accuracy requires evaluation on the intended documents |
-| Recognition | **Document type recognition** (M1): 14 broad types plus "unknown" (the newest: a customer's request for a quote), the document's language and issuer; within a broad type it also picks one of 25 detailed types (for example the statement of a given bank, or a utility bill) | Works |
-| Extraction | **Data extraction** (M2) on two paths: code finds the candidates and JEV chooses (S path), or GPT extracts and JEV verifies (G path). Type packs for Hungarian and foreign invoices, six kinds of utility bill and the other detailed types | Works |
+| Recognition | **Document type recognition**: 15 broad types, "other" among them, plus "unknown" (the newest: an insurance application), the document's language and issuer; within a broad type it also picks one of 25 detailed types (for example the statement of a given bank, or a utility bill) | Works |
+| Extraction | **Data extraction** on two paths: code finds the candidates and JEV chooses (S path), or GPT extracts and JEV verifies (G path). Type packs for Hungarian and foreign invoices, six kinds of utility bill and the other detailed types | Works |
 | | **Invoice line items**: the line list of an invoice, with a line-total check and per-line checks; line lists can be corrected in the UI, and the checks re-run on the corrected data | Works |
 | | **Data checks** in code: one number reader for every path (amounts and quantities read whole, in Hungarian and English notation; money never with three decimals; an ambiguous reading becomes a to-do); one date reader for every path (month names in six languages, two-digit years, the document's own dates decide the order of day and month, an undecided order becomes a to-do; new); tax numbers and bank account numbers by format and check digit; one party in two roles (two role fields sharing a name or tax number) becomes a to-do on every path; an invoice whose supplier and buyer stand the other way round than on most earlier invoices of the same two companies becomes a to-do (new); an unfilled template field or a value whose kind (money, percentage, date, time) conflicts with its property becomes a to-do in Word, Excel and text sources (new); a field with no candidate is flagged "No estimate"; a PDF without a fitting type pack still gets source-bound general facts (switchable per package; a scan through local text recognition, with a to-do); limits on file size, page count and image size | Works |
 | | **OCR** for PDFs without a text layer: local Tesseract, with optional paid escalation to Azure Document Intelligence when the local result is weak. Azure is a processing setting and is paid from the run's budget | Works |
-| Email | **Email intent** (M3): 12 intents (the newest: a quote request), attachment types and a suggested next step; PDF attachments are processed as documents of the same package | Works; real-world accuracy is not proven without a hand-labelled golden set |
+| Email | **Email intent**: 12 intents (the newest: a quote request), attachment types and a suggested next step; PDF attachments are processed as documents of the same package | Works; real-world accuracy is not proven without a hand-labelled golden set |
 | | **Quote requests**: a customer's request for a price quote is read from the email's own text (its sender, date and subject, without the quoted messages), an attached request form or a request list: the customer, its tax number, the contact, the deadline, the customer's reference and the requested items with their quantities; what is uncertain becomes a to-do of the email, and a part that lacks a field (the items stand in the attached list, not in the text) is only a note. An Excel or CSV list attached to the email is read as a part of the request. A processing setting, on by default | New; measured on an invented set only |
 | | **Quotes**: a quote is a case of the IT quote process, started from a processed quote request, also straight from the request's email. The seller's price lists are kept in Settings › Price lists: uploaded from Excel with checks, versioned, with discount rules. For each requested item code looks for the item's code first, then the AI proposes a price-list item or none; prices, discounts, VAT and totals are always computed by code. On the quote's page the request stands beside the editable quote: every change is saved at once, a manual price needs a note, a line to review waits for a person, and the approved quote is kept as a version that can be reopened with a reason. The approved quote becomes a Word document (a built-in Hungarian or English template, or the person's own Word template), and a reply letter draft opens in Outlook with it attached: GPT writes a few sentences without numbers, a person accepts the letter, the system never sends it | New; measured on an invented set only |
 | | **Partner register**: Settings › Partners keeps the outside parties the processes deal with (customers, suppliers, the insured, brokers), every change a version, retired rather than deleted; the same tax number or name is not recorded twice. It starts empty: the suppliers and buyers of the invoices read are offered as proposals, and only a person records one. A case's page shows the partners its process names (an IT quote: the request's customer) and links it to the register. A process may also keep its own values over its pack's resources (which price list, which template) and over the rule values its steps allow (a quote's lines, the rounding unit), versioned and previewed on its earlier decisions, a case keeping the values it started with (Settings › Processes) | New |
@@ -34,11 +34,10 @@ The system reads invoices, other documents and emails. It recognises what type e
 | | **Unified data view**: one shared table for every list and result (search, per-column filters and sorting, paging, column picker, selection) and one download panel | Works |
 | | **Content-based file names**: copies of a run's documents under uniform names built from their data (date, type, partner, identifier; per-type rules), as a ZIP or into an output folder, with a manifest; the originals never change, and copies with an uncertain name go to a separate review subfolder; the item lists can show each document under its unified name | Works |
 | Operations | **Local service** shared by the UI and the command line; it listens on the local machine only and validates every input | Works |
-| | **Operations**: a verified daily backup with an optional second location, persistent logs, thinning of the flow-state store and a weekly dependency audit; JEV asked by a pinned version, with a daily look for a newer one; the System page shows the running version, the worker, the backup, the audit and the JEV version | Works |
+| | **Operations**: a verified daily backup with an optional second location, persistent logs, thinning of the flow-state store and a weekly dependency audit; JEV asked by a pinned version, with a daily look for a newer one; the Operations page shows the running version, the worker, the backup, the audit and the JEV version | Works |
 | | **Repository safeguards**: a data guard before every commit and push, so that personal data, keys, internal working documents and document files cannot get into git | Works |
 | | **Rules and their trace**: Settings › Rules shows, for each kind of decision the system makes on its own, what it decides, the values it decides with, the version of its rule files in use and how many decisions it has made; every such decision is recorded with its inputs, its outcome and the rule versions it used (`python -m jav.cli trace`), and every run, item, case and approval names the code and the rule files it was computed with (`python -m jav.cli snapshot`); a proposed version of a rule file can first be tried on the earlier decisions, free (`python -m jav.cli rules-preview`), and each field of work keeps its rules in a file of its own (the email routes `configs/email.json`, the finance rules `configs/finance.json`) | Works |
 | Learning | **Teaching a document type**: field proposals from the general facts of a held-out family's development documents, an edited draft from which code makes the type pack, a measurement on documents the draft has not seen, and turning the type on or off by command (a taught type only with that measurement) | Works on one family (the admission ticket: 40/40 fields on its unseen half); one layout of one issuer |
-| | **Learning branches**: source-anchored data-point candidates and draft type packs for new document types | Experimental |
 | Measurement | Golden-set runs, determinism runs, a shared evaluation report and a cost ledger | Works; the golden sets live in the legacy project |
 
 How it is built: [architecture](docs/ARCHITECTURE.md). How to use the workspace: [user guide](docs/guides/USER_GUIDE.md).
@@ -62,7 +61,7 @@ python -m jav.cli preflight            # tests (Python + UI) + contract lint + e
 python smoke_test.py                   # the keys; --jev-budget-usd 0.01 adds one live JEV call
 ```
 
-In a fresh clone, without the legacy project (`10_AIFLOW_V4`) and its golden set, the UI, work packages and runs all work; the golden-set measurements and the legacy Outlook bridge need the legacy project. Details: [setup, fresh clone](docs/guides/SETUP.md).
+In a fresh clone, without the legacy project (`10_AIFLOW_V4`) and its golden set, the UI, work packages, runs and the mailbox download all work; the golden-set measurements need the legacy project. Details: [setup, fresh clone](docs/guides/SETUP.md).
 
 ## Main commands
 
@@ -116,7 +115,7 @@ powershell -File scripts\outlook_bridge.ps1 -RepoRoot inbox\.bridge -OrchUrl htt
 | `configs/` | configuration as data: type and intent registries, type packs, call sites, thresholds, models, OCR, the service's limits and backup, recipes, datasets, reports, the data guard ([guide](docs/guides/CONFIGS.md)) |
 | `ui/` | the browser workspace (React; build: `ui/dist/`, which the service serves at the root) |
 | `tests/` | offline tests (with synthetic data) |
-| `scripts/` | the service launcher (`dev.ps1`), the daily backup task, the Claude hooks (`hooks/`), the git hooks (`githooks/`, data guard), one-off experimental scripts |
+| `scripts/` | the service launcher (`dev.ps1`), the daily backup task, the Claude hooks (`hooks/`), the git hooks (`githooks/`, data guard), the Outlook bridge and draft scripts |
 | `docs/` | codebase documentation (see below); the internal working documents live here too, but git does not track them |
 | `runs/`, `store/`, `inbox/` | local runs, the store, emails — not in git (PII) |
 
@@ -128,10 +127,11 @@ Documents in the repository:
 - [Design system](docs/guides/DESIGN.md): the workspace's colours, type, components and the check for a changed screen
 - [Architecture](docs/ARCHITECTURE.md) · [Security notes](docs/SECURITY.md) · [Glossary](docs/GLOSSARY.md) · [JEV playbook](docs/JEV_PLAYBOOK.md)
 - [Documentation standard](docs/guides/DOCUMENTATION.md) · [Development workflow](docs/guides/DEVELOPMENT.md) · [Setup](docs/guides/SETUP.md) · [Configuration files](docs/guides/CONFIGS.md)
+- [Native document processing](docs/guides/NATIVE_PROCESSING.md) · [Native readers](docs/guides/NATIVE_READERS.md) · [Source contracts](docs/guides/SOURCE_CONTRACT.md)
 - [Changelog](CHANGELOG.md): the releases in brief
 - Generated flow descriptions: [docs/flows/](docs/flows/) (`python -m jav.cli flows`)
 - Bank files the system reads (generated): [docs/BANK_FILES.md](docs/BANK_FILES.md) (`python -m jav.cli docs`)
-- [Claude instructions](CLAUDE.md): standing working rules for the development model
+- [Codex entry point](AGENTS.md) · [Claude instructions](CLAUDE.md): standing working rules for the development models
 - Official TypeSafe/JEV documentation: [docs.typesafe.ai](https://docs.typesafe.ai/llms.txt)
 
 The development process also keeps internal working documents (plans, reports, handoffs, the backlog and the decisions log) and a few generated local pages outside git; the [documentation standard](docs/guides/DOCUMENTATION.md) describes how the two groups are kept apart.

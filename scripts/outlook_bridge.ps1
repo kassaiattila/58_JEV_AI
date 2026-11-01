@@ -50,7 +50,7 @@ param(
     [string]$WorkflowHash = '',
     [switch]$NoArchive,                                      # skip the NAS raw-email archive
     [switch]$Subfolders,                                     # also scan Inbox subfolders (default: Inbox only)
-    [string]$OrchUrl = 'http://localhost:8901/ingest/email',
+    [string]$OrchUrl = 'http://127.0.0.1:8931/ingest/email',
     # DERIVED from this script's own location, like every sibling script in scripts/. It used to be the
     # absolute path of the development machine with NO fallback, and no caller passes -RepoRoot: cloned
     # anywhere else, the bridge read a non-existent config, skipped the whole settings block, and wrote

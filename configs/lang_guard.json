@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.168",
+    "version": "1.0.169",
     "description": "Language guard (073, plan N-angol, jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.169",
+        "date": "2026-11-01",
+        "note": "baseline: 5682 -> 5679 Hungarian lines in 470 files; accepted: docs/ARCHITECTURE.md, docs/GLOSSARY.md"
+      },
       {
         "version": "1.0.168",
         "date": "2026-10-31",
@@ -1004,9 +1009,9 @@
     "configs/types/villamos_energia_szamla.json": 25,
     "configs/types/viz_szamla.json": 26,
     "configs/types/vizmuvek_szamla.json": 27,
-    "docs/ARCHITECTURE.md": 13,
+    "docs/ARCHITECTURE.md": 14,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 380,
+    "docs/GLOSSARY.md": 381,
     "docs/SECURITY.md": 2,
     "docs/guides/DOCUMENTATION.md": 6,
     "docs/guides/USER_GUIDE.md": 303,
@@ -1081,7 +1086,7 @@
     "requirements.txt": 9,
     "scripts/dev.ps1": 1,
     "scripts/hooks/handoff_guard.py": 1,
-    "smoke_test.py": 6,
+    "smoke_test.py": 1,
     "tests/test_admin_docs.py": 4,
     "tests/test_allianz_documents_231.py": 4,
     "tests/test_allianz_offer_path_231.py": 6,

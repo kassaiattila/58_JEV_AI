@@ -153,13 +153,13 @@ CONTRACT = {
               ("save_table", "needs_review", "To-dos remain"), ("save_table", "done", "Every check passed")],
     "step_meta": {
         "load_table": {"kind": "det", "note": "Verify the account's statement file against the run's frozen fingerprint and load the statement the reader built from the export (jav/domains/finance/statement_table.py)."},
-        "check_table": {"kind": "det", "note": "The type pack's checks (running balance, closing balance, totals, period dates); a failed check, a missing required field and a line the reader could not read are to-dos; 137: a ledger export without its PDF statement has one to-do for its balances, and a line on one side only is a to-do."},
+        "check_table": {"kind": "det", "note": "The type pack's checks (running balance, closing balance, totals, period dates); a failed check, a missing required field and a line the reader could not read are to-dos; a ledger export without its PDF statement has one to-do for its balances, and a line on one side only is a to-do."},
         "save_table": {"kind": "store", "note": "Save the statement as the item's document and data points, so the reconciliation reads it like an extracted statement; the to-dos go into the review queue."},
         "done": {"kind": "terminal", "note": "Every check passed; human approval remains separate."},
         "needs_review": {"kind": "terminal", "note": "A check failed or a line could not be read; the statement is saved with its to-dos."},
     },
     "terminals": sorted(TERMINALS),
-    "doc_note": "No model is called. The statement file is derived from a bank's tabular export when a person adds the accounts they chose to a work package (DECISIONS 132, 136).",
+    "doc_note": "No model is called. The statement file is derived from a bank's tabular export when a person adds the accounts they chose to a work package.",
 }
 
 
