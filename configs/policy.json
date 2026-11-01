@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.27.0",
+  "version": "1.28.0",
   "changelog": [
+   {
+    "version": "1.28.0",
+    "date": "2026-11-01",
+    "note": "The owner's decision of 2026-11-01: validators.missing_currency.totals other -> huf. A document without a currency is checked as forints by both the header totals (within 1 forint) and the line items' sum, as most documents are Hungarian; the foreign invoice's type pack already opens a to-do for a missing currency. On the store 54 of 1327 documents have no currency, 3 of them all three totals."
+   },
    {
     "version": "1.27.0",
     "date": "2026-11-01",
@@ -208,6 +213,6 @@
   "totals": {"huf": "1", "other": "0.02"},
   "line_sum": {"huf_min": "2", "huf_per_item": "0.5", "other_min": "0.02", "other_per_item": "0.005"},
   "line_arithmetic": {"min": "1", "percent": "1"},
-  "missing_currency": {"totals": "other", "line_sum": "huf"}
+  "missing_currency": {"totals": "huf", "line_sum": "huf"}
  }
 }
