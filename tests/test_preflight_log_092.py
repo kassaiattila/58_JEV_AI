@@ -47,9 +47,9 @@ VITEST_OUT = " FAIL  src/views/a.test.tsx > the list > opens the card\n Tests  1
 
 
 def _ui_bins(ui: Path) -> None:
-    """265 (TOOL-12): the UI's own tsc and vitest in node_modules/.bin, which the check runs."""
+    """265 (TOOL-12): the UI's own tsc, ESLint (UI-14) and vitest in node_modules/.bin, which the check runs."""
     (ui / "node_modules" / ".bin").mkdir(parents=True)
-    for name in ("tsc", "vitest"):
+    for name in ("tsc", "eslint", "vitest"):
         (ui / "node_modules" / ".bin" / f"{name}.cmd").write_text("", encoding="utf-8")
 
 

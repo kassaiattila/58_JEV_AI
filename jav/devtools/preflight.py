@@ -164,8 +164,8 @@ def local_bin(ui_dir: Path, name: str) -> Path | None:
 
 
 def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple[bool, str] | None:
-    """The UI (040 K3): `tsc --noEmit` + `vitest run` + (057) translation completeness (`scripts/check-i18n.mjs` and
-    `--audit`). Skipped (None) if the Node dependencies are not installed. 149: the vitest output and a JUnit file are
+    """The UI (040 K3): `tsc --noEmit` + (265, code review UI-14) ESLint + `vitest run` + (057) translation completeness
+    (`scripts/check-i18n.mjs` and `--audit`). Skipped (None) if the Node dependencies are not installed. 149: the vitest output and a JUnit file are
     kept next to the pytest log, and a failure names the failed tests and the folder (an intermittent UI failure could
     not be identified before)."""
     if not (ui_dir / "node_modules").is_dir():
@@ -177,6 +177,15 @@ def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple
     if tsc.returncode != 0:
         first = next((ln for ln in (tsc.stdout or "").splitlines() if ln.strip()), "tsc error")
         return False, _stopped(tsc, "type check", UI_STEP_TIMEOUT_S) or f"type check: {first[:160]}"
+    eslint_bin = local_bin(ui_dir, "eslint")
+    if eslint_bin is None:
+        return False, "the UI's eslint is not installed in ui/node_modules (npm ci)"
+    lint = _bounded([str(eslint_bin), "."], cwd=ui_dir, timeout=UI_STEP_TIMEOUT_S)
+    if lint.returncode != 0:
+        said = [ln.strip() for ln in (lint.stdout or lint.stderr or "").splitlines() if ln.strip()]
+        first = next((ln for ln in said if " error " in f" {ln} "), said[0] if said else "eslint error")
+        return False, (_stopped(lint, "ESLint", UI_STEP_TIMEOUT_S)
+                       or f"ESLint: {(said[-1] if said else '')[:80]} - {first[:120]}")
     node = shutil.which("node")
     for extra in (["--audit"], []):
         if node is None:
@@ -195,7 +204,7 @@ def run_ui_checks(folder: Path | None = None, *, ui_dir: Path = UI_DIR) -> tuple
     )
     (folder / "vitest.txt").write_text((r.stdout or "") + (f"\n--- stderr ---\n{r.stderr}" if r.stderr else ""), encoding="utf-8")
     tests = next((ln.strip() for ln in (r.stdout or "").splitlines() if ln.strip().startswith("Tests")), "")
-    summary = f"type check and translations OK; {_stopped(r, 'vitest', UI_STEP_TIMEOUT_S) or re.sub(r'\s+', ' ', tests) or 'vitest: no summary'}"
+    summary = f"type check, ESLint and translations OK; {_stopped(r, 'vitest', UI_STEP_TIMEOUT_S) or re.sub(r'\s+', ' ', tests) or 'vitest: no summary'}"
     if r.returncode != 0:
         failed = _failed_ui_tests(junit)
         if failed:

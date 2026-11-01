@@ -136,7 +136,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   } finally {
     clearTimeout(timer);
   }
-  let data: unknown = null;
+  let data: unknown;
   try {
     data = text ? JSON.parse(text) : null;
   } catch {

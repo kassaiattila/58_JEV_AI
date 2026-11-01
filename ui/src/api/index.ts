@@ -40,6 +40,7 @@ const shared = {
 };
 
 /** 231 (C3e): the calls the domains add (`registerCalls`); each domain merges its calls' types into this interface. */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- empty here: each domain merges its calls into it
 export interface DomainCalls {}
 
 export const api = shared as typeof shared & DomainCalls;

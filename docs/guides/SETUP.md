@@ -30,7 +30,7 @@ cd ui; npm ci; npm run build; cd ..   # dependencies as pinned in package-lock.j
 
 **Your own folders in the user interface.** By default, any existing local folder or file can be given in the user interface (for a work package or a work folder). The restriction can be switched back on with `restrict_paths: true` in `configs/service.json`. Documents can then be added only from allowed folders: the project's `inbox/` and `data/` folders, the legacy project's data, and the folders listed in the `JAV_API_ROOTS` variable in `.env` (separate several folders with `;`, and quote the value if a path contains a space). Example: `JAV_API_ROOTS="D:\Invoices\Incoming"`. After the change, run `.\scripts\dev.ps1 stop` and then `start`. The folder with the real documents stays on the machine and never goes into git.
 
-During development, `npm run dev` serves the user interface at `http://127.0.0.1:5173/` and forwards the `/api` requests to the local service.
+During development, `npm run dev` serves the user interface at `http://127.0.0.1:5173/` and forwards the `/api` requests to the local service. `npm run lint` runs ESLint on the interface's code (the full `preflight` runs it too, after the type check).
 
 ## 2. Keys
 
