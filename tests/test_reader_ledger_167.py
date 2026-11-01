@@ -6,6 +6,7 @@ import os
 from decimal import Decimal
 from types import SimpleNamespace
 
+import docx  # noqa: F401 - required: a broken install fails these tests instead of skipping them (265, TOOL-15)
 import pytest
 
 from jav.core import store
@@ -16,7 +17,6 @@ from jav.documents.readers.providers import extract_gpt
 from jav.documents.readers.receipts import InterpretationRejected
 from jav.core import calls
 
-pytest.importorskip("docx", reason="Native reader dependencies await integration")
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object reader boundary")
 
 

@@ -4,12 +4,12 @@ from io import BytesIO
 import zipfile
 import os
 
+import docx  # noqa: F401 - required: a broken install fails these tests instead of skipping them (265, TOOL-15)
+import defusedxml  # noqa: F401 - required: a broken install fails these tests instead of skipping them (265, TOOL-15)
 import pytest
 
 from jav.documents.readers.pipeline import read_files
 
-pytest.importorskip("docx", reason="Native reader dependencies await their shared integration window")
-pytest.importorskip("defusedxml")
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object reader boundary")
 
 
