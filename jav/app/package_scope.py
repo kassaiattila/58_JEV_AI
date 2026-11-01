@@ -372,8 +372,10 @@ def clear_scope(wp_id: str, *, actor: identity.Who) -> dict[str, Any] | None:
     return scope_of(wp_id, kind=wp["source_kind"])
 
 
+@store.one_connection
 def scoped_packages() -> list[dict[str, Any]]:
-    """Every open package that has a scope, with it: the latest changed first."""
+    """Every open package that has a scope, with it: the latest changed first. 265 (R4 timing): in one connection
+    (about nine per package before)."""
     out = []
     for wp in work.list_workpackages():
         if wp["status"] != "open" or not collects(wp["source_kind"]):

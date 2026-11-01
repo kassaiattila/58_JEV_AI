@@ -162,8 +162,10 @@ def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any],
         {"reasons": reasons} if reasons and row.get("state") == cases.FAILED else {}) | ({"waits_on": waits_on} if waits_on else {})
 
 
+@store.one_connection
 def view(case_id: str) -> dict[str, Any]:
-    """The case's page: the case, its steps and its tabs, each element with its data."""
+    """The case's page: the case, its steps and its tabs, each element with its data. 265 (R4 timing): in one
+    connection; a mailbox routing case's page opened 630 of them (0.8 s of its 1.4 s)."""
     pack = process_runtime.pack_for(case_id)  # A7a: the version the case started on, its screens too
     if pack is None:
         raise KeyError(case_id)
