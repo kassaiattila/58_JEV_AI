@@ -102,3 +102,11 @@ def test_a_later_good_look_clears_the_failure(where: Path):
     st = jev_version.refresh(adapter=_own(where / "cache", ProbeClient("jev-1.14.0")), pinned="jev-1.14.0",
                              budget_usd=Decimal("0.001"))
     assert st["look_failed_at"] is None
+
+
+def test_each_test_s_default_adapter_reads_its_own_cache_folder() -> None:
+    """272 (K5, the rest of X-28): the conftest gives every test an empty JEV cache folder; the kept default adapter
+    is made again in each test, so it never reads an earlier test's folder."""
+    from jav.ai import jev
+
+    assert jev.get_adapter().cache_dir == jev.CACHE_DIR
