@@ -19,6 +19,9 @@ What it adds on top of the raw SDK:
 - **token cost**: according to the model's price list (`config.JEV_USD_PER_MTOK`); only input tokens are billed.
 - **config_hash**: the call site's config version (`jav/core/cfg.py`) in the ledger row, so that a measurement can be
   traced back.
+- **the judgement service of the engine** (265, plan L): `get_adapter()` gives the adapter of the judgement service the
+  context names (`use_judge`, set by the flow's engine, `jav/ai/engine.py`; JEV by default): a run-scoped one
+  (`use_adapter`, keyed by the adapter's own `judge`) or that service's default adapter.
 - **refusal without JEV** (160, plan F-csak-gpt): inside `disabled()` (a flow built without JEV runs every step in it,
   `jav/ai/engine.py`) every question is refused with `JevUnavailableError("disabled")` before the model probe, the cache
   and the call log, so processing without JEV is a guarantee, not a convention.
@@ -134,7 +137,8 @@ _REPLAYED: ContextVar[bool] = ContextVar("jev_replayed", default=False)
 
 class JevAdapter:
     # 265 (plan L): what another judgement service's adapter sets for itself (`jav/ai/decisions.py`)
-    provider = "jev"  # the call log's and the ledger's provider (configs/providers.json)
+    provider = "jev"
+    cache_subdir = ""  # 265: the folder of this service's answers under a caller's cache folder (JEV: the folder itself)  # the call log's and the ledger's provider (configs/providers.json)
     judge = "jev"  # the judgement service (configs/engines.json `judges`); the call log's step prefix
     response_type: type[SystemOneResponse] = SystemOneResponse
     alias_ttl_hours: float | None = JEV_ALIAS_TTL_H  # None: a resolution stays until an answer names another model
@@ -194,7 +198,14 @@ class JevAdapter:
     def _max_cost(self, body: str) -> Decimal:
         from jav.core import calls
 
-        return calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
+        return self.max_cost_for(calls.utf8_bytes(body))
+
+    def max_cost_for(self, input_bytes: int) -> Decimal:
+        """The most one request of `input_bytes` sent may cost with this service, every attempt included (265: also
+        what a caller reserves before it has built the request, the native reader's limits)."""
+        from jav.core import calls
+
+        return calls.estimate_max_cost(input_bytes=input_bytes, max_output_tokens=0,
                                        usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)), repeats=self._attempts())
 
     def _call_cost(self, response: SystemOneResponse) -> Decimal | None:
@@ -493,7 +504,8 @@ class JevAdapter:
         return JevResult(response=response, call=call, cached=cached, cache_key=key)
 
 
-_scoped_adapter: ContextVar[JevAdapter | None] = ContextVar("jev_scoped_adapter", default=None)
+_scoped_adapters: ContextVar[dict[str, JevAdapter]] = ContextVar("judge_scoped_adapters", default={})
+_judge: ContextVar[str] = ContextVar("judge", default="jev")  # 265: the judgement service the context asks
 _disabled: ContextVar[bool] = ContextVar("jev_disabled", default=False)
 
 
@@ -531,23 +543,46 @@ class CacheOnlyAdapter(JevAdapter):
 
 @contextmanager
 def use_adapter(adapter):
-    """Run-scoped adapter; it does not replace the default of parallel contexts."""
-    token = _scoped_adapter.set(adapter)
+    """Run-scoped adapter of its own judgement service (`adapter.judge`; JEV for an object without one); it does not
+    replace the default of parallel contexts, nor another service's adapter."""
+    judge = getattr(adapter, "judge", "jev")
+    token = _scoped_adapters.set({**_scoped_adapters.get(), judge: adapter})
     try:
         yield adapter
     finally:
-        _scoped_adapter.reset(token)
+        _scoped_adapters.reset(token)
 
 
-@lru_cache(maxsize=1)
-def _default_adapter() -> JevAdapter:
-    return JevAdapter()
+@contextmanager
+def use_judge(judge: str):
+    """265 (plan L): the questions inside are asked of this judgement service (configs/engines.json `judges`)."""
+    token = _judge.set(judge)
+    try:
+        yield
+    finally:
+        _judge.reset(token)
+
+
+def current_judge() -> str:
+    """The judgement service the context asks (JEV unless an engine named another)."""
+    return _judge.get()
+
+
+@lru_cache(maxsize=None)
+def _default_adapter(judge: str = "jev") -> JevAdapter:
+    if judge == "jev":
+        return JevAdapter()
+    from jav.ai.engine import judge_adapter  # deferred: the engine module builds on this one
+
+    return judge_adapter(judge)()
 
 
 def get_adapter() -> JevAdapter:
+    """The adapter of the context's judgement service; inside `disabled()` one that refuses every question."""
     if _disabled.get():
         return _RefusingAdapter()
-    return _scoped_adapter.get() or _default_adapter()
+    judge = _judge.get()
+    return _scoped_adapters.get().get(judge) or _default_adapter(judge)
 
 
 # Keeps the cache-clearing interface that earlier tests / the CLI use.

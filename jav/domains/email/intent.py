@@ -63,7 +63,7 @@ class IntentResult(BaseModel):
     parent_prob: float = 0.0  # total probability of the family - parent label at low confidence (the policy decides)
     body_clean: str = ""
     call: JevCall
-    engine: str = "jev"  # 089: "gpt" when GPT recognised the intent (processing without JEV, `jav/domains/email/intent_gpt.py`)
+    engine: str = "jev"  # 089: "gpt" when GPT recognised the intent (`jav/domains/email/intent_gpt.py`); 265: the engine that asked
     measured: bool = True  # 089: False when GPT's confidence could not be measured (never invented)
 
     @model_validator(mode="after")
@@ -133,10 +133,11 @@ def _score_signal(answer: object) -> ScoreSignal:
     return ScoreSignal(level=int(level), score=round(float(answer.score), 4), confidence=round(float(answer.confidence), 4), probabilities=probs)
 
 
-def classify(jev: JevAdapter, msg: EmailMessage, *, run_id: str = "adhoc", use_cache: bool = True) -> IntentResult:
+def classify(jev: JevAdapter, msg: EmailMessage, *, run_id: str = "adhoc", use_cache: bool = True,
+             engine: str = "jev") -> IntentResult:
     state = build_state(msg)
     result = jev.ask("email_intent", state, build_questions(), run_id=run_id, use_cache=use_cache, config_hash=CONFIG_HASH)
-    return decode_result(result.response, result.call, state)
+    return decode_result(result.response, result.call, state).model_copy(update={"engine": engine})
 
 
 def decode_result(r, call, state: dict) -> IntentResult:

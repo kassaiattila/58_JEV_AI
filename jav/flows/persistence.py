@@ -12,6 +12,7 @@ last row of every process; `vacuum` returns the freed space to the disk (only wi
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Callable, Mapping
 from contextlib import closing
 from pathlib import Path
 from typing import Any
@@ -27,15 +28,19 @@ TABLE = "burr_state"
 
 BUSY_TIMEOUT_S = 30  # same as the main store's (jav/core/store.py)
 
-# 188 (plan 185 T3b): a flow's state keys renamed after states were saved under its partition (old -> new)
-_RENAMED: dict[str, dict[str, str]] = {}
+# 188 (plan 185 T3b): a flow's state keys renamed after states were saved under its partition (old -> (new, how the
+# old value reads as the new one; None: as it is))
+_RENAMED: dict[str, dict[str, tuple[str, Callable[[Any], Any] | None]]] = {}
 
 
-def rename_saved_keys(partition: str, renamed: dict[str, str]) -> None:
+def rename_saved_keys(partition: str, renamed: dict[str, str],
+                      convert: Mapping[str, Callable[[Any], Any]] | None = None) -> None:
     """A flow's state keys renamed since states were saved under its partition (registered by the flow on import): a
     saved state is read under the new names (`ClosingSQLitePersister.load`), because Burr reads back only the keys
-    its state model names, so an item interrupted before the rename resumes as it was."""
-    _RENAMED.setdefault(partition, {}).update(renamed)
+    its state model names, so an item interrupted before the rename resumes as it was. 265 (plan L): `convert` names,
+    by old key, how an old value reads as the new key's (the JEV switch `jev: bool` became the engine's name)."""
+    convert = convert or {}
+    _RENAMED.setdefault(partition, {}).update({old: (new, convert.get(old)) for old, new in renamed.items()})
 
 
 def _renamed(partition: str, state: State) -> State:
@@ -43,8 +48,15 @@ def _renamed(partition: str, state: State) -> State:
     values = state.get_all()
     if not renamed or not set(renamed) & set(values):
         return state
-    # a state that has the new key too keeps it
-    return State({renamed.get(k, k): v for k, v in values.items() if not (k in renamed and renamed[k] in values)})
+    out: dict[str, Any] = {}
+    for key, value in values.items():
+        if key not in renamed:
+            out[key] = value
+            continue
+        new, convert = renamed[key]
+        if new not in values:  # a state that has the new key too keeps it
+            out[new] = convert(value) if convert is not None else value
+    return State(out)
 
 
 # 208 (plan G-process-core R2): the modules moved since states were saved, relative to `jav` (old -> new). A saved state

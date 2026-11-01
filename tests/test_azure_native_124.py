@@ -69,7 +69,7 @@ def test_a_saved_native_state_without_a_recognition_still_loads():
     from jav.flows.flow_native import NativeState
 
     saved = {"work_run_id": "r", "item_id": "i", "graph_id": "g", "source_path": "s.pdf", "read_path": "s.pdf",
-             "original_name": "s.pdf", "expected_sha256": "a" * 64, "recipe_hash": "b" * 16, "jev": True,
+             "original_name": "s.pdf", "expected_sha256": "a" * 64, "recipe_hash": "b" * 16, "engine": "jev",
              "use_cache": True, "limits": {}, "ocr": True}
     assert NativeState.model_validate(saved).recognition is None
 
@@ -245,7 +245,7 @@ def test_the_native_graph_reads_the_handed_over_recognition(tmp_path, monkeypatc
     with store.use_store(tmp_path / "native.sqlite"):
         app = flow_native.build_app(work_run_id="r", item_id="i", graph_id="g", source_path="C:/s/scan.pdf",
                                     read_path="C:/s/scan.pdf", original_name="scan.pdf", expected_sha256="a" * 64,
-                                    recipe_hash="b" * 16, jev=False, ocr=True, recognition="c" * 64)
+                                    recipe_hash="b" * 16, engine="gpt", ocr=True, recognition="c" * 64)
         with pytest.raises(RuntimeError):
             app.run(halt_after=flow_native.TERMINALS)
     assert asked == [(True, "c" * 64)]
@@ -292,7 +292,7 @@ def run_native(source, ref, *, budgets: dict, recognition: str | None = None, fa
 
     app = flow_native.build_app(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
         source_path=str(source), read_path=str(source), original_name="original.pdf",
-        expected_sha256=ref.source_sha256, recipe_hash="a" * 16, jev=False, use_cache=False, ocr=True,
+        expected_sha256=ref.source_sha256, recipe_hash="a" * 16, engine="gpt", use_cache=False, ocr=True,
         recognition=recognition)
     with calls.measurement("native-run", budgets), patch("urllib.request.urlopen", fake or FakeAzure()), \
             patch.object(azure_di.time, "sleep"):

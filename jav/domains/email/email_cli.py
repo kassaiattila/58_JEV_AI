@@ -7,14 +7,14 @@ from __future__ import annotations
 import argparse
 import json
 
-from jav.cli.cli_options import budget_args, engine_args, jev_on, under_budget
+from jav.cli.cli_options import budget_args, engine_args, engine_of, under_budget
 
 
 def cmd_email(args: argparse.Namespace) -> int:
     from jav.domains.email.flow_email import run_email
 
     with under_budget(args, "email"):
-        st = run_email(args.folder, tracker=not args.no_tracker, use_cache=not args.no_cache, jev=jev_on(args))
+        st = run_email(args.folder, tracker=not args.no_tracker, use_cache=not args.no_cache, engine=engine_of(args))
     r, m = st.result, st.message
     assert r is not None and m is not None
     print(f"=== {m.message_id} | {m.sender} | {m.subject!r}")

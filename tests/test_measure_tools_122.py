@@ -47,8 +47,8 @@ def _fake_state(doc_type, detail):
                            final_status="done", review_reasons=[], detail_reasons=[])
 
 
-@pytest.mark.parametrize("jev, provider", [(True, "jev"), (False, "openai")])
-def test_the_budget_goes_to_the_engine_that_answers(tmp_path, monkeypatch, jev, provider):
+@pytest.mark.parametrize("engine, provider", [("jev", "jev"), ("gpt", "openai"), ("decisions", "openai")])
+def test_the_budget_goes_to_the_engine_that_answers(tmp_path, monkeypatch, engine, provider):
     from jav.flows import flow_detect
     from jav.core import calls
 
@@ -58,7 +58,7 @@ def test_the_budget_goes_to_the_engine_that_answers(tmp_path, monkeypatch, jev, 
     monkeypatch.setattr(evals_detect, "RUNS_DIR", tmp_path)
     case = evals_detect.DetectCase(case_id="c1", path=tmp_path / "a.pdf", expected="receipt", old_type="",
                                    expected_detail="invoice_foreign")
-    rows = evals_detect.detect_golden(jev=jev, budget_usd=Decimal("0.07"), cases=[case], label="targeted")
+    rows = evals_detect.detect_golden(engine=engine, budget_usd=Decimal("0.07"), cases=[case], label="targeted")
     assert spy.limits == [{provider: Decimal("0.07")}]
     assert rows[0]["expected_detail"] == "invoice_foreign" and rows[0]["detail_type"] == "invoice_foreign"
     assert list(tmp_path.glob("*_detect_targeted*.jsonl"))
@@ -85,11 +85,11 @@ def test_extraction_on_a_case_list_uses_the_expected_pack_and_a_budget(tmp_path,
     monkeypatch.setattr(calls, "measurement", spy.measurement)
 
     def fake_run_one(source_path, case_id, arm, **kw):
-        seen.append((case_id, arm, kw["doc_type"], kw["jev"]))
+        seen.append((case_id, arm, kw["doc_type"], kw["engine"]))
         return SimpleNamespace(run_id="r1", record=None, needs_review=True, review_reasons=["x"], final_status="done")
 
     monkeypatch.setattr(flow, "run_one", fake_run_one)
     rows = extract_cases.run(path, arm="G", jev=False, budget_usd=Decimal("0.03"), out_dir=tmp_path)
-    assert seen == [("x122-c1", "G", "invoice_foreign", False)]
+    assert seen == [("x122-c1", "G", "invoice_foreign", "gpt")]
     assert spy.limits == [{"openai": Decimal("0.03")}]
     assert rows[0]["needs_review"] is True and (tmp_path / "rows.jsonl").exists()

@@ -15,12 +15,12 @@ PACK = get_pack("invoice_hu")
 SCOPE = set(PACK.strict_scored) | set(PACK.high_stakes)
 
 
-def _run(tmp_path, values, *, p, jev, monkeypatch):
+def _run(tmp_path, values, *, p, engine, monkeypatch):
     import tests.test_no_jev_085 as base
 
     tmp_path.mkdir(exist_ok=True)
     monkeypatch.setattr(base, "_FakeAgent", lambda pack, vals: _LogprobAgent(pack, vals, p=p))
-    return base._run_g(tmp_path, values, jev=jev, adapter=base._DownJev() if jev else None)
+    return base._run_g(tmp_path, values, engine=engine, adapter=base._DownJev() if engine == "jev" else None)
 
 
 def _gpt_reasons(state) -> dict[str, str]:
@@ -29,7 +29,7 @@ def _gpt_reasons(state) -> dict[str, str]:
 
 def test_a_field_gpt_is_not_sure_of_opens_a_to_do(tmp_path, monkeypatch):
     values = {**GOOD, "supplier_address": "Minta utca 1. 1111 Budapest"}
-    state = _run(tmp_path, values, p=0.9, jev=False, monkeypatch=monkeypatch)
+    state = _run(tmp_path, values, p=0.9, engine="gpt", monkeypatch=monkeypatch)
     got = _gpt_reasons(state)
     expected = {f for f in PACK.header_fields if f in SCOPE and values.get(f) not in (None, "")}
     assert set(got) == expected and expected  # the accounting fields with a value, each once
@@ -40,12 +40,12 @@ def test_a_field_gpt_is_not_sure_of_opens_a_to_do(tmp_path, monkeypatch):
 
 
 def test_a_sure_answer_opens_no_such_to_do(tmp_path, monkeypatch):
-    state = _run(tmp_path, GOOD, p=0.9999, jev=False, monkeypatch=monkeypatch)
+    state = _run(tmp_path, GOOD, p=0.9999, engine="gpt", monkeypatch=monkeypatch)
     assert _gpt_reasons(state) == {}
 
 
 def test_a_run_with_jev_never_gets_it_even_when_jev_does_not_answer(tmp_path, monkeypatch):
-    state = _run(tmp_path, GOOD, p=0.9, jev=True, monkeypatch=monkeypatch)
+    state = _run(tmp_path, GOOD, p=0.9, engine="jev", monkeypatch=monkeypatch)
     assert any(r.startswith("jev_unavailable:") for r in state.review_reasons)  # the stand-in JEV did not answer
     assert _gpt_reasons(state) == {}
 

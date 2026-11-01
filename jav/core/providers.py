@@ -16,6 +16,9 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Annotated
+
+from pydantic import AfterValidator
 
 from jav.core import cfg
 from jav.core.config import API_KEY_ENV_VARS, AZURE_DI_ENV_VARS, OPENAI_KEY_ENV_VAR
@@ -75,6 +78,17 @@ def get(provider_id: str) -> Provider:
                     enabled=bool(raw["enabled"]), off_note=raw.get("off_note"))
 
 
+def check_id(provider_id: str) -> str:
+    """The name itself when the registry describes such a provider (a contract field's check, `ProviderId`)."""
+    if provider_id not in ids():
+        raise ValueError(f"unknown provider {provider_id!r}; expected one of {ids()}")
+    return provider_id
+
+
+# A field holding a provider's name: any provider the registry describes (until 265 a hand-written list per contract).
+ProviderId = Annotated[str, AfterValidator(check_id)]
+
+
 def label(provider_id: str) -> str:
     """The provider's name on screen; an undescribed name (a connector's, an old row's) is shown as it is."""
     try:
@@ -129,5 +143,6 @@ def availability(provider_id: str) -> Availability:
     return Availability(True, provider=provider_id)
 
 
-__all__ = ["Availability", "MISSING_KEY", "Provider", "SWITCHED_OFF", "UnknownProvider", "availability", "budget_of",
+__all__ = ["Availability", "MISSING_KEY", "Provider", "ProviderId", "SWITCHED_OFF", "UnknownProvider", "availability",
+           "budget_of", "check_id",
            "enabled", "get", "has_key", "ids", "label", "sharing"]

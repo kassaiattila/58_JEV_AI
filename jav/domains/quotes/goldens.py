@@ -112,7 +112,7 @@ GOLDENS = (
     goldens.Golden(key=f"{KIND}:lines", layer="process_pack", owner=PACK, engines=(), module=__name__,
                    what="the invented quotes' lines and totals priced by code from their expected matches "
                         "(configs/golden_quotes.json)", count=_count_quotes, measure=_measure_lines),
-    goldens.Golden(key=f"{KIND}:matches", layer="process_pack", owner=PACK, engines=goldens.ENGINES, module=__name__,
+    goldens.Golden(key=f"{KIND}:matches", layer="process_pack", owner=PACK, engines=goldens.ENGINES_BEFORE_265, module=__name__,
                    what="the price list item proposed for each invented requested item: sure, to check or not listed "
                         "(configs/golden_quotes.json)", count=_count_matches, measure=_measure_matches),
     # 196 W4: GPT only (JEV writes no text)

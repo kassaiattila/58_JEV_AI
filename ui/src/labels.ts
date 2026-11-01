@@ -320,6 +320,8 @@ export function reasonText(code: string): string {
   // 160: in processing without JEV a JEV question asked anyway is refused before it is sent
   if (code === "jev_unavailable:disabled") return t("The JEV question was not sent: this processing runs without JEV, on GPT only; check by hand");
   if (p[0] === "jev_unavailable") return t("JEV was unavailable ({{why}}); check manually", { why: p.slice(1).join(":") });
+  // 265 (plan L): OpenAI Decisions answers in JEV's place; its own to-do when a question could not be answered
+  if (p[0] === "decisions_unavailable") return t("OpenAI Decisions was unavailable ({{why}}); check manually", { why: p.slice(1).join(":") });
   if (p[0] === "llm" && p[1] === "failed") return t("GPT extraction failed ({{why}})", { why: p[2] ?? "" });
   // 177: an amount or a quantity of the record that cannot be read as a number (`<field>:unparseable:<raw>`, jav/ai/models.py)
   if (p[1] === "unparseable") return t("A number cannot be read: {{field}}", { field: fieldPathLabel(p[0]) });

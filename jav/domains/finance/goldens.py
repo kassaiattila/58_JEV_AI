@@ -51,7 +51,7 @@ GOLDENS = (
                    what="the pairs, exclusions and statuses the code proposes on the synthetic reconciliation cases "
                         "(configs/golden_reconcile.json)",
                    count=lambda: len(cfg.load("golden_reconcile")["cases"]), measure=_measure_pairs),
-    goldens.Golden(key=f"{KIND}:credit_kinds", layer="process_pack", owner=PACK, engines=goldens.ENGINES,
+    goldens.Golden(key=f"{KIND}:credit_kinds", layer="process_pack", owner=PACK, engines=goldens.ENGINES_BEFORE_265,
                    module=__name__, what="the kind of incoming money on the invented statement lines "
                                          "(configs/golden_credit_kinds.json)",
                    count=lambda: len(cfg.load("golden_credit_kinds")["cases"]), measure=_measure_credit_kinds),

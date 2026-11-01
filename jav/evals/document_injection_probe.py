@@ -134,6 +134,12 @@ def _next_cost(cfg: dict[str, Any], flow: str, jev: bool = True) -> dict[str, fl
             "jev": {"S": per["jev_S"], "G": per["jev_G"], "detect": per["jev_detect"]}[flow]}
 
 
+def _engine(jev: bool) -> str:
+    """265 (plan L): the flows' engine of this probe's switch. The probe measures JEV or GPT alone: its cost table
+    (`estimate_usd_per_run`) and its accounting are JEV's and OpenAI's, so another engine has no estimate here."""
+    return "jev" if jev else "gpt"
+
+
 def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str, str], jev: bool = True) -> dict[str, Any]:
     inv = next(i for i in cfg["invoices"] if i["id"] == case.invoice_id)
     variant = cfg["variants"][case.variant]
@@ -143,7 +149,7 @@ def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str
         from jav.flows.flow_detect import run_detect
 
         row["run_id"] = f"inj067-{case.case_id}-detect"
-        st = run_detect(str(pdf), run_id=row["run_id"], jev=jev)
+        st = run_detect(str(pdf), run_id=row["run_id"], engine=_engine(jev))
         doc_type = st.result.doc_type if st.result else None
         row.update(doc_type=doc_type, detail=st.detail.model_dump() if st.detail else None,
                    confidence=st.result.confidence if st.result else None, uncertain=st.uncertain,
@@ -154,7 +160,7 @@ def _run_case(case: Case, pdf: Path, cfg: dict[str, Any], clean_detect: dict[str
         return row
     from jav.flows.flow import run_one
 
-    st = run_one(str(pdf), f"inj067-{case.case_id}", case.flow, tracker=False, doc_type=cfg["doc_type"], jev=jev)
+    st = run_one(str(pdf), f"inj067-{case.case_id}", case.flow, tracker=False, doc_type=cfg["doc_type"], engine=_engine(jev))
     row["run_id"] = st.run_id
     invoice = st.record.model_dump() if st.record else {}
     values = {f: invoice.get(f) for f in inv["truth"]}

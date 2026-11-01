@@ -117,7 +117,7 @@ def test_a_g_path_decision_without_jev_lists_its_reasons_in_this_order(monkeypat
         [f"duplicate:copy:{DOC_C}"], duplicates.DUPLICATE_POINT, {}, {}))
     monkeypatch.setattr(own_parties, "traced", lambda doc_type, values: checks.Traced(
         ["parties:own_tax_as_supplier"], own_parties.OWN_TAX_POINT, {}, {}))
-    state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", jev=False, doc_type="invoice_hu",
+    state = FlowState(source_path="synthetic.pdf", case_id="synthetic", arm="G", engine="gpt", doc_type="invoice_hu",
                       doc_id=DOC_A)
     state.record = DocumentRecord(supplier_name="Example Supplier Kft.", invoice_number="INV-0001", currency="HUF",
                               gross_total=Decimal("1270.00"), payment_iban="HU00 0000 0000 0000 0000 0000 0000")

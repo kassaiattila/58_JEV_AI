@@ -16,8 +16,9 @@ way a flow runs: the worker, the measurements and the tests.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
-from contextlib import ExitStack
+import importlib
+from collections.abc import Iterator, Mapping
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -27,6 +28,11 @@ from jav.ai import jev
 from jav.core import cfg, providers
 
 CONFIG = "engines"
+# The adapter of each judgement service (code: the mechanism; `configs/engines.json` `judges`: what an engine names).
+JUDGE_ADAPTERS: dict[str, tuple[str, str]] = {
+    "jev": ("jav.ai.jev", "JevAdapter"),
+    "decisions": ("jav.ai.decisions", "DecisionsAdapter"),
+}
 
 
 class UnknownEngine(ValueError):
@@ -42,6 +48,7 @@ class Engine:
     requires: tuple[str, ...]
     bands: str
     unavailable_status: str
+    runs: str = ""  # the suffix of its measurements' run files
 
     @property
     def judged(self) -> bool:
@@ -57,6 +64,12 @@ class Engine:
     def judge_provider(self) -> str | None:
         """The provider whose calls the judgement service books and budgets."""
         return None if self.judge is None else judge_provider(self.judge)
+
+    @property
+    def answerer(self) -> str:
+        """The provider whose calls answer the typed questions: the judgement service's, or, for an engine without one,
+        the provider it requires first (GPT's), so a measurement of the answers knows whose budget it spends."""
+        return self.judge_provider if self.judge is not None else self.requires[0]
 
 
 def _registry() -> dict[str, Any]:
@@ -78,7 +91,7 @@ def get(engine_id: str) -> Engine:
     except KeyError:
         raise UnknownEngine(f"unknown engine {engine_id!r}; expected one of {ids()}") from None
     return Engine(id=engine_id, label=str(raw["label"]), judge=raw["judge"], requires=tuple(raw["requires"]),
-                  bands=str(raw["bands"]), unavailable_status=str(raw["unavailable_status"]))
+                  bands=str(raw["bands"]), unavailable_status=str(raw["unavailable_status"]), runs=str(raw.get("runs", "")))
 
 
 def judges() -> list[str]:
@@ -90,9 +103,34 @@ def judge_provider(judge: str) -> str:
     return str(_registry()["judges"][judge]["provider"])
 
 
+def judge_adapter(judge: str) -> type:
+    """The adapter class of a judgement service."""
+    try:
+        module, name = JUDGE_ADAPTERS[judge]
+    except KeyError:
+        raise UnknownEngine(f"no adapter for the judgement service {judge!r}; expected one of {list(JUDGE_ADAPTERS)}") from None
+    return getattr(importlib.import_module(module), name)
+
+
 def judge_todo(judge: str) -> str:
     """The first part of the to-do a judgement service raises when it cannot answer (`jev_unavailable`)."""
     return str(_registry()["judges"][judge]["todo"])
+
+
+def unavailable_todo(exc: jev.JevUnavailableError) -> str:
+    """The to-do of a typed question the context's judgement service could not answer: `<its todo>:<reason>`
+    (`jev_unavailable:budget_exceeded`, `decisions_unavailable:refusal`)."""
+    return f"{judge_todo(jev.current_judge())}:{exc.reason}"
+
+
+def unavailable_prefixes() -> tuple[str, ...]:
+    """The first parts of every judgement service's unavailable to-do, with their colon (`jev_unavailable:`, ...)."""
+    return tuple(f"{judge_todo(j)}:" for j in judges())
+
+
+def unavailable_statuses() -> tuple[str, ...]:
+    """Every engine's end state of a flow whose answerer could not be asked (`jev_unavailable`, ...)."""
+    return tuple(get(e).unavailable_status for e in ids())
 
 
 def of_params(params: Mapping[str, Any] | None) -> Engine:
@@ -111,6 +149,21 @@ def of_params(params: Mapping[str, Any] | None) -> Engine:
             raise UnknownEngine(f"unknown {legacy['param']} setting {old!r}; expected one of "
                                 f"{list(legacy['values'])}") from None
     return get(default_id())
+
+
+def of_flag(flag: Any) -> str:
+    """The engine a flow state or a recorded decision saved before 265 names with its JEV switch (`jev`: True or
+    False), by the registry's legacy reading (`legacy.values`: on, off)."""
+    legacy = _registry()["legacy"]["values"]
+    return str(legacy["on" if flag else "off"])
+
+
+def of_record(data: Mapping[str, Any]) -> Engine:
+    """The engine a flow state's values or a decision's recorded inputs name: their `engine`, or, recorded before 265,
+    their JEV switch (`jev`)."""
+    if data.get("engine") is not None:
+        return get(str(data["engine"]))
+    return get(of_flag(data.get("jev", True)))
 
 
 def availability(engine_id: str) -> providers.Availability:
@@ -133,27 +186,57 @@ def choices() -> list[dict[str, Any]]:
     return out
 
 
-# --- the guarantee of an engine without a judgement service (160) ---------------------------------------------------
+# --- every step asks the engine's judgement service; without one, nothing is asked (160) --------------------------
 
-class WithoutJev(PreRunStepHook, PostRunStepHook):
-    """Burr hook: each step of the application runs with JEV switched off."""
+def resolve(engine: Engine | str) -> Engine:
+    return engine if isinstance(engine, Engine) else get(engine)
 
-    def __init__(self) -> None:
+
+@contextmanager
+def scope(engine: Engine | str) -> Iterator[Engine]:
+    """Inside, the typed questions go to the engine's judgement service; for an engine without one they are refused
+    before anything leaves the machine (`jav.ai.jev.disabled()`)."""
+    e = resolve(engine)
+    with (jev.use_judge(e.judge) if e.judge is not None else jev.disabled()):
+        yield e
+
+
+@contextmanager
+def no_cache_write(engine: Engine | str) -> Iterator[Engine]:
+    """Inside, the engine's judgement service neither reads nor writes its saved answers (a determinism measurement:
+    the real run-to-run variation, the reference answers untouched); an engine without one has none to keep."""
+    e = resolve(engine)
+    if e.judge is None:
+        yield e
+        return
+    with jev.use_judge(e.judge):
+        adapter = jev.get_adapter()
+    with adapter.no_cache_write():
+        yield e
+
+
+class WithEngine(PreRunStepHook, PostRunStepHook):
+    """Burr hook: each step of the application runs in the engine's scope (`scope`)."""
+
+    def __init__(self, engine: Engine) -> None:
+        self.engine = engine
         self._open: list[ExitStack] = []
 
     def pre_run_step(self, **future_kwargs: Any) -> None:
         stack = ExitStack()
-        stack.enter_context(jev.disabled())
+        stack.enter_context(scope(self.engine))
         self._open.append(stack)
 
     def post_run_step(self, **future_kwargs: Any) -> None:  # Burr calls it after a failed step too
         self._open.pop().close()
 
 
-def with_engine(builder, *, jev_on: bool):
-    """The flow's application builder, with JEV switched off in every step when `jev_on` is false."""
-    return builder if jev_on else builder.with_hooks(WithoutJev())
+def with_engine(builder, engine: Engine | str):
+    """The flow's application builder, every step in the engine's scope."""
+    return builder.with_hooks(WithEngine(resolve(engine)))
 
 
-__all__ = ["Engine", "UnknownEngine", "WithoutJev", "availability", "choices", "default_id", "get", "ids",
-           "judge_provider", "judge_todo", "judges", "of_params", "with_engine"]
+__all__ = ["Engine", "JUDGE_ADAPTERS", "UnknownEngine", "WithEngine", "availability", "choices", "default_id", "get",
+           "ids", "judge_adapter", "judge_provider", "judge_todo", "judges", "no_cache_write", "of_flag", "of_params",
+           "of_record", "resolve", "scope", "unavailable_prefixes", "unavailable_statuses", "unavailable_todo",
+           "with_engine"]

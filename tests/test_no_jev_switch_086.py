@@ -133,7 +133,7 @@ def test_without_jev_an_email_never_asks_jev(isolated):
     msg = EmailMessage(message_id="m-1", subject="Szamla", body="Mellekelten kuldom a szamlat.",
                        attachments=[Attachment(filename="a.pdf")])
     with jev_mod.use_adapter(_NoJev()):
-        app = flow_email.build_app(message=msg, jev=False)
+        app = flow_email.build_app(message=msg, engine="gpt")
         _, _, state = app.run(halt_after=flow_email.TERMINALS)
     st = state.data
     assert st.result is None and "intent:gpt_failed:AssertionError" in st.review_reasons

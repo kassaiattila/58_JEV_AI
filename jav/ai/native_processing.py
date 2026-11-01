@@ -11,7 +11,7 @@ from typing import Any, Mapping
 from jav.documents import native_results
 from jav.core import store
 from jav.documents.native_contracts import Failed, NativeLimits, ReceiptRef, Rejected, Succeeded, Uncertain
-from jav.ai import native_verification
+from jav.ai import engine as engines, native_verification
 from jav.documents.readers import providers
 from jav.documents.readers.pipeline import digest, json_bytes
 from jav.documents.readers.receipts import InterpretationRejected
@@ -21,8 +21,9 @@ log = logging.getLogger(__name__)
 
 
 def estimate_limits(params: Mapping[str, Any]) -> NativeLimits:
-    """Bound the actual GPT request and the JEV request plus alias resolution."""
-    from jav.core.config import JEV_RETRY, JEV_USD_PER_MTOK, OPENAI_MODEL, OPENAI_SETTINGS, openai_price
+    """Bound the actual GPT request and the judgement service's request plus its alias resolution (265: the service
+    of the setting's engine, `jav.ai.engine.of_params`; none for an engine without one)."""
+    from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_price
     if params.get("arm") == "S":
         raise ValueError("Native interpretation does not support the S path")
     transfer, output = 80_000, 4000
@@ -30,13 +31,13 @@ def estimate_limits(params: Mapping[str, Any]) -> NativeLimits:
     amounts = {"openai": calls.estimate_max_cost(input_bytes=transfer, max_output_tokens=output,
         usd_per_mtok=(Decimal(str(price[0])), Decimal(str(price[1]))),
         repeats=1 + int(OPENAI_SETTINGS["sdk_max_retries"]))}
-    if params.get("jev", "on") != "off":
-        # JEV's adapter serialises spaces around structural JSON tokens. Twice
+    engine = engines.of_params(params)
+    if engine.judged:
+        # The adapters serialise spaces around structural JSON tokens. Twice
         # the canonical transfer bound also covers that envelope; the separate
-        # allowance covers its small, budgeted model-alias probe.
-        amounts["jev"] = calls.estimate_max_cost(input_bytes=transfer * 2 + 4096, max_output_tokens=0,
-            usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)),
-            repeats=1 + int(JEV_RETRY.get("max_retries", 0)))
+        # allowance covers JEV's small, budgeted model-alias probe.
+        adapter = engines.judge_adapter(engine.judge)()
+        amounts[adapter.provider] = adapter.max_cost_for(transfer * 2 + 4096)
     return NativeLimits(max_transfer_bytes=transfer, max_output_tokens=output, provider_limits_usd=amounts)
 
 
@@ -96,8 +97,9 @@ def _failure_reason(error: Exception) -> str:
 
 
 def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
-              jev: bool, use_cache: bool, limits: NativeLimits) -> str:
-    """Return a saved terminal outcome reference, without repeating settled work."""
+              engine: str, use_cache: bool, limits: NativeLimits) -> str:
+    """Return a saved terminal outcome reference, without repeating settled work. `engine` (265): the AI engine; its
+    judgement service checks the GPT facts (until 265 `jev: bool`); an engine without one leaves them unchecked."""
     previous = native_results.outcome_for_graph(graph_id)
     if previous is not None:
         data, _, _ = native_results.load_outcome(previous)
@@ -114,6 +116,13 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
         return native_results.save_outcome(graph_id=graph_id, run_id=work_run_id, item_id=item_id,
                                           reading_id=reading_id, outcome=outcome)
     replayed, cached_refs = {}, []
+    judge = engines.get(engine).judge
+    adapter, provider = None, None
+    if judge is not None:  # the judgement service's own answers under the native cache folder
+        adapter_class = engines.judge_adapter(judge)
+        provider = engines.judge_provider(judge)
+        adapter = adapter_class(cache_dir=store.current_path().parent / "native" / "provider_cache"
+                                / getattr(adapter_class, "cache_subdir", ""))
 
     def gpt_receipt(result):
         replayed[result.invocation_id] = (result.replayed, result.reused_from)
@@ -125,9 +134,9 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
         # replay. The latter retains its original invocation and original cost.
         with store.connect() as c:
             for row in c.execute("SELECT i.id,a.payload FROM invocations i JOIN artifacts a ON a.kind=? "
-                "AND a.artifact_id=CAST(i.id AS TEXT) WHERE i.run_id=? AND i.provider='jev' "
-                "AND i.step_id LIKE 'jev:reader_semantic_support:%' ORDER BY i.id DESC",
-                (calls.RESPONSE_KIND, graph_id)):
+                "AND a.artifact_id=CAST(i.id AS TEXT) WHERE i.run_id=? AND i.provider=? "
+                "AND i.step_id LIKE ? ORDER BY i.id DESC",
+                (calls.RESPONSE_KIND, graph_id, provider, f"{judge}:reader_semantic_support:%")):
                 if json.loads(row["payload"])["response"] == reply.response.model_dump(mode="json"):
                     replayed[row["id"]] = (True, None)
                     return
@@ -138,7 +147,7 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
         artifact_id = graph_id + ":" + response_sha
         store.save_artifact("native_cached_response", artifact_id, payload)
         cached_refs.append(ReceiptRef(kind="saved_cache", receipt_id="cache:" + response_sha,
-            provider="jev", run_id=graph_id, step_id="reader_semantic_support", request_sha256=reply.cache_key,
+            provider=provider, run_id=graph_id, step_id="reader_semantic_support", request_sha256=reply.cache_key,
             response_sha256=response_sha, artifact_kind="native_cached_response", artifact_id=artifact_id,
             call_status="cached", cost_known=True, cost_usd=Decimal(0), replayed=True))
 
@@ -147,8 +156,8 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
         ctx = calls.current()
         if ctx is None or ctx.budget_scope != work_run_id:
             raise ValueError("Native processing needs the matching work-run budget scope")
-        for provider in ("openai", "jev") if jev else ("openai",):
-            if not calls.has_budget(work_run_id, provider):
+        for needed in ("openai", provider) if adapter is not None else ("openai",):
+            if not calls.has_budget(work_run_id, needed):
                 raise ValueError("Native processing needs an explicit provider budget")
         if not any(e.text for r in delivery.bundle.results for e in r.elements):
             raise ValueError("No readable source elements are available for interpretation")
@@ -156,17 +165,17 @@ def interpret(*, work_run_id: str, item_id: str, graph_id: str, reading_id: str,
             interpretation = providers.extract_gpt(delivery, run_id=graph_id, isolated_store=store.active_path(),
                 max_transfer_bytes=limits.max_transfer_bytes, max_output_tokens=limits.max_output_tokens,
                 receipt_observer=gpt_receipt)
-            if jev:
-                from jav.ai.jev import JevAdapter, JevUnavailableError
+            if adapter is not None:
+                from jav.ai.jev import JevUnavailableError
                 try:
                     interpretation = native_verification.verify_jev(delivery, interpretation, run_id=graph_id,
                         isolated_store=store.active_path(), max_transfer_bytes=limits.max_transfer_bytes,
-                        adapter=JevAdapter(cache_dir=store.current_path().parent / "native" / "provider_cache"),
-                        use_cache=use_cache, receipt_observer=jev_receipt)
+                        adapter=adapter, use_cache=use_cache, receipt_observer=jev_receipt)
                 except JevUnavailableError as exc:
-                    # 160 (review AI-5): the paid GPT facts stay, without JEV support; the saved outcome carries the
-                    # `jev_unavailable:<reason>` to-do of the other flows, so a resume keeps it too
-                    jev_reason = f"jev_unavailable:{exc.reason}"
+                    # 160 (review AI-5): the paid GPT facts stay, without the service's support; the saved outcome
+                    # carries the `<service>_unavailable:<reason>` to-do of the other flows (265: the judgement
+                    # service's own, `jav.ai.engine.judge_todo`), so a resume keeps it too
+                    jev_reason = f"{engines.judge_todo(judge)}:{exc.reason}"
     except Exception as exc:
         # This is the explicit terminal application boundary. Keep only a safe
         # error class publicly; the existing call log retains private diagnostics.

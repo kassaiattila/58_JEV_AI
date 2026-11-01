@@ -148,7 +148,7 @@ def test_a_whole_key_names_its_own_set_alone():
     ("datapoints:invoice_hu:S", goldens.Options(), golden_call("S", "invoice_hu")),
     ("datapoints:viz_szamla:S", goldens.Options(use_cache=False), golden_call("S", "viz_szamla", use_cache=False)),
     ("datapoints:invoice_hu:G", goldens.Options(engine="gpt", budget_usd=Decimal("0.10")),
-     golden_call("G", "invoice_hu", jev=False, budget_usd=Decimal("0.10"))),
+     golden_call("G", "invoice_hu", engine="gpt", budget_usd=Decimal("0.10"))),
     ("datapoints:invoice_hu:S", goldens.Options(jev_budget_usd=Decimal("0.02")),
      golden_call("S", "invoice_hu", jev_budget_usd=Decimal("0.02"))),
 ])
@@ -168,14 +168,14 @@ def test_a_synthetic_golden_set_is_measured_as_its_command_measures_it(monkeypat
 def test_the_s_path_without_jev_is_refused_without_running(monkeypatch):
     fake = record(monkeypatch, evals, "golden", [])
     outcome = goldens.get("datapoints:invoice_hu:S").measure(goldens.Options(engine="gpt"))
-    assert outcome.refused and "JEV" in outcome.refused and fake.calls == []
+    assert outcome.refused and "judgement service" in outcome.refused and fake.calls == []
 
 
 @pytest.mark.parametrize(("options", "expected"), [
     (goldens.Options(), detect_call()),
     (goldens.Options(use_cache=False), detect_call(use_cache=False)),
     (goldens.Options(jev_budget_usd=Decimal("0.05")), detect_call(budget_usd=Decimal("0.05"))),
-    (goldens.Options(engine="gpt", budget_usd=Decimal("0.20")), detect_call(jev=False, budget_usd=Decimal("0.20"))),
+    (goldens.Options(engine="gpt", budget_usd=Decimal("0.20")), detect_call(engine="gpt", budget_usd=Decimal("0.20"))),
 ])
 def test_the_type_golden_set_is_measured_as_its_command_measures_it(monkeypatch, options, expected):
     fake = record(monkeypatch, evals_detect, "detect_golden", [])
@@ -192,7 +192,7 @@ def test_the_type_golden_set_takes_the_budget_of_the_engine_that_answers(monkeyp
 
 @pytest.mark.parametrize(("options", "expected"), [
     (goldens.Options(), email_call()),
-    (goldens.Options(engine="gpt", budget_usd=Decimal("0.30")), email_call(jev=False, budget_usd=Decimal("0.30"))),
+    (goldens.Options(engine="gpt", budget_usd=Decimal("0.30")), email_call(engine="gpt", budget_usd=Decimal("0.30"))),
     (goldens.Options(jev_budget_usd=Decimal("0.03")), email_call(jev_budget_usd=Decimal("0.03"))),
 ])
 def test_the_intent_golden_set_is_measured_as_its_command_measures_it(monkeypatch, options, expected):

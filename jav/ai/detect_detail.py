@@ -34,7 +34,7 @@ _WS = re.compile(r"\s+")
 class DetailResult(BaseModel):
     broad: str
     key: str | None
-    method: str  # issuer | single | anchors | jev | gpt | no_jev | no_candidate
+    method: str  # issuer | single | anchors | gpt | no_jev | no_candidate | (265) the judgement service that chose: jev, decisions
     confidence: float | None = None  # gpt: None = not measurable
     probabilities: dict[str, float] = Field(default_factory=dict)
     candidates: list[str] = Field(default_factory=list)
@@ -117,5 +117,5 @@ def resolve(broad: str, text: str, *, jev: Any, run_id: str, use_cache: bool = T
                      run_id=run_id, use_cache=use_cache, config_hash=config_hash())
     pick = result.response.choices["detail_type"]
     key = pick.choice if pick.choice in packs else None
-    return DetailResult(key=key, method="jev", confidence=float(pick.confidence),
+    return DetailResult(key=key, method=getattr(jev, "judge", "jev"), confidence=float(pick.confidence),
                         probabilities={k: round(float(v), 4) for k, v in dict(pick.probabilities).items()}, **base)

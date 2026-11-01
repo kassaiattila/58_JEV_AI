@@ -258,6 +258,19 @@ def test_without_an_openai_key_it_is_unavailable(work):
             adapter.ask("select", STATE, QUESTIONS, run_id="run-265")
 
 
+def test_outside_a_run_or_a_budgeted_command_its_own_client_sends_nothing(work, monkeypatch):
+    """As JEV's own client (265, SEC-02): with the installation's key but no run and no measurement budget, only
+    earlier answers count; the client is made (the key is checked) and nothing is sent."""
+    made = []
+    monkeypatch.setenv("OPENAI_API_KEY", "synthetic-offline-key")
+    monkeypatch.setattr(DecisionsAdapter, "_new_client", lambda self, key: made.append(key) or object())
+    adapter = DecisionsAdapter(cache_dir=work / "decisions-cache")
+    assert calls.current() is None
+    with pytest.raises(jev.JevUnavailableError, match="no_budget"):
+        adapter.ask("select", STATE, QUESTIONS, run_id="run-265")
+    assert made == ["synthetic-offline-key"]
+
+
 def test_an_unfit_request_is_the_flows_to_do_not_a_crash(work):
     adapter = Service().adapter(work)
     with pytest.raises(jev.JevUnavailableError, match="unfit"):

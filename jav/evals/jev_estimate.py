@@ -146,7 +146,7 @@ def only_adapter(adapter: JevAdapter) -> Iterator[None]:
     from jav.ai import jev
 
     saved = jev._default_adapter
-    jev._default_adapter = lambda: adapter  # type: ignore[assignment]
+    jev._default_adapter = lambda judge="jev": adapter  # type: ignore[assignment]  # 265: whichever service
     try:
         with use_adapter(adapter):
             yield

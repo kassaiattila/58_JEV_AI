@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engines",
-    "version": "1.0.0",
-    "description": "265 (plan L; glossary: Engine registry, AI engine, Judgement service): every AI engine a processing can run with, read only through jav/ai/engines.py. An engine: `label` (its name on screen), `judge` (the judgement service that answers its typed questions, a key of `judges`, or null: GPT answers and the code checks), `requires` (the providers of configs/providers.json it cannot run without: unavailable when one of them is), `bands` (the suffix of its band keys in configs/policy.json `band_for`), `unavailable_status` (a flow's end state when its answerer could not be asked). A judge: `provider` (whose calls it books and budgets) and `todo` (the first part of the to-do it raises when it cannot answer). `default`: the engine of a setting that names none. `legacy`: how a setting saved before the registry names its engine (the recipes' `jev: on | off`).",
+    "version": "1.1.0",
+    "description": "265 (plan L; glossary: Engine registry, AI engine, Judgement service): every AI engine a processing can run with, read only through jav/ai/engine.py. An engine: `label` (its name on screen), `judge` (the judgement service that answers its typed questions, a key of `judges`, or null: GPT answers and the code checks), `requires` (the providers of configs/providers.json it cannot run without: unavailable when one of them is), `bands` (the suffix of its band keys in configs/policy.json `band_for`), `unavailable_status` (a flow's end state when its answerer could not be asked), `runs` (the suffix of its measurements' run files, so a measurement's file says which engine it measured; the data points' measurement named GPT's `_nojev` before 265 and still does). A judge: `provider` (whose calls it books and budgets) and `todo` (the first part of the to-do it raises when it cannot answer). `default`: the engine of a setting that names none. `legacy`: how a setting saved before the registry names its engine (the recipes' `jev: on | off`).",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-11-01",
+        "note": "265 (plan L, L4a): each engine's `runs`, the suffix of its measurements' run files (until then written by every measurement tool: `_gpt`, or `_nojev` for the data points); no value of jev or gpt changes."
+      },
       {
         "version": "1.0.0",
         "date": "2026-11-01",
@@ -18,21 +23,24 @@
       "judge": "jev",
       "requires": ["jev"],
       "bands": "",
-      "unavailable_status": "jev_unavailable"
+      "unavailable_status": "jev_unavailable",
+      "runs": ""
     },
     "decisions": {
       "label": "OpenAI Decisions and GPT",
       "judge": "decisions",
       "requires": ["openai_decisions"],
       "bands": ".decisions",
-      "unavailable_status": "decisions_unavailable"
+      "unavailable_status": "decisions_unavailable",
+      "runs": "_decisions"
     },
     "gpt": {
       "label": "GPT only",
       "judge": null,
       "requires": ["openai"],
       "bands": ".gpt",
-      "unavailable_status": "gpt_unavailable"
+      "unavailable_status": "gpt_unavailable",
+      "runs": "_gpt"
     }
   },
   "judges": {

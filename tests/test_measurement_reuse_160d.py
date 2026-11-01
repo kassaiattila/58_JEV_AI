@@ -128,10 +128,10 @@ def test_the_golden_measurements_reuse_unless_told_to_ask_again(isolated, monkey
 
     monkeypatch.setattr(evals_email, "_cases", lambda limit: [])
     runs = [
-        lambda cache: evals.golden("G", lambda *a, **k: None, cases=[object()], use_cache=cache, type_key="invoice_hu", jev=False),
-        lambda cache: evals_detect.detect_golden(use_cache=cache, jev=False, cases=[]),
-        lambda cache: evals_email.email_golden(use_cache=cache, jev=False),
-        lambda cache: evals_email.email_injection_probe(use_cache=cache, jev=False),
+        lambda cache: evals.golden("G", lambda *a, **k: None, cases=[object()], use_cache=cache, type_key="invoice_hu", engine="gpt"),
+        lambda cache: evals_detect.detect_golden(use_cache=cache, engine="gpt", cases=[]),
+        lambda cache: evals_email.email_golden(use_cache=cache, engine="gpt"),
+        lambda cache: evals_email.email_injection_probe(use_cache=cache, engine="gpt"),
         lambda cache: reconcile_ai.golden(engines=["gpt"], limits={"openai": Decimal("0.01")}, use_cache=cache,
                                           out_dir=isolated),
     ]

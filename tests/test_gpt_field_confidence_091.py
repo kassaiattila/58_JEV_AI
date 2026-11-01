@@ -57,7 +57,7 @@ def _run_g_with(tmp_path, values, p=0.99, monkeypatch=None):
 
     tmp_path.mkdir(exist_ok=True)
     monkeypatch.setattr(base, "_FakeAgent", lambda pack, vals: _LogprobAgent(pack, vals, p=p))
-    return base._run_g(tmp_path, values, jev=False)
+    return base._run_g(tmp_path, values, engine="gpt")
 
 
 def test_without_jev_every_extracted_field_gets_a_confidence(tmp_path, monkeypatch):

@@ -38,12 +38,13 @@ class UnknownFlow(KeyError):
 class Build:
     """What the worker hands a flow to build its graph for one item. `read_path`: where a document's bytes are read
     from (its source instance); `attachment_reads`: for an email, the source instances of its attachments that are
-    items of the package; `jev` and `use_cache`: the run's JEV switch and its earlier-answers setting."""
+    items of the package; `engine` and `use_cache`: the run's AI engine (265: until then its JEV switch, `jev`) and its
+    earlier-answers setting."""
     params: dict[str, Any]
     source_path: str
     app_id: str
     persister: Any
-    jev: bool
+    engine: str
     use_cache: bool
     read_path: str | None = None
     attachment_reads: dict[str, str] | None = None
@@ -103,13 +104,13 @@ def _build_extraction(mod: ModuleType, b: Build) -> Any:
     # `jev_cache=live` (use_cache False): skip reading the JEV cache so every call goes through the log and the budget
     return mod.build_app(b.source_path, b.app_id, b.params["arm"], tracker=False, doc_type=b.params["doc_type"],
                          run_id=b.app_id, persister=b.persister, use_cache=b.use_cache, read_path=b.read_path,
-                         jev=b.jev, detail_probabilities=b.params.get("detail_probabilities"),
+                         engine=b.engine, detail_probabilities=b.params.get("detail_probabilities"),
                          source_text=b.params.get("source_text"))  # 190: a follow-up on an email's own text
 
 
 def _build_detect(mod: ModuleType, b: Build) -> Any:
     return mod.build_app(b.source_path, tracker=False, run_id=b.app_id, persister=b.persister, use_cache=b.use_cache,
-                         read_path=b.read_path, jev=b.jev)
+                         read_path=b.read_path, engine=b.engine)
 
 
 def _build_native(mod: ModuleType, b: Build) -> Any:
@@ -120,7 +121,7 @@ def _build_native(mod: ModuleType, b: Build) -> Any:
     return mod.build_app(work_run_id=b.run_id, item_id=b.item["item_id"], graph_id=b.app_id,
                          source_path=b.source_path, read_path=b.read_path or b.source_path,
                          original_name=Path(b.source_path).name, expected_sha256=b.item["sha256"],
-                         recipe_hash=b.recipe_hash, jev=b.jev, use_cache=b.use_cache,
+                         recipe_hash=b.recipe_hash, engine=b.engine, use_cache=b.use_cache,
                          requested_arm=b.params.get("arm", "auto"), persister=b.persister, tracker=False,
                          limits=estimate_limits(b.params), ocr=bool(b.params.get("native_ocr")),
                          recognition=b.params.get("native_recognition"))
@@ -131,7 +132,7 @@ def _build_native(mod: ModuleType, b: Build) -> Any:
 def _lint_native(mod: ModuleType) -> Any:
     return mod.build_app(work_run_id="lint-native-run", item_id="0" * 64, graph_id="lint-native-graph",
                          source_path="lint.txt", read_path="lint.txt", original_name="lint.txt",
-                         expected_sha256="0" * 64, recipe_hash="0" * 16, jev=False)
+                         expected_sha256="0" * 64, recipe_hash="0" * 16, engine="gpt")
 
 
 register(FlowSpec("invoice", "jav.flows.flow", _build_extraction, lambda m: m.build_app("lint.pdf", "lint", "S", tracker=False, doc_type="invoice_hu"),

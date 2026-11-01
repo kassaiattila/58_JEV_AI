@@ -81,11 +81,11 @@ class _DownJev:
         raise JevUnavailableError("timeout")
 
 
-def _run_g(tmp_path, values, *, jev: bool, adapter=None):
+def _run_g(tmp_path, values, *, engine: str, adapter=None):
     pdf = write_text_pdf(tmp_path / "szamla.pdf", INVOICE_LINES)
     with store.use_store(tmp_path / "f.sqlite"), extract_llm.use_agent_factory(lambda pack: _FakeAgent(pack, values)), \
             jev_mod.use_adapter(adapter or _NoJev()):
-        app = flow.build_app(str(pdf), "c1", "G", tracker=False, doc_type="invoice_hu", jev=jev)
+        app = flow.build_app(str(pdf), "c1", "G", tracker=False, doc_type="invoice_hu", engine=engine)
         _, _, state = app.run(halt_after=flow.TERMINALS)
     return state.data
 
@@ -98,19 +98,19 @@ def test_code_verdicts_mark_a_value_not_printed_on_the_document():
 
 
 def test_g_path_without_jev_never_asks_jev_and_flags_an_invented_value(tmp_path):
-    state = _run_g(tmp_path, {**GOOD, "invoice_number": "INVENTED-999"}, jev=False)
+    state = _run_g(tmp_path, {**GOOD, "invoice_number": "INVENTED-999"}, engine="gpt")
     assert state.verdicts is not None and state.verdicts.source == "code"
     assert "source:not_found:invoice_number" in state.review_reasons
     assert not any(r.startswith("jev") for r in state.review_reasons)
 
 
 def test_g_path_without_jev_accepts_values_printed_on_the_document(tmp_path):
-    state = _run_g(tmp_path, GOOD, jev=False)
+    state = _run_g(tmp_path, GOOD, engine="gpt")
     assert not any(r.startswith("source:not_found:") for r in state.review_reasons), state.review_reasons
 
 
 def test_g_path_without_jev_still_requires_the_required_fields(tmp_path):
-    state = _run_g(tmp_path, {k: v for k, v in GOOD.items() if k != "gross_total"}, jev=False)
+    state = _run_g(tmp_path, {k: v for k, v in GOOD.items() if k != "gross_total"}, engine="gpt")
     assert "llm:required_missing:gross_total" in state.review_reasons
 
 
@@ -118,7 +118,7 @@ def test_jev_outage_keeps_the_code_source_check_and_the_required_fields(tmp_path
     """Before 085 a JEV outage on the G path dropped the code's own result too (no unsupported value, no required
     field check)."""
     values = {k: v for k, v in {**GOOD, "invoice_number": "INVENTED-999"}.items() if k != "gross_total"}
-    state = _run_g(tmp_path, values, jev=True, adapter=_DownJev())
+    state = _run_g(tmp_path, values, engine="jev", adapter=_DownJev())
     assert "jev_unavailable:timeout" in state.review_reasons
     assert "source:not_found:invoice_number" in state.review_reasons
     assert "llm:required_missing:gross_total" in state.review_reasons
@@ -127,4 +127,4 @@ def test_jev_outage_keeps_the_code_source_check_and_the_required_fields(tmp_path
 def test_s_path_is_refused_without_jev(tmp_path):
     pdf = write_text_pdf(tmp_path / "szamla.pdf", INVOICE_LINES)
     with pytest.raises(ValueError):
-        flow.build_app(str(pdf), "c1", "S", tracker=False, doc_type="invoice_hu", jev=False)
+        flow.build_app(str(pdf), "c1", "S", tracker=False, doc_type="invoice_hu", engine="gpt")

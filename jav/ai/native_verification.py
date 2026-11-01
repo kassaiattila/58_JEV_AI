@@ -1,10 +1,11 @@
-"""The JEV check of the native reader's facts (until 229 in `jav/documents/readers/providers.py`).
+"""The judgement service's check of the native reader's facts (until 229 in `jav/documents/readers/providers.py`).
 
 Plain-language summary: after GPT has read a document's facts, JEV is asked, fact by fact, whether the cited source
 supports the value in the role it was given; the answer is kept with the fact as its support. Importing this module
 makes no call; a check requires an explicit measurement budget and a caller-selected isolated store, as the reading
 itself does. 229 (plan structure stage 1, MD1): moved to the AI layer, whose JEV adapter it uses, so the documents
-layer asks no AI module.
+layer asks no AI module. 265 (plan L): the check goes to the adapter the caller gives (the engine's judgement
+service: JEV or OpenAI Decisions), whose provider's budget it requires.
 """
 
 from __future__ import annotations
@@ -26,7 +27,8 @@ def verify_jev(delivery: Delivery, interpretation: Interpretation, *, run_id: st
 
     from jav.ai.jev import JevAdapter
 
-    require_measurement("jev", isolated_store)
+    adapter = adapter or JevAdapter()
+    require_measurement(getattr(adapter, "provider", "jev"), isolated_store)
     if interpretation.source_bundle_sha256 != delivery.bundle.digest():
         raise ValueError("Interpretation belongs to a different source version")
     view = source_view(delivery, max_bytes=None)
@@ -41,7 +43,6 @@ def verify_jev(delivery: Delivery, interpretation: Interpretation, *, run_id: st
     if not questions:
         return interpretation
     chunks = verification_chunks(view, questions, interpretation.facts, max_transfer_bytes)
-    adapter = adapter or JevAdapter()
     answers, models = {}, []
     with nullcontext() if use_cache else adapter.no_cache_write():
         for part, batch in chunks:
@@ -54,7 +55,7 @@ def verify_jev(delivery: Delivery, interpretation: Interpretation, *, run_id: st
     checked = tuple(f.model_copy(update={"semantic_support": float(answers[f"f{i}"].noul)})
                     if f"f{i}" in questions else f for i, f in enumerate(interpretation.facts))
     return interpretation.model_copy(update={"facts": checked,
-        "provider": interpretation.provider + "+jev", "model": interpretation.model + "+" + "+".join(dict.fromkeys(models))})
+        "provider": interpretation.provider + "+" + getattr(adapter, "judge", "jev"), "model": interpretation.model + "+" + "+".join(dict.fromkeys(models))})
 
 
 __all__ = ["verify_jev"]

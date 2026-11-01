@@ -32,37 +32,48 @@ def under_budget(args: argparse.Namespace, name: str, *, reuse: bool | None = No
 def budget_args(p: argparse.ArgumentParser) -> None:
     """160: the sub-budgets of a command that can make paid calls (`under_budget`)."""
     p.add_argument("--jev-budget-usd", help="hard JEV budget for the command; without any budget only earlier answers count")
-    p.add_argument("--budget-usd", help="hard OpenAI budget for the command; Azure is never called from here")
+    p.add_argument("--budget-usd", help="hard OpenAI budget for the command (GPT and OpenAI Decisions spend from it); "
+                                        "Azure is never called from here")
 
 
 def engine_args(p: argparse.ArgumentParser, *, measurement: bool) -> None:
     """160-D (plan F-csak-gpt Sz5): the AI engine of a command that asks AI; `--no-jev` stays as the alias of
     `--engine gpt`. A processing command follows the application's AI engine when it names none, as a work package
-    does; a measurement measures JEV and GPT unless told otherwise, so that its run file says what it measured."""
-    default = "the application's AI engine" if not measurement else "jev (a measurement does not follow the application)"
-    p.add_argument("--engine", choices=["jev", "gpt"], default="jev" if measurement else None,
-                   help=f"160-D: jev = JEV and GPT, gpt = GPT only, without JEV (paid OpenAI calls); default: {default}")
+    does; a measurement measures the registry's default engine unless told otherwise, so that its run file says what it
+    measured. 265 (plan L): the choices are the engine registry's (`configs/engines.json`)."""
+    from jav.ai import engine as engines
+
+    default = ("the application's AI engine" if not measurement
+               else f"{engines.default_id()} (a measurement does not follow the application)")
+    named = "; ".join(f"{e} = {engines.get(e).label}" for e in engines.ids())
+    p.add_argument("--engine", choices=engines.ids(), default=engines.default_id() if measurement else None,
+                   help=f"160-D/265: {named}; default: {default}")
     p.add_argument("--no-jev", dest="engine", action="store_const", const="gpt", help="the same as --engine gpt")
 
 
-def jev_on(args: argparse.Namespace) -> bool:
+def engine_of(args: argparse.Namespace) -> str:
+    """The engine the command runs with: the one it names, or the application's (265: until then `jev_on`)."""
     engine = args.engine
     if engine is None:
         from jav.app import app_settings
 
         engine = app_settings.engine_default()
-    return engine == "jev"
+    return engine
 
 
 REFERENCE_TYPE = "invoice_hu"
 """202: the `--type` default of the commands that measure or run one type pack: the reference flow (the shared code
 itself names the type everywhere)."""
-S_NEEDS_JEV = "The S path needs JEV (JEV chooses among the candidates the code finds): use --arm G, or --engine jev."
+S_NEEDS_JEV = ("The S path needs a judgement service (it chooses among the candidates the code finds): use --arm G, or "
+               "an engine with one.")
 
 
-def s_without_jev(args: argparse.Namespace) -> bool:
-    """160-D: the S path without JEV is refused before anything runs."""
-    if args.arm == "S" and not jev_on(args):
+def s_without_judge(args: argparse.Namespace) -> bool:
+    """160-D: the S path without a judgement service is refused before anything runs (265: until then
+    `s_without_jev`)."""
+    from jav.ai import engine as engines
+
+    if args.arm == "S" and not engines.get(engine_of(args)).judged:
         print(S_NEEDS_JEV)
         return True
     return False

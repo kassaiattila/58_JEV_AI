@@ -24,6 +24,7 @@ from typing import Any, Literal
 from typesafe_sdk import Choice, Noul
 
 from jav.ai import policy
+from jav.ai import engine as engines
 from jav.ai.jev import JevUnavailableError, get_adapter
 from jav.app import facts
 from jav.app.product_rules import Rule
@@ -145,13 +146,15 @@ def _mark(rule: Rule, choice: str | None, confidence: float, dist: dict[str, flo
     return "supported", None, bands
 
 
-def support(rule: Rule, pages: DocumentPages, *, run_id: str, use_cache: bool = True) -> Support:
-    """JEV's judgement of how far the cited page supports the rule; "not asked" without JEV."""
-    try:
-        r = get_adapter().ask(REQUEST_ID, _state(rule, pages), _questions(rule), run_id=run_id, use_cache=use_cache,
-                              config_hash=config_hash())
-    except JevUnavailableError as exc:
-        return Support("not_asked", f"jev_unavailable:{exc.reason}")
+def support(rule: Rule, pages: DocumentPages, *, run_id: str, use_cache: bool = True, engine: str = "jev") -> Support:
+    """The judgement service's judgement of how far the cited page supports the rule (265: the engine's; JEV by
+    default); "not asked" when it does not answer, or for an engine without one."""
+    with engines.scope(engine):
+        try:
+            r = get_adapter().ask(REQUEST_ID, _state(rule, pages), _questions(rule), run_id=run_id, use_cache=use_cache,
+                                  config_hash=config_hash())
+        except JevUnavailableError as exc:
+            return Support("not_asked", engines.unavailable_todo(exc))
     ch = r.response.choices["kind"]
     dist = {str(k): float(v) for k, v in dict(ch.probabilities).items()}
     rows = [float(r.response.nouls[f"row_{n}"].noul) for n in range(1, len(rule.table.rows) + 1)]

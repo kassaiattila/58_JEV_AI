@@ -38,8 +38,8 @@ class Recorder:
         return self.result
 
     @property
-    def jev(self):
-        return self.calls[-1].get("jev", True)
+    def engine(self):
+        return self.calls[-1].get("engine", "jev")
 
 
 def _detect_state():
@@ -47,13 +47,13 @@ def _detect_state():
 
 
 @pytest.mark.parametrize("argv, expected", [
-    ([], True), (["--engine", "gpt"], False), (["--engine", "jev"], True), (["--no-jev"], False),
+    ([], "jev"), (["--engine", "gpt"], "gpt"), (["--engine", "jev"], "jev"), (["--no-jev"], "gpt"),
 ])
 def test_detect_takes_the_engine(db, monkeypatch, capsys, argv, expected):
     rec = Recorder(_detect_state())
     monkeypatch.setattr(flow_detect, "run_detect", rec)
     assert cli.main(["detect", "x.pdf", *argv]) == 0
-    assert rec.jev is expected
+    assert rec.engine == expected
 
 
 def test_a_processing_command_follows_the_applications_engine(db, monkeypatch, capsys):
@@ -61,9 +61,9 @@ def test_a_processing_command_follows_the_applications_engine(db, monkeypatch, c
     rec = Recorder(_detect_state())
     monkeypatch.setattr(flow_detect, "run_detect", rec)
     assert cli.main(["detect", "x.pdf"]) == 0
-    assert rec.jev is False
+    assert rec.engine == "gpt"
     assert cli.main(["detect", "x.pdf", "--engine", "jev"]) == 0
-    assert rec.jev is True
+    assert rec.engine == "jev"
 
 
 def test_a_measurement_measures_jev_and_gpt_unless_told(db, monkeypatch, capsys):
@@ -72,9 +72,9 @@ def test_a_measurement_measures_jev_and_gpt_unless_told(db, monkeypatch, capsys)
     golden = Recorder([])
     monkeypatch.setattr(evals_detect, "detect_golden", golden)
     assert cli.main(["detect-golden"]) == 0
-    assert golden.jev is True
+    assert golden.engine == "jev"
     assert cli.main(["detect-golden", "--engine", "gpt"]) == 0
-    assert golden.jev is False
+    assert golden.engine == "gpt"
 
 
 @pytest.mark.parametrize("command, target, attr", [
@@ -91,11 +91,11 @@ def test_every_ai_command_takes_the_engine(db, monkeypatch, capsys, command, tar
     rec = Recorder([])
     monkeypatch.setattr(target, attr, rec)
     assert cli.main([*command, "--engine", "gpt"]) == 0
-    assert rec.jev is False
+    assert rec.engine == "gpt"
     assert cli.main([*command, "--no-jev"]) == 0
-    assert rec.jev is False
+    assert rec.engine == "gpt"
     assert cli.main([*command, "--engine", "jev"]) == 0
-    assert rec.jev is True
+    assert rec.engine == "jev"
 
 
 def test_one_email_takes_the_engine(db, monkeypatch, capsys):
@@ -105,7 +105,7 @@ def test_one_email_takes_the_engine(db, monkeypatch, capsys):
     rec = Recorder(SimpleNamespace(result=result, message=message, next_flow=None, uncertain=False))
     monkeypatch.setattr(flow_email, "run_email", rec)
     assert cli.main(["email", "folder", "--engine", "gpt"]) == 0
-    assert rec.jev is False
+    assert rec.engine == "gpt"
 
 
 def test_the_m2_flow_on_one_pdf_takes_the_engine(db, monkeypatch, capsys):
@@ -114,7 +114,7 @@ def test_the_m2_flow_on_one_pdf_takes_the_engine(db, monkeypatch, capsys):
     rec = Recorder(state)
     monkeypatch.setattr(flow, "run_one", rec)
     assert cli.main(["run", "x.pdf", "--arm", "G", "--engine", "gpt"]) == 0
-    assert rec.jev is False
+    assert rec.engine == "gpt"
 
 
 def test_the_s_path_without_jev_is_refused_before_anything_runs(db, monkeypatch, capsys):
@@ -124,7 +124,7 @@ def test_the_s_path_without_jev_is_refused_before_anything_runs(db, monkeypatch,
     monkeypatch.setattr(evals, "determinism", rec)
     for command in (["run", "x.pdf", "--arm", "S"], ["golden", "--arm", "S"], ["determinism", "--arm", "S"]):
         assert cli.main([*command, "--engine", "gpt"]) == 2
-        assert "S path needs JEV" in capsys.readouterr().out
+        assert "S path needs a judgement service" in capsys.readouterr().out
     assert rec.calls == []
     app_settings.save_engine_default("gpt", actor="tester")
     assert cli.main(["run", "x.pdf"]) == 2  # `run` defaults to the S path, and the application runs without JEV
@@ -137,7 +137,7 @@ def test_a_determinism_without_jev_names_its_run_file(db, monkeypatch, tmp_path)
     monkeypatch.setattr(evals, "_dump_rows", lambda rows, name: names.append(name) or tmp_path / name)
     monkeypatch.setattr(evals, "print_determinism_report", lambda *a, **k: None)
     monkeypatch.setattr(evals, "load_cases", lambda type_key: [])
-    evals.determinism("G", 2, Recorder(), type_key="invoice_hu", jev=False)
+    evals.determinism("G", 2, Recorder(), type_key="invoice_hu", engine="gpt")
     evals.determinism("G", 2, Recorder(), type_key="invoice_hu")
     assert names == ["determinism_G_n2_nojev", "determinism_G_n2"]
 

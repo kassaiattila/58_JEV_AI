@@ -272,21 +272,21 @@ def _marks(s: dict[str, Any]) -> list[bool]:
     return [*s["fields"].values(), *(m for lst in s["lists"].values() for m in (lst["rows"], *lst["cells"]))]
 
 
-def _flow_reader(*, use_cache: bool, jev: bool) -> Reader:
+def _flow_reader(*, use_cache: bool, engine: str) -> Reader:
     def read(document: Document, path: Path) -> dict[str, Any] | None:
         from jav.flows.flow import run_one
 
-        state = run_one(str(path), f"property-{document.id}", "G", use_cache=use_cache, doc_type=document.pack, jev=jev)
+        state = run_one(str(path), f"property-{document.id}", "G", use_cache=use_cache, doc_type=document.pack, engine=engine)
         return state.record.to_datapoints(typepack.get(document.pack).record_fields) if state.record is not None else None
 
     return read
 
 
-def _flow_recogniser(*, use_cache: bool, jev: bool) -> Recogniser:
+def _flow_recogniser(*, use_cache: bool, engine: str) -> Recogniser:
     def recognise(path: Path) -> tuple[str | None, str | None]:
         from jav.flows.flow_detect import run_detect
 
-        st = run_detect(str(path), use_cache=use_cache, run_id=f"property-{path.stem}-detect", jev=jev)
+        st = run_detect(str(path), use_cache=use_cache, run_id=f"property-{path.stem}-detect", engine=engine)
         return (st.result.doc_type if st.result else None), (st.detail.key if st.detail else None)
 
     return recognise
@@ -333,8 +333,8 @@ def measure(options: Any, *, read: Reader | None = None, recognise: Recogniser |
     failures: list[str] = []
     with tempfile.TemporaryDirectory(prefix="property-documents-") as tmp, \
             calls.measurement(f"measure-{stamp}-{name.removeprefix('golden_').replace('_', '-')}", limits, reuse=options.use_cache):
-        read = read or _flow_reader(use_cache=options.use_cache, jev=options.jev)
-        recognise = recognise or _flow_recogniser(use_cache=options.use_cache, jev=options.jev)
+        read = read or _flow_reader(use_cache=options.use_cache, engine=options.engine)
+        recognise = recognise or _flow_recogniser(use_cache=options.use_cache, engine=options.engine)
         for doc_set in docs.sets:
             got_values: dict[str, dict[str, Any]] = {}
             for document in doc_set.documents:

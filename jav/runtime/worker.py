@@ -37,6 +37,7 @@ from typing import Any, Callable
 
 from burr.integrations.serde import pydantic as burr_pydantic
 
+from jav.ai import engine as engines
 from jav.app import app_settings, capabilities, intake, item_kinds, rule_defaults, work, work_readiness, work_runs, workflows
 from jav.documents import isolated_pdf, pdf
 from jav.core import cfg, store
@@ -139,12 +140,13 @@ def arm_for(doc_type: str, preferred: str) -> str:
 def _stages(recipe: dict[str, Any], params: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     """The recipe's stages: (flow, parameters). The `document` recipe (047 T1.3) has two stages: detection, then
     extraction of the detected detailed type; the second stage's parameters come from the first one's result
-    (`_next_params`). 160 (review AI-4): the detection follows the run's JEV switch and its "earlier answers" setting
-    too, so a live run asks the detection again. 173: the stages are the registry's (`flows`)."""
+    (`_next_params`). 160 (review AI-4): the detection follows the run's AI engine (265: `engine`; saved before, the
+    JEV switch `jev`) and its "earlier answers" setting too, so a live run asks the detection again. 173: the stages are
+    the registry's (`flows`)."""
     spec = flows.get(recipe["flow"])
     if spec.stages:
         detect, extract = spec.stages
-        return [(detect, {k: params[k] for k in ("jev", "jev_cache") if k in params}), (extract, dict(params))]
+        return [(detect, {k: params[k] for k in ("engine", "jev", "jev_cache") if k in params}), (extract, dict(params))]
     if spec.doc_type == "params" and "doc_type" in params:  # path from the type pack (auto or unsupported request)
         return [(spec.name, {**params, "arm": arm_for(params["doc_type"], _requested_arm(params))})]
     return [(recipe["flow"], dict(params))]
@@ -162,12 +164,9 @@ def _with_defaults(recipe: dict[str, Any], params: dict[str, Any]) -> dict[str, 
 
 
 def _requested_arm(params: dict[str, Any]) -> str:
-    """086: without JEV only the G path runs, whatever path was asked for."""
-    return "G" if _jev_off(params) else params.get("arm", "auto")
-
-
-def _jev_off(params: dict[str, Any]) -> bool:
-    return params.get("jev") == "off"
+    """086: without a judgement service (265: the setting's engine, `jav.ai.engine.of_params`) only the G path runs,
+    whatever path was asked for."""
+    return "G" if not engines.of_params(params).judged else params.get("arm", "auto")
 
 
 def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app_id: str, persister,
@@ -181,7 +180,7 @@ def _build(recipe: dict[str, Any], params: dict[str, Any], source_path: str, app
         raise flows.UnknownFlow(f"the worker does not run the flow {spec.name!r}")
     mod = spec.load()
     app = spec.build(mod, flows.Build(params=params, source_path=source_path, app_id=app_id, persister=persister,
-                                      jev=not _jev_off(params), use_cache=reuse_answers(params), read_path=read_path,
+                                      engine=engines.of_params(params).id, use_cache=reuse_answers(params), read_path=read_path,
                                       attachment_reads=attachment_reads, run_id=run_id, item=item,
                                       recipe_hash=recipe_hash))
     return app, mod.TERMINALS
@@ -258,9 +257,10 @@ def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) 
         return None
     if doc_type != "unknown":
         detail = detect_state.get("detail")
-        if detail is None or _field(detail, "key") is not None or _field(detail, "method") not in ("no_candidate", "jev", "gpt"):
+        asked = ("no_candidate", "gpt", *engines.judges())  # 265: any judgement service's open answer
+        if detail is None or _field(detail, "key") is not None or _field(detail, "method") not in asked:
             return None
-        failed = ("jev_unavailable", "detect_detail:gpt_failed")
+        failed = (*engines.unavailable_prefixes(), "detect_detail:gpt_failed")
         if any(str(r).startswith(failed) for r in detect_state.get("detail_reasons") or []):
             return None
     out = {**params, "arm": "G", "native_ocr": detect_state.get("text_source") == "ocr"}

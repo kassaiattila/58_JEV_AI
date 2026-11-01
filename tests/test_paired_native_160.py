@@ -37,7 +37,7 @@ def test_the_native_facts_are_published_on_both_engines(isolated, monkeypatch, e
     monkeypatch.setattr(jev_mod, "make_client", lambda **_k: client)
     app = flow_native.build_app(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
         source_path=str(path), read_path=str(path), original_name="original.txt", expected_sha256=ref.source_sha256,
-        recipe_hash="a" * 16, jev=engine == "jev", use_cache=False)
+        recipe_hash="a" * 16, engine=engine, use_cache=False)
     limits = {"openai": Decimal("1"), **({"jev": Decimal("1")} if engine == "jev" else {})}
     with calls.measurement("native-run", limits):
         _, _, state = app.run(halt_after=flow_native.TERMINALS)

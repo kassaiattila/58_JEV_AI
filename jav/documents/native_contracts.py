@@ -11,6 +11,7 @@ from typing import Annotated, Literal
 
 from pydantic import Field, model_validator
 
+from jav.core.providers import ProviderId
 from jav.documents.readers.contracts import (
     ContractModel, Digest, Identifier, Issue, Label, Locator, ReadLimits,
     SourceElement, SourceOccurrence, Text, TextLocator,
@@ -87,7 +88,7 @@ class ReceiptRef(ContractModel):
     kind: Literal["invocation", "saved_cache"] = "invocation"
     receipt_id: Identifier
     invocation_id: int | None = None
-    provider: Literal["openai", "jev"]
+    provider: ProviderId  # 265: until then "openai" | "jev"
     run_id: str
     step_id: str
     request_sha256: Digest | None
@@ -256,7 +257,7 @@ class NativeLimits(ContractModel):
     read_limits: ReadLimits = DEFAULT_LIMITS
     max_transfer_bytes: Annotated[int, Field(gt=0, le=80_000)] = 80_000
     max_output_tokens: Annotated[int, Field(gt=0, le=4000)] = 4000
-    provider_limits_usd: dict[Literal["openai", "jev"], Decimal]
+    provider_limits_usd: dict[ProviderId, Decimal]  # 265: the engine's judgement service's provider beside OpenAI
 
 
 class InterpretationView(ContractModel):

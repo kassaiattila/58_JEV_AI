@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from jav.ai import checks
+from jav.ai import engine as engines
 from jav.core import cfg, trace, type_roles
 from jav.ai.models import CheckResult, FlowState
 from jav.ai.typepack import get as get_pack
@@ -157,7 +158,7 @@ def issuer_mismatch_reason(doc_type: str | None, detail_type: str | None, issuer
         return None
     hungarian = set(type_roles.types("hungarian_issuer"))
     claimed = detail_type if detail_type in hungarian else doc_type if doc_type in hungarian else None
-    if claimed and noul_band(issuer_hu, f"detect.issuer_is_hungarian.{engine}") == "no":
+    if claimed and noul_band(issuer_hu, engines.get(engine).band_key("detect.issuer_is_hungarian")) == "no":
         return f"detect:issuer_mismatch:{claimed}"
     return None
 
@@ -171,7 +172,7 @@ def foreign_issuer_pack(broad: str, issuer_hu: float | None, *, engine: str) -> 
     pack = DETECT_DETAIL.get("foreign_issuer_pack", {}).get(broad)
     if pack is None or issuer_hu is None:
         return None
-    callsite = "detect.issuer_is_hungarian" + (".gpt" if engine == "gpt" else "")
+    callsite = engines.get(engine).band_key("detect.issuer_is_hungarian")
     return pack if noul_band(issuer_hu, callsite) == "no" else None
 
 
@@ -317,11 +318,11 @@ def decision_inputs(state: FlowState) -> dict[str, Any]:
     pack, rec = get_pack(state.doc_type), state.record
     values = rec.to_datapoints(pack.header_fields) if rec is not None else {}
     return {
-        "arm": state.arm, "doc_type": state.doc_type, "jev": state.jev, "has_record": rec is not None,
+        "arm": state.arm, "doc_type": state.doc_type, "engine": state.engine, "has_record": rec is not None,
         "earlier": list(state.review_reasons),
         "picks": [_pick_inputs(f, p) for f, p in state.picks.items()] if state.arm == "S" else [],
         "verdicts": _verdict_inputs(state.verdicts) if state.arm == "G" else None,
-        "tokens": dict(state.llm_token_p or {}) if state.arm == "G" and not state.jev else {},
+        "tokens": dict(state.llm_token_p or {}) if state.arm == "G" and not engines.get(state.engine).judged else {},
         "unset": [f for f in pack.record_fields if rec.get_field(f) is None] if rec is not None else [],
         "empty": [f for f in pack.header_fields if values.get(f) in (None, "", [])],
         "checks": [{"name": c.name, "code": c.code, "advisory": c.advisory} for c in state.validation if not c.ok],
@@ -443,12 +444,13 @@ def gpt_review_fields(pack_key: str) -> list[str]:
 def gpt_confidence_rule(inputs: dict[str, Any]) -> list[str]:
     """092 (the owner's decisions of 2026-10-02): on the G path without JEV, an accounting field GPT extracted with a
     token probability below `gpt_field_confidence.review_below` is a `gpt:low_conf:<field>:<p>` to-do. A field without
-    a value, or whose check already failed (it has its to-do), adds nothing; a run with JEV never gets it (`jev`), not
-    even when JEV does not answer and the code's own check stands in. 160 (review AI-6): a field without a token
+    a value, or whose check already failed (it has its to-do), adds nothing; a run with a judgement service never gets it
+    (265: its engine; recorded before 265, `jev`), not even when the service does not answer and the code's own check
+    stands in. 160 (review AI-6): a field without a token
     probability (an answer without log-probabilities) is a `gpt:confidence_unavailable:<field>` to-do; it used to pass
     unchecked."""
     threshold = GPT_FIELD_CONFIDENCE.get("review_below")
-    if inputs["jev"] or inputs["arm"] != "G" or threshold is None or not inputs["has_record"]:
+    if engines.of_record(inputs).judged or inputs["arm"] != "G" or threshold is None or not inputs["has_record"]:
         return []
     measure = GPT_FIELD_CONFIDENCE["measure"]
     failed = {c["name"].split(":", 1)[1] for c in inputs["checks"] if ":" in c["name"]}
@@ -534,7 +536,7 @@ def route_keys(inputs: dict[str, Any]) -> dict[str, tuple[str, ...]]:
     else:
         policy_keys = band_keys("invoice.verify", *_NOUL_FIELDS)
         roles = ("informational_fields", "high_stakes", "required", "required_review")
-        if not inputs["jev"]:
+        if not engines.of_record(inputs).judged:
             policy_keys += ("gpt_field_confidence.review_below", "gpt_field_confidence.measure", "gpt_field_confidence.info_only")
             roles += ("scored_fields",)
     keys = {"policy.json": policy_keys, f"types/{pack.key}.json": roles}

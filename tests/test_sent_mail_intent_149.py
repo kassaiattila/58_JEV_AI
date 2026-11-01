@@ -74,7 +74,7 @@ def test_without_jev_gpt_is_not_asked_either(env, monkeypatch):
         raise AssertionError("GPT asked about a sent message")
 
     monkeypatch.setattr(intent_gpt, "classify", refuse)
-    st = flow_email.run_email(str(_email_dir(env)), jev=False)
+    st = flow_email.run_email(str(_email_dir(env)), engine="gpt")
     assert st.result is None and st.final_status == "done"
 
 

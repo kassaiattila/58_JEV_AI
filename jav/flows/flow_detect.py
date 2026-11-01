@@ -21,18 +21,20 @@ from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 from pydantic import BaseModel, Field
 
-from jav.ai import policy
+from jav.ai import engine as engines, policy
 from jav.core import store, trace
 from jav.ai.detect import DetectResult
 from jav.ai.detect_detail import DetailResult
 from jav.ai.engine import with_engine
 from jav.documents.layout import LineLayout
+from jav.flows import persistence
 
 log = logging.getLogger(__name__)
 
 TERMINALS = ["done", "needs_ocr"]
 PARTITION = "doc_detect"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
 TRACKER_PROJECT = "jav_doc_detect"
+persistence.rename_saved_keys(PARTITION, {"jev": "engine"}, convert={"jev": engines.of_flag})  # 265: the engine's name
 
 
 class DetectState(BaseModel):
@@ -40,7 +42,8 @@ class DetectState(BaseModel):
     read_path: str | None = None  # where the bytes are read from (the source instance); None: `source_path`
     run_id: str = ""
     use_cache: bool = True
-    jev: bool = True  # 086: False = processing without JEV, the type is recognised by GPT (`jav/ai/detect_gpt.py`)
+    engine: str = "jev"  # 265 (plan L): the AI engine (configs/engines.json); without a judgement service (086: until
+    # 265 `jev: False`) the type is recognised by GPT (`jav/ai/detect_gpt.py`)
     doc_id: str = ""
     text: str = ""
     lines: list[str] = Field(default_factory=list)
@@ -59,7 +62,7 @@ class DetectState(BaseModel):
     detail: DetailResult | None = None  # 047 T1.2: detailed type within the coarse category
     detail_reasons: list[str] = Field(default_factory=list)
     uncertain: bool = False
-    review_reasons: list[str] = Field(default_factory=list)  # additive; jev_unavailable:<reason> and ocr:* reasons
+    review_reasons: list[str] = Field(default_factory=list)  # additive; <service>_unavailable:<reason> and ocr:* reasons
     final_status: str | None = None
 
 
@@ -112,7 +115,7 @@ def ocr_pdf(state: DetectState) -> DetectState:
     return state
 
 
-@action.pydantic(reads=["source_path", "text", "lines", "layout", "page_count", "run_id", "use_cache", "jev", "review_reasons"],
+@action.pydantic(reads=["source_path", "text", "lines", "layout", "page_count", "run_id", "use_cache", "engine", "review_reasons"],
                  writes=["result", "uncertain", "review_reasons", "detail", "detail_reasons"])
 def detect(state: DetectState) -> DetectState:
     from jav.ai.jev import JevUnavailableError, get_adapter
@@ -120,14 +123,15 @@ def detect(state: DetectState) -> DetectState:
     from jav.documents.pdf import PdfText
 
     pdf = PdfText(path=state.source_path, text=state.text, lines=state.lines, layout=state.layout, page_count=state.page_count, has_text_layer=True)
-    if not state.jev:
+    if not engines.get(state.engine).judged:
         return _detect_gpt(state, pdf)
     try:
-        state.result = _detect(get_adapter(), pdf, state.source_path, run_id=state.run_id, use_cache=state.use_cache)
-    except JevUnavailableError as exc:  # JEV unavailable (ledgered): no type, manual queue; a later scan reruns it
+        state.result = _detect(get_adapter(), pdf, state.source_path, run_id=state.run_id, use_cache=state.use_cache,
+                               engine=state.engine)
+    except JevUnavailableError as exc:  # the service did not answer (ledgered): no type, manual queue; a later scan reruns it
         state.result = None
         state.uncertain = True
-        state.review_reasons = state.review_reasons + [f"jev_unavailable:{exc.reason}"]
+        state.review_reasons = state.review_reasons + [engines.unavailable_todo(exc)]
         return state
     r = state.result
     state.uncertain = doc_type_rule(_type_inputs(state))["uncertain"]
@@ -150,7 +154,7 @@ def _detect_gpt(state: DetectState, pdf) -> DetectState:
             log.exception("the type recognition failed on %s", Path(state.source_path).name)
         state.result = None
         state.uncertain = True
-        reason = f"jev_unavailable:{exc.reason}" if isinstance(exc, JevUnavailableError) else f"detect:gpt_failed:{type(exc).__name__}"
+        reason = engines.unavailable_todo(exc) if isinstance(exc, JevUnavailableError) else f"detect:gpt_failed:{type(exc).__name__}"
         state.review_reasons = state.review_reasons + [reason]
         return state
     r = state.result
@@ -163,12 +167,21 @@ def _detect_gpt(state: DetectState, pdf) -> DetectState:
 # --- 218 (plan P3 P3b): the two decisions of the recognition as pure rules, traced with the document's save -----------
 
 DOC_TYPE_POINT, DETAIL_TYPE_POINT = "detect.doc_type", "detect.detail_type"
-_DETAIL_ERRORS = ("jev_unavailable:", "detect_detail:gpt_failed:")  # a question that failed, not a rule's to-do
 _CHOICE_FIELDS = ("choice_human_max_conf", "choice_second_min_gap", "uncertain_review")
 
 
+def _detail_errors() -> tuple[str, ...]:
+    """The to-dos of a question that failed, not a rule's (265: every judgement service's, `jav.ai.engine`)."""
+    return (*engines.unavailable_prefixes(), "detect_detail:gpt_failed:")
+
+
+def _asked(method: str) -> bool:
+    """Whether the detailed type was a question's answer (GPT's or a judgement service's), not the code's."""
+    return method == "gpt" or method in engines.judges()
+
+
 def _engine(state: DetectState) -> str:
-    return "jev" if state.jev else "gpt"
+    return state.engine
 
 
 def _type_inputs(state: DetectState) -> dict[str, Any]:
@@ -179,8 +192,9 @@ def _type_inputs(state: DetectState) -> dict[str, Any]:
 
 def doc_type_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
     """Whether the recognised type waits for a person: an unknown type, a confidence the GPT answer could not give, or a
-    confidence in the review band of the recogniser's call site (`detect.doc_type[.gpt]`). The type stays either way."""
-    callsite = "detect.doc_type" + (".gpt" if inputs["engine"] == "gpt" else "")
+    confidence in the review band of the recogniser's call site (`detect.doc_type` and the engine's band suffix, `.gpt`
+    without a judgement service). The type stays either way."""
+    callsite = engines.get(inputs["engine"]).band_key("detect.doc_type")
     uncertain = (not inputs["measured"] or inputs["doc_type"] == "unknown"
                  or policy.choice_needs_review(inputs["confidence"], inputs["probabilities"], callsite))
     return {"doc_type": inputs["doc_type"], "uncertain": bool(uncertain)}
@@ -195,9 +209,9 @@ def _detail_inputs(state: DetectState, errors: list[str]) -> dict[str, Any]:
 
 def detail_type_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
     """The detailed type's to-dos (047, 069, 086, 090): a failed question (`errors`), a category without a type pack,
-    an open detailed type, a GPT answer without a confidence, a JEV or GPT answer in the review band of
-    `detect.detail_type[.gpt]`, and the type / issuer cross-check in code (a type presuming a Hungarian issuer the
-    recogniser judged foreign). The detailed type stays either way."""
+    an open detailed type, a GPT answer without a confidence, a question's answer in the review band of
+    `detect.detail_type` with the engine's band suffix, and the type / issuer cross-check in code (a type presuming a
+    Hungarian issuer the recogniser judged foreign). The detailed type stays either way."""
     reasons = list(inputs["errors"])
     key, method, broad = inputs["key"], inputs["method"], inputs["broad"]
     if method == "no_candidate":  # 069: no type pack for the category (payment reminder, unknown): no extraction
@@ -206,8 +220,8 @@ def detail_type_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
         reasons.append(f"detect:detail_open:{broad}")
     elif method == "gpt" and inputs["confidence"] is None:
         reasons.append(f"detect_detail:confidence_unavailable:{key}")
-    elif method in ("jev", "gpt"):
-        callsite = "detect.detail_type" if method == "jev" else "detect.detail_type.gpt"
+    elif _asked(method):
+        callsite = engines.get(inputs["engine"]).band_key("detect.detail_type")
         reason = policy.choice_review_reason("detect_detail", key, inputs["confidence"] or 0.0, inputs["probabilities"], callsite)
         if reason:
             reasons.append(reason)
@@ -219,13 +233,14 @@ def detail_type_rule(inputs: Mapping[str, Any]) -> dict[str, Any]:
 
 def _detail_keys(inputs: Mapping[str, Any]) -> tuple[str, ...]:
     keys: tuple[str, ...] = ("detect_issuer.engines", "detect_issuer.hungarian_types")
-    keys += policy.band_keys(f"detect.issuer_is_hungarian.{inputs['engine']}", "noul_no_max")
+    engine = engines.get(inputs["engine"])
+    keys += policy.band_keys(engine.band_key("detect.issuer_is_hungarian"), "noul_no_max")
     if inputs["method"] == "issuer":
         keys += ("detect_detail.foreign_issuer_pack",)
     elif inputs["method"] == "anchors":
         keys += ("detect_detail.anchor_margin",)
-    elif inputs["method"] in ("jev", "gpt"):
-        keys += policy.band_keys("detect.detail_type" + (".gpt" if inputs["method"] == "gpt" else ""), *_CHOICE_FIELDS)
+    elif _asked(inputs["method"]):
+        keys += policy.band_keys(engine.band_key("detect.detail_type"), *_CHOICE_FIELDS)
     return keys
 
 
@@ -239,11 +254,11 @@ def _trace(c: Any, state: DetectState) -> None:
         return
     subject = ("document", state.doc_id)
     inputs = _type_inputs(state)
-    callsite = "detect.doc_type" + (".gpt" if inputs["engine"] == "gpt" else "")
+    callsite = engines.get(inputs["engine"]).band_key("detect.doc_type")
     trace.record_in(c, DOC_TYPE_POINT, subject=subject, inputs=inputs, outcome=doc_type_rule(inputs),
                     keys={"policy.json": policy.band_keys(callsite, *_CHOICE_FIELDS)}, run_id=state.run_id)
     if state.detail is not None:
-        inputs = _detail_inputs(state, [r for r in state.detail_reasons if r.startswith(_DETAIL_ERRORS)])
+        inputs = _detail_inputs(state, [r for r in state.detail_reasons if r.startswith(_detail_errors())])
         trace.record_in(c, DETAIL_TYPE_POINT, subject=subject, inputs=inputs, outcome=detail_type_rule(inputs),
                         keys={"policy.json": _detail_keys(inputs)}, run_id=state.run_id)
 
@@ -262,8 +277,8 @@ trace.register(trace.Point(
 
 def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
     """047 T1.2: the detailed type (`jav/ai/detect_detail.py`). An open or uncertain detailed type is a to-do alongside
-    the detection's own reasons; a JEV outage does not stop the process here either. `chooser` (086): the GPT
-    question for processing without JEV; its failure is a to-do too."""
+    the detection's own reasons; a judgement service's outage does not stop the process here either. `chooser` (086):
+    the GPT question for an engine without a judgement service; its failure is a to-do too."""
     from jav.ai.jev import JevUnavailableError
     from jav.ai.detect_detail import resolve
 
@@ -271,10 +286,10 @@ def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
     try:
         # 122: the recogniser's own issuer judgement may route a foreign issuer's receipt to the foreign invoice pack
         d = resolve(broad, state.text, jev=jev, run_id=state.run_id, use_cache=state.use_cache, chooser=chooser,
-                    issuer_hu=state.result.issuer_hu, engine="gpt" if chooser is not None else "jev")
-    except JevUnavailableError as exc:
+                    issuer_hu=state.result.issuer_hu, engine=state.engine)
+    except JevUnavailableError as exc:  # "no_jev": no judgement service answered (the stored method's name since 047)
         d = DetailResult(broad=broad, key=None, method="no_jev")
-        state.detail_reasons = [f"jev_unavailable:{exc.reason}"]
+        state.detail_reasons = [engines.unavailable_todo(exc)]
     except Exception as exc:  # only the GPT chooser gets here (no JEV): a to-do, the item goes on
         if chooser is None:
             raise
@@ -287,14 +302,14 @@ def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
 
 
 @action.pydantic(reads=["doc_id", "source_path", "has_text_layer", "text_source", "page_count", "year", "result", "run_id", "uncertain",
-                        "review_reasons", "detail", "detail_reasons", "jev", "ocr_escalation"], writes=["final_status"])
+                        "review_reasons", "detail", "detail_reasons", "engine", "ocr_escalation"], writes=["final_status"])
 def save(state: DetectState) -> DetectState:
     """The document's type, its to-dos and (218, P3b) the traces of both decisions in one write transaction: the
     store's own writes join it as savepoints (`store.session`), so a stop in between leaves none of them."""
     with store.session(), store.connect() as c:
         store.begin_immediate(c)
         _save(state, c)
-    state.final_status = "done" if state.result is not None else ("jev_unavailable" if state.jev else "gpt_unavailable")
+    state.final_status = "done" if state.result is not None else engines.get(state.engine).unavailable_status
     return state
 
 
@@ -392,12 +407,14 @@ CONTRACT = {  # graph declaration: FLOW.md + Mermaid + lint come from it (jav/fl
 
 
 def build_app(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None,
-              persister=None, read_path: str | None = None, jev: bool = True) -> Application:
+              persister=None, read_path: str | None = None, engine: str = "jev") -> Application:
     """`persister` (040 K1): durable state persistence, resuming under the same `run_id`; without it, the earlier
     behaviour. `read_path`: the document's bytes are read from here (its source instance); everything else uses
-    `source_path`. `jev=False` (086): the type is recognised by GPT, JEV is never asked."""
+    `source_path`. `engine` (265): the AI engine; one without a judgement service (086: until 265 `jev=False`) has the
+    type recognised by GPT, and no service is asked."""
+    e = engines.get(engine)
     run_id = run_id or f"detect-{Path(source_path).stem[:24]}-{uuid.uuid4().hex[:8]}"
-    initial = DetectState(source_path=source_path, read_path=read_path, run_id=run_id, use_cache=use_cache, jev=jev)
+    initial = DetectState(source_path=source_path, read_path=read_path, run_id=run_id, use_cache=use_cache, engine=e.id)
     b = (
         ApplicationBuilder()
         .with_typing(PydanticTypingSystem(DetectState))
@@ -412,14 +429,14 @@ def build_app(source_path: str, *, tracker: bool = False, use_cache: bool = True
         b = b.with_state(initial).with_entrypoint("load_pdf")
     if tracker:
         b = b.with_tracker("local", project=TRACKER_PROJECT)
-    return with_engine(b, jev_on=jev).build()  # 160: without JEV, a JEV question is refused
+    return with_engine(b, e).build()  # 160/265: the engine's judgement service; without one, a question is refused
 
 
 def run_detect(source_path: str, *, tracker: bool = False, use_cache: bool = True, run_id: str | None = None,
-               read_path: str | None = None, jev: bool = True) -> DetectState:
+               read_path: str | None = None, engine: str = "jev") -> DetectState:
     """`run_id` (065): when called from another process, logs and records to-dos under that process's identifier.
     `read_path`: the bytes are read from here (a source instance); the file name and the stored path stay `source_path`.
-    `jev=False` (086): GPT recognises the type."""
-    app = build_app(source_path, tracker=tracker, use_cache=use_cache, run_id=run_id, read_path=read_path, jev=jev)
+    `engine` (265): the AI engine; one without a judgement service (086: `jev=False`) has GPT recognise the type."""
+    app = build_app(source_path, tracker=tracker, use_cache=use_cache, run_id=run_id, read_path=read_path, engine=engine)
     _, _, state = app.run(halt_after=TERMINALS)
     return state.data

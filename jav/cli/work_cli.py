@@ -120,7 +120,10 @@ def cmd_wp_assign(args):
         if "jev" not in r["params"]:
             print(f"the recipe {args.recipe!r} has no engine setting")
             return 2
-        named["jev"] = "off" if args.engine == "gpt" else "on"
+        if args.engine not in work_recipes.ENGINE_JEV:
+            print(f"the recipes' engine setting cannot name {args.engine!r} yet (plan L, L4b)")
+            return 2
+        named["jev"] = work_recipes.ENGINE_JEV[args.engine]
     params = {**{k: v for k, v in kept.items() if k in r["params"]}, **named}
     a = work_recipes.assign_recipe(args.wp, args.recipe, params=params, expected_revision=current["revision"] if current else 0,
                            actor=args.actor, note=args.note)

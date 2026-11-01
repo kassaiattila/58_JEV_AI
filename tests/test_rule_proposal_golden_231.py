@@ -74,4 +74,4 @@ def test_without_a_budget_no_document_is_answered_and_gpt_is_not_asked(env) -> N
 
 def test_the_golden_set_is_listed() -> None:
     golden = goldens.get("rules:proposals")
-    assert (golden.layer, golden.engines, golden.count()) == ("rules", ("jev", "gpt"), 16)
+    assert (golden.layer, golden.engines, golden.count()) == ("rules", goldens.ENGINES, 16)

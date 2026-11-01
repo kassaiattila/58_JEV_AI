@@ -7,7 +7,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from jav.cli.cli_options import jev_on
+from jav.cli.cli_options import engine_of
 
 
 def cmd_duplicates(args: argparse.Namespace) -> int:
@@ -76,8 +76,12 @@ def cmd_reconcile_ai(args: argparse.Namespace) -> int:
     from jav.domains.finance import reconcile_ai
 
     # 160-D (Sz7): without --engine the proposals follow the application's AI engine (JEV and GPT: both engines, GPT
-    # only: GPT alone); the golden measurement asks both unless told, as every measurement does
-    engine = args.engine or ("both" if args.golden or jev_on(args) else "gpt")
+    # only: GPT alone); the golden measurement asks both unless told, as every measurement does. 265: the proposals know
+    # JEV and GPT only (plan L, L4d), so an engine of another judgement service has GPT alone propose
+    from jav.ai import engine as ai_engines
+
+    engine = args.engine or ("both" if args.golden or ai_engines.get(engine_of(args)).judge in reconcile_ai.ENGINES
+                             else "gpt")
     engines = list(reconcile_ai.ENGINES) if engine == "both" else [engine]
     limits = {}
     if args.jev_budget_usd:

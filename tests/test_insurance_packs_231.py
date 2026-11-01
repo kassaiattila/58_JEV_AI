@@ -122,12 +122,12 @@ class _Jev:
                                call=JevCall(request_id=request_id, n_questions=len(questions), state_chars=0))
 
 
-def _run(tmp_path: Path, which: str, *, jev: bool, adapter=None):
+def _run(tmp_path: Path, which: str, *, engine: str, adapter=None):
     key, lines, out = DOCS[which]
     pdf = write_unicode_pdf(tmp_path / f"{which}.pdf", lines)
     with store.use_store(tmp_path / "packs.sqlite"), extract_llm.use_agent_factory(lambda pack: _FakeAgent(pack, out)), \
             jev_mod.use_adapter(adapter or _NoJev()):
-        app = flow.build_app(str(pdf), f"c-{which}", "G", tracker=False, doc_type=key, jev=jev)
+        app = flow.build_app(str(pdf), f"c-{which}", "G", tracker=False, doc_type=key, engine=engine)
         action, _, state = app.run(halt_after=flow.TERMINALS)
     return action.name, state.data
 
@@ -140,7 +140,7 @@ class _NoJev:
 @pytest.mark.parametrize("which", sorted(DOCS))
 def test_an_invented_document_is_extracted_and_checked_by_jev(tmp_path, which: str) -> None:
     jev = _Jev()
-    terminal, state = _run(tmp_path, which, jev=True, adapter=jev)
+    terminal, state = _run(tmp_path, which, engine="jev", adapter=jev)
     key = DOCS[which][0]
     assert all(c.ok for c in state.validation), [c for c in state.validation if not c.ok]
     assert {f"{lf}__missing_rows" for lf in typepack.get(key).list_fields} <= set(jev.questions)
@@ -148,7 +148,7 @@ def test_an_invented_document_is_extracted_and_checked_by_jev(tmp_path, which: s
 
 
 def _without_jev(tmp_path: Path, which: str) -> None:
-    _terminal, state = _run(tmp_path, which, jev=False)
+    _terminal, state = _run(tmp_path, which, engine="gpt")
     assert state.verdicts.source == "code"
     assert state.verdicts.unsupported == [], state.verdicts.unsupported  # every value is printed on the document
     assert all(c.ok for c in state.validation)

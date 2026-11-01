@@ -38,13 +38,14 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from burr.core import ApplicationBuilder, action, default, expr, when
+from burr.core import ApplicationBuilder, Condition, action, default, expr, when
 from burr.core.application import Application
 from burr.integrations.pydantic import PydanticTypingSystem
 
 from jav.ai import checks, policy
 from jav.core import card_numbers, cfg, store, trace
 from jav.core.config import TRACKER_PROJECTS
+from jav.ai import engine as engines
 from jav.ai.engine import with_engine
 from jav.ai.models import FlowState
 from jav.flows import persistence
@@ -55,6 +56,7 @@ TERMINALS = ["done", "needs_review", "needs_ocr"]
 PARTITION = "invoice"  # partition of the durable state store (066 Á08: the worker finds the saved state by it)
 # 188 (plan 185 T3b): the record was `invoice` in the state; a state saved before is read under `record`
 persistence.rename_saved_keys(PARTITION, {"invoice": "record"})
+persistence.rename_saved_keys(PARTITION, {"jev": "engine"}, convert={"jev": engines.of_flag})  # 265: the engine's name
 
 
 def tracker_project(doc_type: str) -> str:
@@ -161,7 +163,7 @@ def jev_select(state: FlowState) -> FlowState:
         picks, calls = select_fields(get_adapter(), state.layout, state.candidates, run_id=state.run_id, use_cache=state.use_cache, pack=get_pack(state.doc_type))
     except JevUnavailableError as exc:  # JEV unavailable (ledgered): no picks, record to manual queue; flow survives
         picks, calls = {}, []
-        policy.require_review(state, f"jev_unavailable:{exc.reason}")
+        policy.require_review(state, engines.unavailable_todo(exc))
     state.picks = picks
     state.jev_calls = state.jev_calls + calls
     return state
@@ -209,7 +211,7 @@ def jev_verify(state: FlowState) -> FlowState:
         # 085: the code's own source check and the required fields still count (before 085 they were dropped too)
         state.verdicts = code_verdicts(state.layout or [], state.llm_output or {}, pack=get_pack(state.doc_type),
                                        layer=_word_layer(state))
-        policy.require_review(state, f"jev_unavailable:{exc.reason}")
+        policy.require_review(state, engines.unavailable_todo(exc))
         return state
     state.verdicts = verdicts
     state.jev_calls = state.jev_calls + [call]
@@ -262,7 +264,7 @@ def validate(state: FlowState) -> FlowState:
 
 
 @action.pydantic(
-    reads=["arm", "picks", "verdicts", "validation", "record", "doc_type", "doc_id", "jev", "llm_token_p", "needs_review",
+    reads=["arm", "picks", "verdicts", "validation", "record", "doc_type", "doc_id", "engine", "llm_token_p", "needs_review",
            "review_reasons"],
     writes=["route", "needs_review", "review_reasons", "route_inputs", "check_traces"],
 )
@@ -462,7 +464,9 @@ TRANSITIONS = [
     ("find_candidates", "jev_select"),
     ("jev_select", "normalize_picks"),
     ("normalize_picks", "validate"),
-    ("extract_llm", "code_verify", expr("llm_output is not None and not jev")),
+    ("extract_llm", "code_verify", Condition(["llm_output", "engine"], lambda s: s["llm_output"] is not None
+                                             and not engines.get(s["engine"]).judged,
+                                             name="llm_output is not None and the engine has no judgement service")),
     ("extract_llm", "jev_verify", expr("llm_output is not None")),
     ("extract_llm", "decide_route", default),
     ("jev_verify", "normalize_llm"),
@@ -534,13 +538,14 @@ def new_run_id(case_id: str, arm: str, run_no: int) -> str:
 
 def build_app(
     source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, *, doc_type: str,
-    run_id: str | None = None, persister=None, read_path: str | None = None, jev: bool = True,
+    run_id: str | None = None, persister=None, read_path: str | None = None, engine: str = "jev",
     detail_probabilities: dict[str, float] | None = None, source_text: str | None = None,
 ) -> Application:
     """`persister` (040 K1, supplied by the worker): durable state persistence after every step; with the same `run_id`
     the run resumes at the next step. Without it, the earlier behaviour: a new identifier, no persistence.
     `read_path`: the document's bytes are read from here (its source instance); everything else uses `source_path`.
-    `jev=False` (085): processing without JEV: only the G path, verified by the code alone (`code_verify`).
+    `engine` (265): the AI engine (configs/engines.json); one without a judgement service (085: until 265 `jev=False`)
+    runs only the G path, verified by the code alone (`code_verify`).
     `detail_probabilities` (149): the detection's answer on the detailed type, for the saved stage's direction check
     (`own_parties.confirm_detail_by_direction`). `source_text` (190): the document is this text (an email's own text), not
     the file; a text or table file is read as text too. Either needs a pack that takes that input (`inputs`)."""
@@ -553,11 +558,12 @@ def build_app(
     entry = "load_pdf" if kind == "pdf" else "load_text"
     if arm not in pack.arms:
         raise ValueError(f"the {doc_type} type pack runs only on these paths: {', '.join(pack.arms)} (asked: {arm})")
-    if not jev and arm != "G":
-        raise ValueError(f"without JEV only the G path runs (requested: {arm})")
+    e = engines.get(engine)
+    if not e.judged and arm != "G":
+        raise ValueError(f"without a judgement service only the G path runs (engine {e.id}, requested: {arm})")
     run_id = run_id or new_run_id(case_id, arm, run_no)
     initial = FlowState(source_path=source_path, read_path=read_path, case_id=case_id, arm=arm, run_no=run_no, run_id=run_id,
-                        use_cache=use_cache, doc_type=doc_type, jev=jev, detail_probabilities=detail_probabilities or {},
+                        use_cache=use_cache, doc_type=doc_type, engine=e.id, detail_probabilities=detail_probabilities or {},
                         source_text=source_text)
     builder = (
         ApplicationBuilder()
@@ -576,15 +582,16 @@ def build_app(
         builder = builder.with_state(initial).with_entrypoint(entry)
     if tracker:
         builder = builder.with_tracker("local", project=tracker_project(doc_type))
-    return with_engine(builder, jev_on=jev).build()  # 160: without JEV, a JEV question is refused
+    return with_engine(builder, e).build()  # 160/265: the engine's judgement service; without one, a question is refused
 
 
 def run_one(
     source_path: str, case_id: str, arm: str, run_no: int = 1, tracker: bool = True, use_cache: bool = True, *, doc_type: str,
-    jev: bool = True, source_text: str | None = None,
+    engine: str = "jev", source_text: str | None = None,
 ) -> FlowState:
-    """`jev=False` (086): the G path verified by the code alone. `source_text` (190): the document is this text."""
-    app = build_app(source_path, case_id, arm, run_no=run_no, tracker=tracker, use_cache=use_cache, doc_type=doc_type, jev=jev,
-                    source_text=source_text)
+    """`engine` (265): the AI engine; one without a judgement service runs the G path verified by the code alone (086).
+    `source_text` (190): the document is this text."""
+    app = build_app(source_path, case_id, arm, run_no=run_no, tracker=tracker, use_cache=use_cache, doc_type=doc_type,
+                    engine=engine, source_text=source_text)
     _, _, state = app.run(halt_after=TERMINALS)
     return state.data

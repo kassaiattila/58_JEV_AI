@@ -58,7 +58,7 @@ def test_the_detection_flow_queues_the_contradiction_and_keeps_the_type(tmp_path
     monkeypatch.setattr(detect_detail, "anchor_score", lambda detect, text: (True, 1.0))
     path = write_text_pdf(tmp_path / "szamla.pdf", INVOICE_LINES)
     with store.use_store(tmp_path / "f.sqlite"), detect_gpt.use_agent_factory(_contradicting), jev_mod.use_adapter(_NoJev()):
-        st = flow_detect.run_detect(str(path), run_id="r1", jev=False)
+        st = flow_detect.run_detect(str(path), run_id="r1", engine="gpt")
         open_reasons = [r["reason"] for r in store.review_open_reasons("document", st.doc_id)]
     assert st.result.doc_type == "invoice_hu" and st.result.issuer_hu < 0.3
     assert st.detail.key == "invoice_hu"

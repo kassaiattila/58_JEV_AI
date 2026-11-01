@@ -13,6 +13,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
+from jav.ai import engine as engines
 from jav.ai.policy import detect_low_confidence  # 066 Á38: the threshold comes from the policy (227: when asked)
 from jav.core import store
 from jav.core.config import GOLDEN_MANIFEST, OLD_PROJECT_ROOT, RUNS_DIR
@@ -62,30 +63,31 @@ def load_detect_cases() -> list[DetectCase]:
     return list(seen.values())
 
 
-def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: bool = True,
+def detect_golden(use_cache: bool = True, *, engine: str = "jev", descriptions: bool = True,
                   budget_usd: Decimal | None = None, cases: list[DetectCase] | None = None,
                   label: str = "golden") -> list[dict[str, Any]]:
-    """`jev=False` (086): GPT recognises the type (`jav/ai/detect_gpt.py`); `descriptions=False` offers the types by their
-    keys only (the measured alternative). `budget_usd`: a hard budget for the whole measurement (the owner's
-    sub-budget), for the engine that answers - OpenAI with `jev=False`, JEV otherwise (122); the other providers and
-    Azure get none, so they cannot be called. A GPT call over it is a `detect:gpt_failed` row. `cases` / `label` (122):
+    """`engine` (265): the AI engine measured; one without a judgement service (086: until 265 `jev=False`) has GPT
+    recognise the type (`jav/ai/detect_gpt.py`), where `descriptions=False` offers the types by their keys only (the
+    measured alternative). `budget_usd`: a hard budget for the whole measurement (the owner's sub-budget), for the
+    budget of the provider that answers (122; 265: `jav.ai.engine.Engine.answerer`); the other providers and Azure get
+    none, so they cannot be called. A GPT call over it is a `detect:gpt_failed` row. `cases` / `label` (122):
     a local case list instead of the golden set (`load_case_file`), and the name of the output file."""
     from jav.ai import detect_gpt
     from jav.flows.flow_detect import run_detect
-    from jav.core import calls
+    from jav.core import calls, providers
 
+    e = engines.get(engine)
     cases = load_detect_cases() if cases is None else cases
     rows: list[dict[str, Any]] = []
     stamp = f"{datetime.now():%Y%m%d_%H%M%S}"
-    provider = "jev" if jev else "openai"
-    limits = {provider: budget_usd} if budget_usd is not None else {}
+    limits = {providers.budget_of(e.answerer): budget_usd} if budget_usd is not None else {}
     if not limits:  # 160 (review AI-8): without a budget only earlier answers count
         print(calls.NO_BUDGET_NOTE)
     with (calls.measurement(f"measure-{stamp}-detect", limits, reuse=use_cache),
           detect_gpt.use_type_descriptions(descriptions)):
         for case in cases:
             t0 = time.perf_counter()
-            st = run_detect(str(case.path), use_cache=use_cache, jev=jev)
+            st = run_detect(str(case.path), use_cache=use_cache, engine=e.id)
             r, d = st.result, st.detail
             rows.append({
                 "case_id": case.case_id, "expected": case.expected, "old_type": case.old_type,
@@ -96,13 +98,13 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
                 "top3": dict(sorted(r.probabilities.items(), key=lambda kv: -kv[1])[:3]) if r else {},
                 "parent": r.parent if r else None, "parent_prob": r.parent_prob if r else None,
                 # 086: which engine answered, whether its confidence was measurable, the detailed type and the cost
-                "engine": r.engine if r else ("jev" if jev else "gpt"), "measured": r.measured if r else None,
+                "engine": r.engine if r else e.id, "measured": r.measured if r else None,
                 "detail_type": d.key if d else None, "detail_method": d.method if d else None,
                 "detail_conf": d.confidence if d else None, "cost_usd": r.call.cost_usd if r else None,
                 "review_reasons": list(st.review_reasons) + list(st.detail_reasons),
             })
     RUNS_DIR.mkdir(exist_ok=True)
-    variant = "" if jev else ("_gpt" if descriptions else "_gpt_keys")
+    variant = e.runs + ("" if e.judged or descriptions else "_keys")
     out = RUNS_DIR / f"{stamp}_detect_{label}{variant}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for r in rows) + "\n", encoding="utf-8")
     print_detect_report(rows)
@@ -110,21 +112,21 @@ def detect_golden(use_cache: bool = True, *, jev: bool = True, descriptions: boo
     return rows
 
 
-def detect_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True) -> None:
+def detect_determinism(n: int = 3, limit: int | None = None, *, engine: str = "jev") -> None:
     """n repeated runs WITHOUT cache on the detect golden set (under `no_cache_write()`, the reference cache is
     untouched): type flips per case, confidence spread. The rows fit the determinism section of the eval report.
-    `jev=False` (160-D): GPT recognises the type, every run a live call (a measurement reuses no earlier answer)."""
-    from jav.ai.jev import get_adapter
+    `engine` (265): the AI engine measured; without a judgement service (160-D) GPT recognises the type, every run a
+    live call (a measurement reuses no earlier answer)."""
     from jav.flows.flow_detect import run_detect
 
     cases = load_detect_cases()
     if limit:
         cases = cases[:limit]
     per_case: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    with get_adapter().no_cache_write():
+    with engines.no_cache_write(engine):
         for k in range(n):
             for case in cases:
-                st = run_detect(str(case.path), use_cache=False, jev=jev)
+                st = run_detect(str(case.path), use_cache=False, engine=engine)
                 r = st.result
                 if r is None:
                     continue
@@ -148,7 +150,7 @@ def detect_determinism(n: int = 3, limit: int | None = None, *, jev: bool = True
     if stds:
         print(f"**Choice confidence spread:** mean {statistics.mean(stds):.4f}, max {max(stds):.4f}")
     RUNS_DIR.mkdir(exist_ok=True)
-    out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_detect_determinism{'' if jev else '_gpt'}.jsonl"
+    out = RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_detect_determinism{engines.get(engine).runs}.jsonl"
     out.write_text("\n".join(json.dumps(r, ensure_ascii=False) for rs in per_case.values() for r in rs) + "\n", encoding="utf-8")
     print(f"Raw runs: {out}")
 
@@ -196,7 +198,7 @@ def _already_detected() -> set[str]:
 
 
 def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, use_cache: bool = True, redo_unknown: bool = False,
-                  jev: bool = True) -> None:
+                  engine: str = "jev") -> None:
     from jav.flows.flow_detect import run_detect
 
     pdfs = iter_pdfs(root)
@@ -215,7 +217,7 @@ def detect_corpus(root: Path, *, limit: int | None = None, force: bool = False, 
     errors: list[str] = []
     for i, p in enumerate(todo, 1):
         try:
-            st = run_detect(str(p), use_cache=use_cache, jev=jev)
+            st = run_detect(str(p), use_cache=use_cache, engine=engine)
             tag = st.result.doc_type if st.result else st.final_status
             conf = f"{st.result.confidence:.2f}" if st.result else "-"
         except Exception as exc:  # noqa: BLE001 - one faulty PDF must not stop the walk

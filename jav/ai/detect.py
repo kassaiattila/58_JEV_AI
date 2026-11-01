@@ -55,7 +55,7 @@ class DetectResult(BaseModel):
     parent: str | None = None  # family of the most probable type (registry v2), summed in code
     parent_prob: float = 0.0  # summed probability of the family - parent label at low confidence (policy decides)
     call: JevCall
-    engine: str = "jev"  # 086: "jev" (this module) or "gpt" (`jav/ai/detect_gpt.py`, processing without JEV)
+    engine: str = "jev"  # 086: "gpt" (`jav/ai/detect_gpt.py`, without a judgement service); 265: the engine that asked
     measured: bool = True  # 086: False = the confidence could not be measured (GPT without log-probabilities)
 
     @model_validator(mode="after")
@@ -107,7 +107,8 @@ def build_questions() -> dict[str, Choice | Noul]:
     return out
 
 
-def detect(jev: JevAdapter, pdf: PdfText, path: str | Path, *, run_id: str = "adhoc", use_cache: bool = True) -> DetectResult:
+def detect(jev: JevAdapter, pdf: PdfText, path: str | Path, *, run_id: str = "adhoc", use_cache: bool = True,
+           engine: str = "jev") -> DetectResult:
     state = build_state(pdf, path)
     result = jev.ask("detect", state, build_questions(), run_id=run_id, use_cache=use_cache, config_hash=CONFIG_HASH)
     r = result.response
@@ -121,4 +122,5 @@ def detect(jev: JevAdapter, pdf: PdfText, path: str | Path, *, run_id: str = "ad
         language_conf=float(lang.confidence),
         anchor_hits=state["anchor_hits"],
         call=result.call,
+        engine=engine,
     )

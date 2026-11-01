@@ -51,10 +51,11 @@ class DecisionsAdapter(JevAdapter):
     judge = "decisions"
     response_type = wire.DecisionsResponse
     alias_ttl_hours = None
+    cache_subdir = CACHE_SUBDIR
 
     def __init__(self, client: Any | None = None, cache_dir=None, model: str | None = None) -> None:
         self._settings = settings()
-        super().__init__(client=client, cache_dir=cache_dir if cache_dir is not None else jev.CACHE_DIR / CACHE_SUBDIR,
+        super().__init__(client=client, cache_dir=cache_dir if cache_dir is not None else jev.CACHE_DIR / self.cache_subdir,
                          model=model or str(self._settings["model"]))
 
     # --- the client -------------------------------------------------------------------------------------------------
@@ -111,14 +112,14 @@ class DecisionsAdapter(JevAdapter):
     def _prices(self) -> dict[str, Decimal]:
         return {k: Decimal(str(v)) for k, v in self._settings["usd_per_mtok"].items()}
 
-    def _max_cost(self, body: str) -> Decimal:
+    def max_cost_for(self, input_bytes: int) -> Decimal:
         from jav.core import calls
 
         prices, long = self._prices(), self._settings["long_context"]
         per_token = prices["input"] if self._settings["prompt_cache"] == "off" else max(prices["input"], prices["cache_write"])
-        if calls.utf8_bytes(body) + calls.TOKEN_OVERHEAD > int(long["above_input_tokens"]):
+        if input_bytes + calls.TOKEN_OVERHEAD > int(long["above_input_tokens"]):
             per_token *= Decimal(str(long["factor"]))
-        return calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
+        return calls.estimate_max_cost(input_bytes=input_bytes, max_output_tokens=0,
                                        usd_per_mtok=(per_token, prices["output"]), repeats=self._attempts())
 
     def _call_cost(self, response) -> Decimal | None:

@@ -20,7 +20,7 @@ def isolated(tmp_path):
 def build(source, ref, persister=None, **kwargs):
     return flow_native.build_app(work_run_id="native-run", item_id="native-item", graph_id="native-graph",
         source_path=str(source), read_path=str(source), original_name="original.txt", expected_sha256=ref.source_sha256,
-        recipe_hash="a" * 16, jev=False, use_cache=False, persister=persister, **kwargs)
+        recipe_hash="a" * 16, engine="gpt", use_cache=False, persister=persister, **kwargs)
 
 
 def test_actual_graph_publishes_source_bound_facts_without_source_text_in_state(isolated, monkeypatch):

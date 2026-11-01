@@ -45,7 +45,7 @@ def run_native(tmp_path, monkeypatch, *, value, prop="birth name", support=None)
             _, _, state = flow_native.build_app(work_run_id="native-run", item_id="native-item",
                 graph_id="native-graph", source_path=str(source), read_path=str(source),
                 original_name="statement.txt", expected_sha256=ref.source_sha256, recipe_hash="a" * 16,
-                jev=support is not None, use_cache=False).run(halt_after=flow_native.TERMINALS)
+                engine="jev" if support is not None else "gpt", use_cache=False).run(halt_after=flow_native.TERMINALS)
         fact = native_results.get_publication("native-run", "native-item").interpretation.facts[0]
     return fact, state.data
 
