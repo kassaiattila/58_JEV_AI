@@ -22,6 +22,9 @@ What it adds on top of the raw SDK:
 - **refusal without JEV** (160, plan F-csak-gpt): inside `disabled()` (a flow built without JEV runs every step in it,
   `jav/ai/engine.py`) every question is refused with `JevUnavailableError("disabled")` before the model probe, the cache
   and the call log, so processing without JEV is a guarantee, not a convention.
+- **another judgement service** (265, plan L): the provider's name, the price, the model's resolution, the request key and
+  the physical call are the adapter's own methods, so OpenAI Decisions (`jav/ai/decisions.py`) is this adapter with its
+  own; the cache, the call log, the budget, the ledger, the too-large memory and `disabled()` stay one mechanism.
 - **a request known to be too large** (200, Q-tul-nagy-keres): a request the service refused for its token limit
   (`max_tokens_exceeded`) has no answer to cache, so every later run sent it again (a failed call and a kept
   reservation each time) before the request-size frame (`jav/ai/jev_budget.py`) went on to its tighter request. Its key is
@@ -130,6 +133,12 @@ _REPLAYED: ContextVar[bool] = ContextVar("jev_replayed", default=False)
 
 
 class JevAdapter:
+    # 265 (plan L): what another judgement service's adapter sets for itself (`jav/ai/decisions.py`)
+    provider = "jev"  # the call log's and the ledger's provider (configs/providers.json)
+    judge = "jev"  # the judgement service (configs/engines.json `judges`); the call log's step prefix
+    response_type: type[SystemOneResponse] = SystemOneResponse
+    alias_ttl_hours: float | None = JEV_ALIAS_TTL_H  # None: a resolution stays until an answer names another model
+
     def __init__(self, client: TypeSafeClient | None = None, cache_dir: Path | None = None, model: str = JEV_MODEL) -> None:
         self._client = client
         # 265 (code review SEC-02, TOOL-04): the client this adapter makes from the environment's key is the paid one; a
@@ -157,6 +166,64 @@ class JevAdapter:
 
     def _cache_path(self, key: str) -> Path:
         return self.cache_dir / f"{key}.json"
+
+    # --- what another judgement service replaces (265, plan L) -------------------------------------
+
+    def _is_concrete(self, model: str) -> bool:
+        """Whether `model` names one version (`jev-1.14.0`) rather than a moving alias."""
+        return bool(_CONCRETE_MODEL.match(model))
+
+    def _probe(self, model: str, *, run_id: str) -> str:
+        """The version an alias answers with now: one tiny live question (its answer's `model` field)."""
+        response, _ = self._live("model_probe", _PROBE_STATE, _PROBE_QUESTIONS, model=model, run_id=run_id, config_hash=None)
+        return response.model or model
+
+    def _request_key(self, model: str, state: object, questions: dict[str, Question]) -> str:
+        """The cache key of a request: the answering version, the state and the questions."""
+        return request_hash(model, state, questions)
+
+    def _request_body(self, state: object, questions: dict[str, Question], model: str) -> str:
+        """What leaves the machine, for the call log's worst-case reservation."""
+        return json.dumps({"state": state, "questions": {k: q.model_dump(mode="json") for k, q in questions.items()}},
+                          ensure_ascii=False, default=str, sort_keys=True)
+
+    def _attempts(self) -> int:
+        """Physical requests one call may make: the SDK's own retries are requests too."""
+        return 1 + int(JEV_RETRY.get("max_retries", 0))
+
+    def _max_cost(self, body: str) -> Decimal:
+        from jav.core import calls
+
+        return calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
+                                       usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)), repeats=self._attempts())
+
+    def _call_cost(self, response: SystemOneResponse) -> Decimal | None:
+        """A live answer's cost for the call log (exact); None when the usage is not known."""
+        in_tok = getattr(getattr(response, "usage", None), "input_tokens", None)
+        if in_tok is None:
+            return None
+        return (Decimal(in_tok) * Decimal(str(JEV_USD_PER_MTOK)) / Decimal(1_000_000)).quantize(Decimal("0.000001"))
+
+    def _ledger_cost(self, response: SystemOneResponse) -> float:
+        """A live answer's cost for the ledger (0 when the usage is not known)."""
+        in_tok = getattr(getattr(response, "usage", None), "input_tokens", None)
+        return 0.0 if in_tok is None else round(in_tok * JEV_USD_PER_MTOK / 1_000_000, 6)
+
+    def _send(self, state: object, questions: dict[str, Question], *, model: str) -> SystemOneResponse:
+        """The physical request and its checked answer; a service failure raises a kind `_service_error` accepts."""
+        response = self.client.system_one(state=state, questions=questions, model=model)
+        validate_response(response, questions)
+        return response
+
+    def _service_error(self, exc: BaseException) -> bool:
+        """Whether `exc` is the service's failure (a to-do), not an input or programming error (raised)."""
+        if isinstance(exc, ValidationError):
+            return exc.title == "SystemOneResponse"
+        return isinstance(exc, (TypeSafeError, InvalidJevResponse))
+
+    def _error_reason(self, exc: BaseException) -> tuple[str, str, float | None]:
+        """(short reason for the reviews, ledger form, retry_after_ms) of a service failure."""
+        return _error_slugs(exc)
 
     @contextmanager
     def no_cache_write(self):
@@ -188,7 +255,7 @@ class JevAdapter:
             return {}
 
     def resolve_model(self, model: str, *, run_id: str = "adhoc") -> str:
-        if _CONCRETE_MODEL.match(model):
+        if self._is_concrete(model):
             return model
         if model in self._resolved:
             return self._resolved[model]
@@ -197,21 +264,22 @@ class JevAdapter:
         now = datetime.now(timezone.utc)
         if entry:
             try:
-                fresh = now - datetime.fromisoformat(entry["resolved_at"]) < timedelta(hours=JEV_ALIAS_TTL_H)
+                fresh = (self.alias_ttl_hours is None
+                         or now - datetime.fromisoformat(entry["resolved_at"]) < timedelta(hours=self.alias_ttl_hours))
             except (KeyError, ValueError):
                 fresh = False
             if fresh:
                 self._resolved[model] = entry["model"]
                 return entry["model"]
         try:
-            response, _ = self._live("model_probe", _PROBE_STATE, _PROBE_QUESTIONS, model=model, run_id=run_id, config_hash=None)
+            answered = self._probe(model, run_id=run_id)
         except JevUnavailableError:
             if entry:  # expired but usable: offline cache hits keep working; the ledger's `model` field shows the truth
                 print(f"[jev] warning: '{model}' cannot be resolved again; '{entry['model']}' of {entry['resolved_at'][:10]} stays", file=sys.stderr)
                 self._resolved[model] = entry["model"]
                 return entry["model"]
             raise
-        return self._remember(model, response.model or model)
+        return self._remember(model, answered)
 
     def _remember(self, alias: str, concrete: str) -> str:
         """Record the alias resolution (in the process and in the file, with a fresh timestamp)."""
@@ -224,14 +292,13 @@ class JevAdapter:
 
     # --- call ------------------------------------------------------------------------------------
 
-    @staticmethod
-    def _read_cached(path: Path) -> SystemOneResponse | None:
+    def _read_cached(self, path: Path) -> SystemOneResponse | None:
         """The saved answer, or None if it is missing or unreadable (066 Á37: the remains of an interrupted write do not
         stop the process; it becomes a live question, and a new, intact file takes its place). Read in JSON mode
         (the SDK's own decoding path): the Score answer's level keys are strings ("0") in the file, the model expects
         integers."""
         try:
-            return SystemOneResponse.model_validate_json(path.read_text(encoding="utf-8"))
+            return self.response_type.model_validate_json(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             return None
         except (OSError, ValueError) as exc:  # pydantic's ValidationError is a ValueError too
@@ -290,12 +357,8 @@ class JevAdapter:
                 raise JevUnavailableError("no_budget")
             return self._sdk_live(request_id, state, questions, model=model, run_id=run_id, config_hash=config_hash)
         self.client  # noqa: B018 - 085: a missing key fails here, before anything is reserved (no request can leave)
-        body = json.dumps({"state": state, "questions": {k: q.model_dump(mode="json") for k, q in questions.items()}},
-                          ensure_ascii=False, default=str, sort_keys=True)
-        key = request_hash(model, state, questions)
-        attempts = 1 + int(JEV_RETRY.get("max_retries", 0))  # the SDK's own retries are physical requests too
-        max_cost = calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
-                                           usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)), repeats=attempts)
+        key = self._request_key(model, state, questions)
+        max_cost = self._max_cost(self._request_body(state, questions, model))
         seconds_box: list[float] = []
 
         def physical() -> calls.Outcome:
@@ -307,18 +370,18 @@ class JevAdapter:
                 raise
             seconds_box.append(seconds)
             in_tok = getattr(getattr(response, "usage", None), "input_tokens", None)
-            cost = None if in_tok is None else (Decimal(in_tok) * Decimal(str(JEV_USD_PER_MTOK)) / Decimal(1_000_000)).quantize(Decimal("0.000001"))
             return calls.Outcome(response=response.model_dump(mode="json"), model=getattr(response, "model", None),
-                                 input_tokens=in_tok, cost_usd=cost)
+                                 input_tokens=in_tok, cost_usd=self._call_cost(response))
 
         try:
-            result = calls.invoke(run_id=run_id, step_id=f"jev:{request_id}:{key[:16]}", provider="jev", model=model,
+            result = calls.invoke(run_id=run_id, step_id=f"{self.judge}:{request_id}:{key[:16]}", provider=self.provider,
+                                  model=model,
                                   max_cost_usd=max_cost, fn=physical, budget_scope=ctx.budget_scope, request_hash=key)
         except calls.BudgetExceeded as exc:
             raise JevUnavailableError("budget_exceeded") from exc
         except calls.UncertainAttempt as exc:
             raise JevUnavailableError("uncertain_attempt") from exc
-        response = SystemOneResponse.model_validate_json(json.dumps(result.response, ensure_ascii=False))
+        response = self.response_type.model_validate_json(json.dumps(result.response, ensure_ascii=False))
         _REPLAYED.set(result.replayed)
         return response, (seconds_box[0] if seconds_box else 0.0)
 
@@ -328,15 +391,14 @@ class JevAdapter:
         """Live SDK call. SDK exception -> ledger row with `error` + JevUnavailableError (the caller decides)."""
         t0 = observability.start()
         try:
-            response = self.client.system_one(state=state, questions=questions, model=model)
-            validate_response(response, questions)
-        except (TypeSafeError, ValidationError, InvalidJevResponse) as exc:
-            if isinstance(exc, ValidationError) and exc.title != "SystemOneResponse":
+            response = self._send(state, questions, model=model)
+        except Exception as exc:
+            if not self._service_error(exc):
                 raise  # An input / programming error is not reported as a service failure.
             seconds = observability.since(t0)
-            reason, ledger_error, retry_after = _error_slugs(exc)
+            reason, ledger_error, retry_after = self._error_reason(exc)
             store.ledger_add(
-                run_id=run_id, step=request_id, provider="jev", model=model, input_tokens=None, output_tokens=None,
+                run_id=run_id, step=request_id, provider=self.provider, model=model, input_tokens=None, output_tokens=None,
                 cost_usd=0.0, seconds=seconds, cached=False, cache_key=None, config_hash=config_hash, error=ledger_error,
             )
             raise JevUnavailableError(reason, retry_after_ms=retry_after) from exc
@@ -345,9 +407,9 @@ class JevAdapter:
             usage = getattr(response, "usage", None)
             in_tok = getattr(usage, "input_tokens", None)
             store.ledger_add(
-                run_id=run_id, step=request_id, provider="jev", model=getattr(response, "model", None) or model,
+                run_id=run_id, step=request_id, provider=self.provider, model=getattr(response, "model", None) or model,
                 input_tokens=in_tok, output_tokens=getattr(usage, "output_tokens", None),
-                cost_usd=0.0 if in_tok is None else round(in_tok * JEV_USD_PER_MTOK / 1_000_000, 6),
+                cost_usd=self._ledger_cost(response),
                 seconds=seconds, cached=False, cache_key=None, config_hash=None,
             )
         return response, seconds
@@ -368,13 +430,13 @@ class JevAdapter:
         model = model or self.model
         run_id = run_id or "adhoc"
         concrete = self.resolve_model(model, run_id=run_id)
-        key = request_hash(concrete, state, questions)
+        key = self._request_key(concrete, state, questions)
         path = self._cache_path(key)
         cached = False
         t0 = observability.start()
         response = self._read_cached(path) if use_cache else None
         if response is None and use_cache and (known := self._known_too_large(key)) is not None:
-            store.ledger_add(run_id=run_id, step=request_id, provider="jev", model=concrete, input_tokens=None,
+            store.ledger_add(run_id=run_id, step=request_id, provider=self.provider, model=concrete, input_tokens=None,
                              output_tokens=None, cost_usd=0.0, seconds=0.0, cached=True, cache_key=key,
                              config_hash=config_hash, error=f"known_too_large:{known}")
             raise JevUnavailableError(known)  # 200: the same refusal as the live one, without a call
@@ -396,8 +458,8 @@ class JevAdapter:
                 # 066 Á17: the request goes with the alias; the provider may have moved it to a new version meanwhile
                 # (within the resolution's TTL). The answer is stored under the answering version's key and the
                 # resolution is refreshed, so a cache hit is always an answer from the version the key names.
-                concrete = self._remember(model, answered) if not _CONCRETE_MODEL.match(model) else answered
-                key = request_hash(concrete, state, questions)
+                concrete = self._remember(model, answered) if not self._is_concrete(model) else answered
+                key = self._request_key(concrete, state, questions)
                 path = self._cache_path(key)
             if self.write_cache:
                 self._write_cached(path, response)
@@ -413,12 +475,12 @@ class JevAdapter:
             output_tokens=getattr(usage, "output_tokens", None),
             seconds=seconds,
             cached=cached,
-            cost_usd=0.0 if cached or in_tok is None else round(in_tok * JEV_USD_PER_MTOK / 1_000_000, 6),
+            cost_usd=0.0 if cached else self._ledger_cost(response),
         )
         store.ledger_add(
             run_id=run_id,
             step=request_id,
-            provider="jev",
+            provider=self.provider,
             model=call.model or concrete,
             input_tokens=call.input_tokens,
             output_tokens=call.output_tokens,

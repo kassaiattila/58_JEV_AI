@@ -1,7 +1,7 @@
 {
  "meta": {
   "name": "models",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "changelog": [
    {
     "version": "1.0.0",
@@ -32,6 +32,11 @@
     "version": "1.5.0",
     "date": "2026-10-22",
     "note": "200 (the owner's decision of 2026-10-22): jev.model pinned to jev-1.14.0, the version the moving name jev-latest resolved to since 2026-10-22 05:17 UTC (its answers and cache keys are unchanged); jev.watch_alias = jev-latest, only looked at (the daily backup, jav/jev_version.py), so a newer version is reported and taken only by a decision with a measurement."
+   },
+   {
+    "version": "1.6.0",
+    "date": "2026-11-01",
+    "note": "265 (plan L, L2): the decisions section, OpenAI Decisions as a judgement service (jav/ai/decisions.py): its one model gpt-6-luna, its prices per token kind (uncached, read from and written to its prompt cache; above 272 000 input tokens twice), no SDK retry (as openai, 075), its prompt cache off by default (a cache write costs 1.25 times an uncached token and our requests rarely share a prefix), the shared input as an input_json part, and the translation's version in the cache key."
    }
   ]
  },
@@ -52,6 +57,26 @@
    "timeout": 240.0,
    "_note": "typesafe_sdk.RetryPolicy mezői; a http_statuses alapból 408/429/5xx; timeout = teljes keret egy SDK-hívásra (nagyobb, mint a timeout_s kérés-limit)"
   }
+ },
+ "decisions": {
+  "model": "gpt-6-luna",
+  "note": "265 (plan L): OpenAI's judgement service (developers.openai.com/api/docs/guides/decisions, read 2026-11-01): POST /v1/decisions, gpt-6-luna its only model, no dated snapshot listed; the answer's model field goes to the ledger and the cache key. Called with the OpenAI key; its calls spend from the OpenAI budget (configs/providers.json openai_decisions).",
+  "timeout_s": 60.0,
+  "sdk_max_retries": 0,
+  "usd_per_mtok": {
+   "input": 0.10,
+   "cached_input": 0.01,
+   "cache_write": 0.125,
+   "output": 0.0
+  },
+  "long_context": {
+   "above_input_tokens": 272000,
+   "factor": 2.0
+  },
+  "prompt_cache": "off",
+  "state": "json",
+  "wire_version": 1,
+  "cache_version": 1
  },
  "openai": {
   "model": "gpt-5.4-mini",

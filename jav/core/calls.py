@@ -25,6 +25,10 @@ States and the amount counted against the budget:
   answer lost after sending, or a reservation its stopped process left open, makes it `failed`, never `uncertain`.
 Money: `Decimal`, stored as text. The existing adapters still write the old `ledger` table; this log is the source of
 truth for reservations and resumability.
+
+265 (plan L): a call is booked under its provider's own name, but it reserves from the budget of the provider the
+provider registry names (`configs/providers.json` `budget`; `jav.core.providers`): OpenAI Decisions spends from the
+OpenAI budget. A budget's committed amount counts every provider that spends from it.
 """
 
 from __future__ import annotations
@@ -46,7 +50,7 @@ from decimal import ROUND_CEILING, Decimal
 from pathlib import Path
 from typing import IO, Any, Callable
 
-from jav.core import store
+from jav.core import providers, store
 from jav.core import lock
 from jav.core.user_messages import explained
 from jav.core.clock import utc_stamp as _now
@@ -198,7 +202,7 @@ def measurement(scope: str, limits: dict[str, Decimal], *, reuse: bool = False):
     measurement never reuses. At the end it prints how many calls were live and how many answers were reused. 231
     (D-h): at its start it names a budgeted provider whose key this environment lacks (a live call to it is refused)."""
     for provider in missing_keys(limits):
-        print(KEY_MISSING_NOTE.format(provider=PROVIDER_NAMES.get(provider, provider)), flush=True)
+        print(KEY_MISSING_NOTE.format(provider=providers.label(provider)), flush=True)
     scope = _fresh_scope(scope, set(limits))
     for provider, limit in limits.items():
         set_budget(scope, provider, limit)
@@ -214,25 +218,13 @@ def measurement(scope: str, limits: dict[str, Decimal], *, reuse: bool = False):
 KEY_MISSING_NOTE = ("No {provider} key in this environment: its budget cannot be spent, and every live {provider} call is "
                     "refused and becomes the item's to-do. Give the key (the .env of the folder the command runs from, or the "
                     "environment) and run again.")
-PROVIDER_NAMES = {"jev": "JEV", "openai": "OpenAI"}
 
 
 def missing_keys(limits: dict[str, Decimal]) -> list[str]:
-    """231 (D-h): the budgeted providers whose key this environment lacks (JEV's TypeSafe key, OpenAI's), in the
-    budget's order; a provider without a key of its own here (Azure) is not checked."""
-    from jav.core import config
-
-    checks = {"jev": config.get_api_key, "openai": config.get_openai_key}
-    missing = []
-    for provider in limits:
-        check = checks.get(provider)
-        if check is None:
-            continue
-        try:
-            check()
-        except config.MissingAPIKeyError:
-            missing.append(provider)
-    return missing
+    """231 (D-h): the budgeted providers whose key this environment lacks, in the budget's order; 265: every provider the
+    registry describes is checked with its own key (`jav.core.providers`), an undescribed name is not."""
+    known = set(providers.ids())
+    return [provider for provider in limits if provider in known and not providers.has_key(provider)]
 
 
 def scope_calls(scope: str) -> dict[str, Any]:
@@ -377,9 +369,18 @@ def ensure_budget(scope: str, provider: str, limit_usd: Decimal) -> None:
                   (scope, provider, str(limit_usd), _now()))
 
 
+def _pool(provider: str) -> tuple[str, list[str]]:
+    """265 (plan L): the budget a provider's calls reserve from, and every provider that spends from that budget."""
+    budget = providers.budget_of(provider)
+    return budget, providers.sharing(budget)
+
+
 def _committed(c, scope: str, provider: str | None = None) -> Decimal:
+    """What is committed in `scope`: of the budget `provider` spends from (265: every provider sharing it), or of all."""
+    members = _pool(provider)[1] if provider else []
     rows = c.execute("SELECT status, max_cost_usd, cost_usd, cost_known FROM invocations WHERE budget_scope=?"
-                     + (" AND provider=?" if provider else ""), (scope, provider) if provider else (scope,)).fetchall()
+                     + (f" AND provider IN ({','.join('?' * len(members))})" if members else ""),
+                     (scope, *members)).fetchall()
     total = Decimal(0)
     for r in rows:
         total += Decimal(r["cost_usd"]) if r["cost_known"] else Decimal(r["max_cost_usd"])
@@ -387,16 +388,18 @@ def _committed(c, scope: str, provider: str | None = None) -> Decimal:
 
 
 def has_budget(scope: str, provider: str) -> bool:
-    """075: whether the run has a budget for this provider at all (e.g. no Azure budget = the recipe switch is off)."""
+    """075: whether the run has a budget for this provider at all (e.g. no Azure budget = the recipe switch is off);
+    265: the budget it spends from."""
     with store.connect() as c:
-        return c.execute("SELECT 1 FROM budgets WHERE scope=? AND provider=?", (scope, provider)).fetchone() is not None
+        return c.execute("SELECT 1 FROM budgets WHERE scope=? AND provider=?",
+                         (scope, _pool(provider)[0])).fetchone() is not None
 
 
 def left(scope: str, provider: str) -> Decimal | None:
     """265 (code review AI-01): what the provider's budget in `scope` has left (its limit less what is committed); None
-    when the scope has no budget for it."""
+    when the scope has no budget for it (265: the budget it spends from)."""
     with store.connect() as c:
-        lim = c.execute("SELECT limit_usd FROM budgets WHERE scope=? AND provider=?", (scope, provider)).fetchone()
+        lim = c.execute("SELECT limit_usd FROM budgets WHERE scope=? AND provider=?", (scope, _pool(provider)[0])).fetchone()
         return None if lim is None else Decimal(lim["limit_usd"]) - _committed(c, scope, provider)
 
 
@@ -552,12 +555,14 @@ def _reserve(*, run_id: str, step_id: str, provider: str, model: str | None, max
             if reused is not None:
                 return None, (reused[0], reused[2], reused[1])
         if budget_scope is not None:
-            lim = c.execute("SELECT limit_usd FROM budgets WHERE scope=? AND provider=?", (budget_scope, provider)).fetchone()
+            budget, members = _pool(provider)  # 265: the budget the provider spends from, and who else spends from it
+            lim = c.execute("SELECT limit_usd FROM budgets WHERE scope=? AND provider=?", (budget_scope, budget)).fetchone()
             if lim is None:
-                raise BudgetExceeded(f"no budget for provider {provider!r} in scope {budget_scope!r}")
-            if c.execute("SELECT 1 FROM invocations WHERE budget_scope=? AND provider=? AND note=?",
-                         (budget_scope, provider, OVERRUN_NOTE)).fetchone():
-                raise BudgetExceeded(f"{budget_scope}/{provider}: an earlier call exceeded its reservation; no further calls")
+                raise BudgetExceeded(f"no budget for provider {provider!r} in scope {budget_scope!r}"
+                                     + (f" (it spends from {budget!r})" if budget != provider else ""))
+            if c.execute(f"SELECT 1 FROM invocations WHERE budget_scope=? AND provider IN ({','.join('?' * len(members))})"
+                         " AND note=?", (budget_scope, *members, OVERRUN_NOTE)).fetchone():
+                raise BudgetExceeded(f"{budget_scope}/{budget}: an earlier call exceeded its reservation; no further calls")
             committed, limit = _committed(c, budget_scope, provider), Decimal(lim["limit_usd"])
             if committed + max_cost_usd > limit:
                 if lean_cost_usd is None or committed + lean_cost_usd > limit:

@@ -107,6 +107,18 @@ def _no_real_jev_cache(tmp_path_factory, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_live_decisions(monkeypatch):
+    """265 (plan L): a test never sends a question to OpenAI Decisions (a paid call): the adapter's own client is
+    refused; a test that needs answers hands the adapter a client with a local transport (`httpx2.MockTransport`)."""
+    from jav.ai import decisions
+
+    def refuse(self, key):
+        raise AssertionError("a test tried a live OpenAI Decisions call (jav/ai/decisions.py); hand the adapter a client")
+
+    monkeypatch.setattr(decisions.DecisionsAdapter, "_new_client", refuse)
+
+
+@pytest.fixture(autouse=True)
 def _no_live_gpt_choice():
     """089: a test never sends a GPT choice question (type or email intent without JEV) to OpenAI, which would be a paid
     call; a test that needs an answer installs its own stand-in with `gpt_choice.use_agent_factory`."""
