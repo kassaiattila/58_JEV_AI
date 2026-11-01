@@ -1,0 +1,55 @@
+{
+  "meta": {
+    "name": "engines",
+    "version": "1.0.0",
+    "description": "265 (plan L; glossary: Engine registry, AI engine, Judgement service): every AI engine a processing can run with, read only through jav/ai/engines.py. An engine: `label` (its name on screen), `judge` (the judgement service that answers its typed questions, a key of `judges`, or null: GPT answers and the code checks), `requires` (the providers of configs/providers.json it cannot run without: unavailable when one of them is), `bands` (the suffix of its band keys in configs/policy.json `band_for`), `unavailable_status` (a flow's end state when its answerer could not be asked). A judge: `provider` (whose calls it books and budgets) and `todo` (the first part of the to-do it raises when it cannot answer). `default`: the engine of a setting that names none. `legacy`: how a setting saved before the registry names its engine (the recipes' `jev: on | off`).",
+    "changelog": [
+      {
+        "version": "1.0.0",
+        "date": "2026-11-01",
+        "note": "265 (plan L, L1; the owner's decision of 2026-11-01: the engine as data, not a JEV on/off switch): first version. jev (JEV and GPT) and gpt (GPT only) as they are, and decisions (OpenAI Decisions and GPT), whose provider is off until its measurement and the owner's decision."
+      }
+    ]
+  },
+  "default": "jev",
+  "engines": {
+    "jev": {
+      "label": "JEV and GPT",
+      "judge": "jev",
+      "requires": ["jev"],
+      "bands": "",
+      "unavailable_status": "jev_unavailable"
+    },
+    "decisions": {
+      "label": "OpenAI Decisions and GPT",
+      "judge": "decisions",
+      "requires": ["openai_decisions"],
+      "bands": ".decisions",
+      "unavailable_status": "decisions_unavailable"
+    },
+    "gpt": {
+      "label": "GPT only",
+      "judge": null,
+      "requires": ["openai"],
+      "bands": ".gpt",
+      "unavailable_status": "gpt_unavailable"
+    }
+  },
+  "judges": {
+    "jev": {
+      "provider": "jev",
+      "todo": "jev_unavailable"
+    },
+    "decisions": {
+      "provider": "openai_decisions",
+      "todo": "decisions_unavailable"
+    }
+  },
+  "legacy": {
+    "param": "jev",
+    "values": {
+      "on": "jev",
+      "off": "gpt"
+    }
+  }
+}
