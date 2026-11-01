@@ -38,8 +38,8 @@ def _run(wp_id: str, params: dict, revision: int) -> str:
 
 
 def test_a_run_names_the_engine_it_ran_with(package):
-    with_jev = _run(package, {"jev": "on"}, 1)
-    gpt_only = _run(package, {"jev": "off"}, 2)
+    with_jev = _run(package, {"engine": "jev"}, 1)
+    gpt_only = _run(package, {"engine": "gpt"}, 2)
     assert work_readiness.run_engine(work_runs.get_run(with_jev)) == "jev"
     assert work_readiness.run_engine(work_runs.get_run(gpt_only)) == "gpt"
     assert work_views.run_view(with_jev)["engine"] == "jev" and work_views.run_view(gpt_only)["engine"] == "gpt"
@@ -48,10 +48,14 @@ def test_a_run_names_the_engine_it_ran_with(package):
 def test_a_recipe_without_the_setting_runs_with_jev():
     assert work_readiness.run_engine({"recipe": {"params": {}}, "params": {}}) == "jev"
     assert work_readiness.run_engine({"recipe": {"params": {"jev": {"default": "off"}}}, "params": {}}) == "gpt"
+    # 265: a recipe naming its engine, and a frozen setting naming it, the old switch or the engine
+    assert work_readiness.run_engine({"recipe": {"params": {"engine": {"default": "gpt"}}}, "params": {}}) == "gpt"
+    assert work_readiness.run_engine({"recipe": {"params": {"engine": {"default": "gpt"}}}, "params": {"jev": "on"}}) == "jev"
+    assert work_readiness.run_engine({"recipe": {"params": {}}, "params": {"engine": "decisions"}}) == "decisions"
 
 
 def test_a_document_result_names_its_runs_engine(package):
-    run_id = _run(package, {"jev": "off"}, 1)
+    run_id = _run(package, {"engine": "gpt"}, 1)
     item = work_runs.get_run(run_id)["input"]["items"][0]["item_id"]
     assert corrections.item_result(run_id, item)["engine"] == "gpt"
 
@@ -62,7 +66,8 @@ def test_an_email_result_names_its_runs_engine_only_when_it_is_its_own(env):  # 
     assert corrections.item_result(run_id, item_id)["engine"] == "jev"
     with store.connect() as c:  # the frozen settings decide, not the application's engine of today
         params = json.loads(c.execute("SELECT params FROM runs WHERE run_id=?", (run_id,)).fetchone()["params"])
-        c.execute("UPDATE runs SET params=? WHERE run_id=?", (json.dumps({**params, "jev": "off"}), run_id))
+        frozen = {k: v for k, v in params.items() if k != "engine"}  # 265: as a run frozen before named it
+        c.execute("UPDATE runs SET params=? WHERE run_id=?", (json.dumps({**frozen, "jev": "off"}), run_id))
     assert corrections.item_result(run_id, item_id)["engine"] == "gpt"
     flow_id = work_runs.flow_run_id(run_id, item_id)
     with store.connect() as c:  # the intent shown now comes from another run

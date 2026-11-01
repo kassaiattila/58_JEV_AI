@@ -47,9 +47,10 @@ def _recipe():
 # --- the setting and the budget ---------------------------------------------------------------------------
 
 
-def test_the_processing_has_a_jev_switch_on_by_default():
-    p = _recipe()["params"]["jev"]
-    assert p["allowed"] == ["on", "off"] and p["default"] == "on"
+def test_the_processing_names_its_engine_jev_by_default():
+    """265: the setting names the engine (`engine`, any of configs/engines.json); until then a JEV switch."""
+    assert _recipe()["params"]["engine"] == {"allowed_from": "engines", "default": "jev"}
+    assert "jev" not in _recipe()["params"]
 
 
 def test_without_jev_a_document_has_no_jev_budget_and_an_openai_budget_for_recognition_too():
@@ -78,7 +79,7 @@ def test_without_jev_a_known_s_type_document_is_planned_on_the_g_path(isolated):
                           doc_type="invoice_hu", detail_type="invoice_hu", run_id="earlier")  # detected earlier: an S type
     r, params = _recipe(), {"arm": "S", "jev": "off", "azure_ocr": "off"}
     plan = work_readiness.run_plan(r, params, wp["items"])
-    assert plan["paths"] == {"S": 0, "G": 1, "unknown": 0} and plan["jev"] is False
+    assert plan["paths"] == {"S": 0, "G": 1, "unknown": 0} and plan["engine"] == "gpt"
     budget = work_readiness.run_budget(r, params, wp["items"])
     assert "jev" not in budget and budget["openai"] > 0
 
@@ -88,7 +89,7 @@ def test_with_jev_the_plan_says_so(isolated):
     folder.mkdir()
     write_text_pdf(folder / "szamla.pdf", INVOICE_LINES)
     wp = work.create_from_folder(folder, name="Proba")
-    assert work_readiness.run_plan(_recipe(), {"arm": "auto"}, wp["items"])["jev"] is True
+    assert work_readiness.run_plan(_recipe(), {"arm": "auto"}, wp["items"])["engine"] == "jev"
 
 
 # --- the worker's stages ----------------------------------------------------------------------------------

@@ -3,7 +3,10 @@ import { enc, request } from "./client";
 import type { Assignment, NextStep } from "./types";
 import type { Engine } from "./system";
 
-export interface RecipeParam { allowed?: string[]; allowed_from?: string; default?: string }
+/** 265: an engine of the registry with whether it can run here (`jav.ai.engine.choices`), on the engine setting. */
+export interface EngineChoice { engine: string; label: string; available: boolean; reason: string | null;
+  provider: string | null; judge_provider: string | null }
+export interface RecipeParam { allowed?: string[]; allowed_from?: string; default?: string; choices?: EngineChoice[] }
 export interface Recipe {
   input_kinds?: string[];
   file_suffixes?: string[];

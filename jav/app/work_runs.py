@@ -76,7 +76,7 @@ def start_run(wp_id: str, *, mode: str, expected_assignment_revision: int, input
             d = work_recipes.default_recipe()
             # data (the assignment history, shown in the UI as written), not a label
             # 160-D: with the engine the readiness check (its budget) used, even if the application's changed since
-            work_recipes._insert_assignment(c, wp_id, d, work_recipes.default_params(d, "jev" if ready["plan"]["jev"] else "gpt"), expected_revision=0, actor=actor,
+            work_recipes._insert_assignment(c, wp_id, d, work_recipes.default_params(d, ready["plan"]["engine"]), expected_revision=0, actor=actor,
                                note=display.text("default settings, saved when the run started"))  # 231 (D4)
             a = work_recipes.current_assignment(wp_id, c)
         r = work_recipes.recipe(a["recipe_id"])

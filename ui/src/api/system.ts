@@ -56,7 +56,7 @@ export interface BackupInfo {
   config: { schedule?: string; keep?: number; copy_to?: string | null; with_burr?: boolean; with_docs?: boolean; with_env?: boolean; max_age_hours?: number };
 }
 /** 160-D: the AI engine — JEV and GPT (the default) or GPT only, without JEV. */
-export type Engine = "jev" | "gpt";
+export type Engine = string;  // 265: an engine of configs/engines.json (jev, decisions, gpt)
 /** 160-D: the application's AI engine, the default of every new processing setting that does not name one. */
 export interface EngineSetting { engine: Engine; actor: string | null; updated_at: string | null }
 /** 057: watched work folder (modelled on the legacy V4 „Figyelt mappák” (Watched folders)). */

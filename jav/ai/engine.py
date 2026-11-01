@@ -20,9 +20,10 @@ import importlib
 from collections.abc import Iterator, Mapping
 from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
-from typing import Any
+from typing import Annotated, Any
 
 from burr.lifecycle import PostRunStepHook, PreRunStepHook
+from pydantic import AfterValidator
 
 from jav.ai import jev
 from jav.core import cfg, providers
@@ -83,6 +84,27 @@ def ids() -> list[str]:
 
 def default_id() -> str:
     return str(_registry()["default"])
+
+
+def installation_default() -> str:
+    """The engine of this installation while nothing is saved (265; the owner's decision of 2026-11-01): the registry's
+    default where it can run, else the first of its `fallback` that can (without a JEV key: GPT only), else the default
+    itself, whose unavailability then names the reason. Nothing is called to find out."""
+    for engine_id in (default_id(), *_registry().get("fallback", [])):
+        if availability(engine_id).available:
+            return str(engine_id)
+    return default_id()
+
+
+def check_id(engine_id: str) -> str:
+    """The name itself when the registry has such an engine (a request field's check, `EngineId`)."""
+    if engine_id not in ids():
+        raise ValueError(f"unknown engine {engine_id!r}; expected one of {ids()}")
+    return engine_id
+
+
+# A field holding an engine's name: any engine of the registry (until 265 `Literal["jev", "gpt"]`).
+EngineId = Annotated[str, AfterValidator(check_id)]
 
 
 def get(engine_id: str) -> Engine:
@@ -151,6 +173,11 @@ def of_params(params: Mapping[str, Any] | None) -> Engine:
     return get(default_id())
 
 
+def legacy_param() -> str:
+    """The setting that named the engine before the registry (the recipes' `jev: on | off`)."""
+    return str(_registry()["legacy"]["param"])
+
+
 def of_flag(flag: Any) -> str:
     """The engine a flow state or a recorded decision saved before 265 names with its JEV switch (`jev`: True or
     False), by the registry's legacy reading (`legacy.values`: on, off)."""
@@ -182,7 +209,7 @@ def choices() -> list[dict[str, Any]]:
     for engine_id in ids():
         engine, state = get(engine_id), availability(engine_id)
         out.append({"engine": engine_id, "label": engine.label, "available": state.available, "reason": state.reason,
-                    "provider": state.provider})
+                    "provider": state.provider, "judge_provider": engine.judge_provider})
     return out
 
 
@@ -236,7 +263,7 @@ def with_engine(builder, engine: Engine | str):
     return builder.with_hooks(WithEngine(resolve(engine)))
 
 
-__all__ = ["Engine", "JUDGE_ADAPTERS", "UnknownEngine", "WithEngine", "availability", "choices", "default_id", "get",
-           "ids", "judge_adapter", "judge_provider", "judge_todo", "judges", "no_cache_write", "of_flag", "of_params",
+__all__ = ["Engine", "EngineId", "JUDGE_ADAPTERS", "UnknownEngine", "WithEngine", "availability", "check_id", "choices",
+           "default_id", "get", "ids", "installation_default", "judge_adapter", "legacy_param", "judge_provider", "judge_todo", "judges", "no_cache_write", "of_flag", "of_params",
            "of_record", "resolve", "scope", "unavailable_prefixes", "unavailable_statuses", "unavailable_todo",
            "with_engine"]

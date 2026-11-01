@@ -46,6 +46,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
+from jav.ai import engine as engines
 from jav.evals import before_after
 from jav.evals.before_after import SnapshotError
 
@@ -174,7 +175,7 @@ def sample(c: sqlite3.Connection, size: int = SAMPLE_SIZE, *, answered: set[tupl
         recipe, params = json.loads(run["recipe"]), json.loads(run["params"] or "{}")
         fact = facts.get(work_runs.flow_run_id(run["run_id"], head["item_id"]), {})
         stratum = (work_readiness.flow_for(recipe, head), str(head.get("kind") or "-"), str(run["source_kind"] or "-"), run["mode"],
-                   "gpt" if params.get("jev") == "off" else "jev", "+".join(sorted(fact.get("arms", ()))) or "-",
+                   engines.of_params(params).id, "+".join(sorted(fact.get("arms", ()))) or "-",
                    "native" if fact.get("native") else "-", ended[(run["run_id"], head["item_id"])],
                    "tasks" if fact.get("tasks") else "-", "+".join(sorted(fact.get("cross", ()))) or "-")
         u = Unit(run["run_id"], tuple(i["item_id"] for i in unit), stratum)

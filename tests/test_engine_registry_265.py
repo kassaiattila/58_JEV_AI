@@ -81,10 +81,13 @@ def test_an_unknown_engine_is_refused(params):
         engine.of_params(params)
 
 
-def test_the_old_switch_means_what_the_settings_wrote():
-    """The legacy reading is the inverse of what saved settings hold today (`work_recipes.ENGINE_JEV`)."""
-    for engine_id, value in work_recipes.ENGINE_JEV.items():
+def test_a_setting_saved_with_the_old_switch_names_its_engine():
+    """A setting saved before the recipes named their engine is read, and saved again, under the engine's name."""
+    for value, engine_id in (("on", "jev"), ("off", "gpt")):
         assert engine.of_params({"jev": value}).id == engine_id
+        assert work_recipes.upgraded_params({"jev": value, "jev_cache": "live"}) == {"jev_cache": "live", "engine": engine_id}
+    assert work_recipes.upgraded_params({"engine": "decisions"}) == {"engine": "decisions"}
+    assert work_recipes.upgraded_params({"jev_cache": "live"}) == {"jev_cache": "live"}  # a recipe without the setting
 
 
 def test_only_gpt_only_has_no_judge():
@@ -134,3 +137,32 @@ def test_azure_needs_both_of_its_variables(bare_env):
     assert providers.availability("azure_di").reason == "missing_key"
     bare_env.setenv("AZURE_DI_KEY", "synthetic-offline-key")
     assert providers.availability("azure_di").available
+
+
+# --- the installation's engine while nothing is saved (265, L4b; the owner's decision of 2026-11-01) ---------------
+
+def test_an_installation_with_a_jev_key_takes_the_default(bare_env):
+    bare_env.setenv("TypeSafeJAV_API_KEY", "synthetic-offline-key")
+    bare_env.setenv("OPENAI_API_KEY", "synthetic-offline-key")
+    assert engine.installation_default() == "jev"
+
+
+def test_without_a_jev_key_an_installation_takes_gpt_only_not_decisions(bare_env):
+    bare_env.setenv("OPENAI_API_KEY", "synthetic-offline-key")
+    bare_env.setenv(providers.ON_ENV, "openai_decisions")  # Decisions can run here, and is still not the default
+    assert engine.availability("decisions").available
+    assert engine.installation_default() == "gpt"
+
+
+def test_where_nothing_can_run_the_default_names_its_own_reason(bare_env):
+    assert engine.installation_default() == engine.default_id()
+    assert engine.availability(engine.default_id()).reason == providers.MISSING_KEY
+
+
+def test_a_request_names_an_engine_of_the_registry():
+    from pydantic import TypeAdapter, ValidationError
+
+    names = TypeAdapter(engine.EngineId)
+    assert [names.validate_python(e) for e in engine.ids()] == engine.ids()
+    with pytest.raises(ValidationError):
+        names.validate_python("both")

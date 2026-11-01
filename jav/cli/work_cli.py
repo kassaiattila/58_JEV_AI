@@ -117,13 +117,10 @@ def cmd_wp_assign(args):
     kept = current["params"] if current and current["recipe_id"] == args.recipe else {}
     named = {k: v for k, v in {"arm": args.arm, "doc_type": args.doc_type, "jev_cache": args.jev_cache}.items() if v is not None}
     if args.engine is not None:
-        if "jev" not in r["params"]:
+        if work_recipes.ENGINE_PARAM not in r["params"]:
             print(f"the recipe {args.recipe!r} has no engine setting")
             return 2
-        if args.engine not in work_recipes.ENGINE_JEV:
-            print(f"the recipes' engine setting cannot name {args.engine!r} yet (plan L, L4b)")
-            return 2
-        named["jev"] = work_recipes.ENGINE_JEV[args.engine]
+        named[work_recipes.ENGINE_PARAM] = args.engine
     params = {**{k: v for k, v in kept.items() if k in r["params"]}, **named}
     a = work_recipes.assign_recipe(args.wp, args.recipe, params=params, expected_revision=current["revision"] if current else 0,
                            actor=args.actor, note=args.note)

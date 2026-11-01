@@ -209,8 +209,8 @@ const PARAM_VALUE: Record<string, string> = tmap({
   // 190: a quote request written in the email itself
   "email_text:extract": "A quote request written in the email itself is extracted from its text (GPT + JEV, about 0.006 USD per such email, at most 0.03 USD reserved per email)",
   "email_text:off": "The email's own text is not extracted; its attachments still are",
-  "jev:on": "On: JEV recognises the type and the email's intent, and chooses or checks during extraction",
-  "jev:off": "Off: GPT only (OpenAI) — type recognition, extraction and email intent by GPT, checked by the code",
+  "engine:jev": "On: JEV recognises the type and the email's intent, and chooses or checks during extraction",
+  "engine:gpt": "Off: GPT only (OpenAI) — type recognition, extraction and email intent by GPT, checked by the code",
   // 090: the processing path (the documents' path and the use of JEV as one choice)
   "path:auto": "Automatic (recommended) — JEV and GPT, the document type's recommended path for each document",
   "path:gpt": "GPT only, without JEV — type recognition, data extraction and email intent with GPT, checked in code (OpenAI)",

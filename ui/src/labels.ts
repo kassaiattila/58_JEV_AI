@@ -5,6 +5,7 @@
 import fieldLabels from "../../configs/field_labels.json";
 import intentRegistry from "../../configs/intents.json";
 import emailTasks from "../../configs/email_tasks.json";
+import engineRegistry from "../../configs/engines.json";
 import type { Recipe, RunPlan, Said } from "./api";
 import { getLocale, t } from "./i18n";
 
@@ -498,12 +499,12 @@ export const intentLabel = (key: string | null | undefined): string => (key ? IN
 
 /** Labels of the processing settings (058; 080: the path by what it does, the owner's decision of 2026-10-01): a short
  *  value without code names; the long explanation is in the settings editor and on Settings › Processing. */
-export const PARAM_LABEL: Record<string, string> = tmap({ path: "Processing path", arm: "Path", doc_type: "Document type", jev_cache: "Earlier answers", tasks: "Task proposal", azure_ocr: "Azure recognition", jev: "Use of JEV",
+export const PARAM_LABEL: Record<string, string> = tmap({ path: "Processing path", arm: "Path", doc_type: "Document type", jev_cache: "Earlier answers", tasks: "Task proposal", azure_ocr: "Azure recognition", engine: "Use of JEV",
   unknown_documents: "Unknown PDFs",  // 120
   email_text: "Quote requests from the email's text" });  // 190
 const PARAM_SHORT: Record<string, string> = tmap({
-  "jev:on": "on",
-  "jev:off": "off — GPT only (OpenAI)",
+  "engine:jev": "on",
+  "engine:gpt": "off — GPT only (OpenAI)",
   // 090: the path and the use of JEV as one choice (`path`, shown only)
   "path:auto": "Automatic (recommended) — JEV and GPT",
   "path:S": "JEV where possible — cheaper, no line items; GPT elsewhere (S)",
@@ -536,11 +537,41 @@ export const paramApplies = (k: string, kinds?: string[]): boolean => !kinds?.le
  *  Without JEV (086) every document runs on the G path, so the documents' path does not count. A missing value counts
  *  as the needed one: an assignment from before the switch ran with JEV. 090: the earlier answers (`jev_cache`) count
  *  for GPT too, so they are shown on every path. */
-const PARAM_NEEDS: Record<string, [string, string]> = { arm: ["jev", "on"] };
+const PARAM_NEEDS: Record<string, (params: Record<string, string>) => boolean> = {
+  arm: (params) => engineOf(params) !== GPT_ONLY };
 export const paramInEffect = (k: string, params: Record<string, string>): boolean => {
   const need = PARAM_NEEDS[k];
-  return !need || (params[need[0]] ?? need[1]) === need[1];
+  return !need || need(params);
 };
+
+/** 265 (plan L): the engine registry (configs/engines.json), read as the service reads it (`jav/ai/engine.py`). */
+const ENGINES = engineRegistry.engines as Record<string, { judge: string | null }>;
+const JUDGES = engineRegistry.judges as Record<string, { provider: string }>;
+const LEGACY = engineRegistry.legacy.values as Record<string, string>;
+/** The engine without a judgement service (GPT answers, the code checks). */
+export const GPT_ONLY = Object.keys(ENGINES).find((e) => ENGINES[e].judge === null) ?? "gpt";
+/** The provider whose budget an engine's judgement service spends (none for GPT only). */
+export const judgeProvider = (engine: string): string | null => {
+  const judge = ENGINES[engine]?.judge;
+  return judge ? JUDGES[judge]?.provider ?? null : null;
+};
+/** 265: the AI engine of saved settings: `engine`, or, saved before 265, the JEV switch (`jev: on | off`), or the
+ *  registry's default. */
+export function engineOf(params: Record<string, string | undefined>): string {
+  if (params.engine) return params.engine;
+  return (params.jev && LEGACY[params.jev]) || engineRegistry.default;
+}
+/** 265: settings saved before 265 (a frozen run's, an old package's) name the engine with the JEV switch; they are
+ *  read as the engine setting, as the service reads them (`work_recipes.upgraded_params`). */
+export function upgradedParams(params: Record<string, string>): Record<string, string> {
+  if (!("jev" in params) || "engine" in params) return params;
+  const { jev: _legacy, ...rest } = params;
+  return { ...rest, engine: engineOf(params) };
+}
+const upgradedKeys = (keys: string[]): string[] => keys.map((k) => (k === "jev" ? "engine" : k));
+/** 265: the engine of a pre-start overview: its `engine`, or, saved before 265, its JEV flag. */
+export const planEngine = (plan: { engine?: string; jev?: boolean }): string =>
+  plan.engine ?? (plan.jev === false ? LEGACY.off : engineRegistry.default);
 
 /** 090 (the owner's trial and decision of 2026-10-02, "one picker, four paths"): the documents' path and the use of
  *  JEV are one choice on screen, the processing path (`path`): automatic, JEV where possible (S), GPT + JEV (G), or
@@ -549,30 +580,38 @@ export const paramInEffect = (k: string, params: Record<string, string>): boolea
  *  JEV" (`jev`) and "GPT only" (`gpt`). Unknown item kinds count as documents. */
 export const PATH = "path";
 const withDocuments = (kinds?: string[]) => !kinds?.length || kinds.includes("document");
-const hasPath = (keys: string[]) => keys.includes("arm") && keys.includes("jev");
+const hasPath = (keys: string[]) => keys.includes("arm") && keys.includes("engine");
 export function pathValue(params: Record<string, string>, kinds?: string[]): string {
-  if ((params.jev ?? "on") === "off") return "gpt";
+  if (engineOf(params) === GPT_ONLY) return GPT_ONLY;
   return withDocuments(kinds) ? params.arm ?? "auto" : "jev";
 }
 export const pathOptions = (armAllowed: string[], kinds?: string[]): string[] =>
-  withDocuments(kinds) ? [...armAllowed, "gpt"] : ["jev", "gpt"];
+  withDocuments(kinds) ? [...armAllowed, GPT_ONLY] : ["jev", GPT_ONLY];
+/** 265: a path with a judgement service keeps the settings' own one (JEV after GPT only). */
 export function applyPath(params: Record<string, string>, path: string): Record<string, string> {
-  if (path === "gpt") return { ...params, jev: "off" };
-  return path === "jev" ? { ...params, jev: "on" } : { ...params, jev: "on", arm: path };
+  const { jev: _legacy, ...rest } = params;  // a setting saved before 265 is written with its engine
+  const judged = engineOf(params) === GPT_ONLY ? "jev" : engineOf(params);
+  if (path === GPT_ONLY) return { ...rest, engine: GPT_ONLY };
+  return path === "jev" ? { ...rest, engine: judged } : { ...rest, engine: judged, arm: path };
 }
 /** The settings shown, in order: the processing path first (for a recipe with both values), then the recipe's other
  *  settings that count and act on the package's items. */
-export function shownParams(keys: string[], params: Record<string, string>, kinds?: string[]): string[] {
+export function shownParams(shown: string[], saved: Record<string, string>, kinds?: string[]): string[] {
+  const keys = upgradedKeys(shown), params = upgradedParams(saved);
   const merged = hasPath(keys);
-  const rest = keys.filter((k) => !(merged && (k === "arm" || k === "jev")) && paramApplies(k, kinds) && paramInEffect(k, params));
+  const rest = keys.filter((k) => !(merged && (k === "arm" || k === "engine")) && paramApplies(k, kinds) && paramInEffect(k, params));
   return merged ? [PATH, ...rest] : rest;
 }
 /** A shown setting's value: the processing path from the two saved values, any other setting as saved. */
-export const shownValue = (k: string, params: Record<string, string>, kinds?: string[]): string =>
-  k === PATH ? pathValue(params, kinds) : params[k] ?? "";
+export const shownValue = (k: string, saved: Record<string, string>, kinds?: string[]): string => {
+  const params = upgradedParams(saved);
+  return k === PATH ? pathValue(params, kinds) : params[k] ?? "";
+};
 export const paramShort = (k: string, v: string): string => PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
-export const paramsText = (params: Record<string, string>): string =>
-  shownParams(Object.keys(params), params).map((k) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, shownValue(k, params))}`).join(" · ");
+export const paramsText = (saved: Record<string, string>): string => {
+  const params = upgradedParams(saved);
+  return shownParams(Object.keys(params), params).map((k) => `${PARAM_LABEL[k] ?? k}: ${paramShort(k, shownValue(k, params))}`).join(" · ");
+};
 
 /** 063: an item's budget maximum per provider — a mirror of the service's `work.item_budget` calculation (from the
  *  recipe's data, per item kind; with the setting-dependent extra, e.g. task proposals on an email). */
@@ -588,6 +627,9 @@ export function itemBudget(r: Recipe, params: Record<string, string>, kind?: str
       for (const p of extra.drop ?? []) drop.add(p); // 086: e.g. without JEV the item has no JEV budget at all
     }
   }
+  // 265: a judgement service's amount counts only for the engine whose service it is (as on the service)
+  const mine = judgeProvider(engineOf(params));
+  for (const judge of Object.values(JUDGES)) if (judge.provider !== mine) drop.add(judge.provider);
   return Object.fromEntries(Object.entries(out).filter(([p]) => !drop.has(p)));
 }
 
@@ -623,11 +665,11 @@ export function planLines(plan: RunPlan, budget: Record<string, string>): string
       plan.jev_reuse ? t("questions asked before are not paid for again") : t("every question is a live call; earlier answers do not count"),
     ])}.`);
   }
-  if (plan.jev === false) {
+  if (planEngine(plan) === GPT_ONLY) {
     // 086: processing without JEV — no JEV budget, so not even a stray JEV call could start
     out.push(t("JEV: not called (switched off)."));
   }
-  if (amount("openai") > 0 && plan.jev === false) {
+  if (amount("openai") > 0 && planEngine(plan) === GPT_ONLY) {
     out.push(`${head("openai")}: ${join([
       plan.documents > 0 && t("type recognition and extraction of {{n}} document(s) on the G path, checked by the code", { n: plan.documents }),
       plan.emails > 0 && t("intent recognition of {{n}} email(s)", { n: plan.emails }),  // 089: by GPT without JEV

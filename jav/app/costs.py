@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
+from jav.ai import engine as engines
 from jav.app import work, work_runs
 from jav.core import store
 from jav.core import calls
@@ -210,14 +211,18 @@ def run_usd(run_ids: list[str]) -> dict[str, Decimal]:
 def expected_providers(plan: dict[str, Any]) -> dict[str, str]:
     """What the pre-start overview (`work_readiness.run_plan`) said about each provider: `yes` (it will be called), `maybe` (it
     may be called, e.g. a document whose type is not known yet may need GPT) or `no`. 160 (plan F-csak-gpt, L3): a run
-    without JEV (`jev` false; an overview saved before 086 has no such key and had JEV) never calls JEV, and GPT
-    recognises every document's type and every email's intent."""
+    without a judgement service never calls one, and GPT recognises every document's type and every email's intent.
+    265: the engine's own service is called (`engine`; an overview saved before 265 names it with `jev`, and one
+    before 086 has neither and had JEV); JEV is always named, so an overview without it says `no`."""
     paths = plan.get("paths") or {}
     ai_items = bool(plan.get("documents") or plan.get("emails"))
-    jev = plan.get("jev", True)
+    engine = engines.of_record(plan)
+    out = {"jev": "no"}
+    if engine.judged:
+        out[engine.judge_provider] = "yes" if ai_items else "no"
     return {
-        "jev": "yes" if jev and ai_items else "no",
-        "openai": "yes" if paths.get("G") or plan.get("tasks_emails") or (ai_items and not jev)
+        **out,
+        "openai": "yes" if paths.get("G") or plan.get("tasks_emails") or (ai_items and not engine.judged)
                   else "maybe" if paths.get("unknown") else "no",
         "azure_di": "maybe" if plan.get("azure") else "no",
     }

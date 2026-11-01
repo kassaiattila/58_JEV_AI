@@ -157,6 +157,30 @@ def _no_live_quote_letter():
 
 
 @pytest.fixture(autouse=True)
+def _an_installation_with_its_keys(request):
+    """265 (plan L): the tests run as an installation whose providers have their keys: an engine can run unless one of
+    its providers is switched off (OpenAI Decisions by default). The keys themselves are removed
+    (`_no_provider_keys`), so a call still finds none and spends nothing. A test of the availability itself asks
+    the environment: it uses `bare_env` or is marked `real_availability`. Its own patch, so a test that undoes its
+    `monkeypatch` midway (`monkeypatch.undo()`) keeps the installation it runs in."""
+    if "bare_env" in request.fixturenames or request.node.get_closest_marker("real_availability"):
+        yield
+        return
+    from jav.ai import engine
+    from jav.core import providers
+
+    def availability(engine_id):
+        for provider_id in engine.get(engine_id).requires:
+            if not providers.enabled(provider_id):
+                return providers.Availability(False, providers.SWITCHED_OFF, provider_id)
+        return providers.Availability(True)
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(engine, "availability", availability)
+        yield
+
+
+@pytest.fixture(autouse=True)
 def _no_jev_question_without_jev(request, monkeypatch):
     """160 (plan F-csak-gpt, L4): a JEV question asked in processing without JEV fails the test. In production it is
     refused and becomes the `jev_unavailable:disabled` to-do, which a test could overlook; a test of the refusal

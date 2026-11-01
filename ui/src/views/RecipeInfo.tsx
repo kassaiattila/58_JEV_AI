@@ -36,10 +36,11 @@ export function paramExplanation(help: RecipeHelp | undefined, k: string, v: str
 function pathHelp(help: RecipeHelp | undefined): { help: string; options: Record<string, string> } | undefined {
   if (!help) return undefined;
   if (help.params.path) return help.params.path;
-  const arm = help.params.arm, jev = help.params.jev;
-  if (!arm && !jev) return undefined;
-  return { help: arm?.help ?? jev?.help ?? "",
-    options: { ...(arm?.options ?? {}), ...(jev?.options.off ? { gpt: jev.options.off } : {}), ...(jev?.options.on ? { jev: jev.options.on } : {}) } };
+  const arm = help.params.arm, engine = help.params.engine;  // 265: the engine setting (until then `jev`: on, off)
+  if (!arm && !engine) return undefined;
+  return { help: arm?.help ?? engine?.help ?? "",
+    options: { ...(arm?.options ?? {}), ...(engine?.options.gpt ? { gpt: engine.options.gpt } : {}),
+      ...(engine?.options.jev ? { jev: engine.options.jev } : {}) } };
 }
 
 /** The settings card's explanatory list: per setting, the chosen value and its meaning, with the budget at the end.

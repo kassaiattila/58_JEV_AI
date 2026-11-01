@@ -221,7 +221,8 @@ def _give_engine(wp_id: str, engine: str | None, *, actor: identity.Who) -> None
     a = work_recipes.current_assignment(wp_id)
     r = work_recipes.recipe(a["recipe_id"]) if a else work_recipes.default_recipe()
     want = work_recipes.engine_params(r, engine)
-    if not want or (a is not None and a["params"].get("jev") == want["jev"]):
+    name = work_recipes.ENGINE_PARAM
+    if not want or (a is not None and a["params"].get(name) == want[name]):
         return
     kept = a["params"] if a else work_recipes.default_params(r, engine)
     work_recipes.assign_recipe(wp_id, r["id"], params={**kept, **want}, expected_revision=a["revision"] if a else 0, actor=actor,

@@ -349,8 +349,8 @@ def test_each_recipe_routes_each_item_kind_to_this_flow() -> None:
     assert routed == PIN_ROUTES
 
 
-_ALL = {"arm": "auto", "jev": "on", "jev_cache": "reuse", "tasks": "propose", "unknown_documents": "review"}
-_DETECT_ON = ("doc_detect", {"jev": "on", "jev_cache": "reuse"})
+_ALL = {"arm": "auto", "engine": "jev", "jev_cache": "reuse", "tasks": "propose", "unknown_documents": "review"}
+_DETECT_ON = ("doc_detect", {"engine": "jev", "jev_cache": "reuse"})  # 265: the engine setting (until then `jev`)
 _DETECT = ("doc_detect", {"jev_cache": "reuse"})
 _MULTI = {k: v for k, v in _ALL.items() if k != "tasks"}
 _INVOICE_HU = [("invoice", {"arm": "S", "jev_cache": "reuse", "doc_type": "invoice_hu"})]  # auto -> the pack's path
@@ -370,7 +370,7 @@ PIN_STAGES = {
 
 
 def test_each_recipe_runs_these_stages() -> None:
-    params = {"arm": "auto", "jev": "on", "jev_cache": "reuse", "tasks": "propose", "unknown_documents": "review"}
+    params = {"arm": "auto", "engine": "jev", "jev_cache": "reuse", "tasks": "propose", "unknown_documents": "review"}
     stages = {}
     for r in work_recipes.recipes():
         for k, item in _ITEMS.items():

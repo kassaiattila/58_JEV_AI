@@ -29,7 +29,7 @@ def test_engine_gpt_switches_jev_off(tmp_path: Path, capsys):
     with store.use_store(tmp_path / "w.sqlite"):
         wp = _package(tmp_path, capsys)
         assigned = _run(capsys, "wp-assign", wp, "processing", "--engine", "gpt")
-        assert assigned["params"]["jev"] == "off"
+        assert assigned["params"]["engine"] == "gpt"
 
 
 def test_a_reassignment_keeps_the_settings_it_does_not_name(tmp_path: Path, capsys):
@@ -37,9 +37,9 @@ def test_a_reassignment_keeps_the_settings_it_does_not_name(tmp_path: Path, caps
         wp = _package(tmp_path, capsys)
         _run(capsys, "wp-assign", wp, "processing", "--engine", "gpt")
         again = _run(capsys, "wp-assign", wp, "processing", "--jev-cache", "live")
-        assert again["params"]["jev"] == "off" and again["params"]["jev_cache"] == "live"
+        assert again["params"]["engine"] == "gpt" and again["params"]["jev_cache"] == "live"
         back = _run(capsys, "wp-assign", wp, "processing", "--engine", "jev")
-        assert back["params"]["jev"] == "on" and back["params"]["jev_cache"] == "live"
+        assert back["params"]["engine"] == "jev" and back["params"]["jev_cache"] == "live"
 
 
 def test_another_recipe_starts_from_its_own_defaults(tmp_path: Path, capsys):

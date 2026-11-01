@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "engines",
-    "version": "1.1.0",
-    "description": "265 (plan L; glossary: Engine registry, AI engine, Judgement service): every AI engine a processing can run with, read only through jav/ai/engine.py. An engine: `label` (its name on screen), `judge` (the judgement service that answers its typed questions, a key of `judges`, or null: GPT answers and the code checks), `requires` (the providers of configs/providers.json it cannot run without: unavailable when one of them is), `bands` (the suffix of its band keys in configs/policy.json `band_for`), `unavailable_status` (a flow's end state when its answerer could not be asked), `runs` (the suffix of its measurements' run files, so a measurement's file says which engine it measured; the data points' measurement named GPT's `_nojev` before 265 and still does). A judge: `provider` (whose calls it books and budgets) and `todo` (the first part of the to-do it raises when it cannot answer). `default`: the engine of a setting that names none. `legacy`: how a setting saved before the registry names its engine (the recipes' `jev: on | off`).",
+    "version": "1.2.0",
+    "description": "265 (plan L; glossary: Engine registry, AI engine, Judgement service): every AI engine a processing can run with, read only through jav/ai/engine.py. An engine: `label` (its name on screen), `judge` (the judgement service that answers its typed questions, a key of `judges`, or null: GPT answers and the code checks), `requires` (the providers of configs/providers.json it cannot run without: unavailable when one of them is), `bands` (the suffix of its band keys in configs/policy.json `band_for`), `unavailable_status` (a flow's end state when its answerer could not be asked), `runs` (the suffix of its measurements' run files, so a measurement's file says which engine it measured; the data points' measurement named GPT's `_nojev` before 265 and still does). A judge: `provider` (whose calls it books and budgets) and `todo` (the first part of the to-do it raises when it cannot answer). `default`: the engine of a setting that names none; `fallback`: in order, the engines an installation takes instead when the default cannot run there (no JEV key) and nothing is saved. `legacy`: how a setting saved before the registry names its engine (the recipes' `jev: on | off`).",
     "changelog": [
+      {
+        "version": "1.2.0",
+        "date": "2026-11-01",
+        "note": "265 (plan L, L4b; the owner's decision of 2026-11-01: GPT only until OpenAI Decisions is measured): `fallback` [gpt], the engine of an installation without a JEV key while nothing is saved; OpenAI Decisions is selectable there but not the default."
+      },
       {
         "version": "1.1.0",
         "date": "2026-11-01",
@@ -17,6 +22,7 @@
     ]
   },
   "default": "jev",
+  "fallback": ["gpt"],
   "engines": {
     "jev": {
       "label": "JEV and GPT",

@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from jav.app import (
-    logic_packs, package_release, package_scope, parties, scopes, work, work_recipes, work_runs, workflow_cases, workflow_steps,
+    logic_packs, package_release, package_scope, parties, scopes, work, work_runs, workflow_cases, workflow_steps,
 )
 from jav.core import activity_kinds, cfg, identity, store
 from jav.core.process import cases as process_cases
@@ -261,9 +261,11 @@ def _engine(kind: str, source: dict[str, Any], raw: Any) -> str | None:
     its own package has one; a reconciliation's AI and a package a person brought keep their own settings."""
     if raw is None:
         return None
-    if raw not in work_recipes.ENGINE_JEV:
+    from jav.ai import engine as engines
+
+    if raw not in engines.ids():  # 265: any engine of the registry
         raise explained(WorkflowError, "unknown engine {{raw}}; expected one of {{engine_jev}}",
-                        raw=repr(raw), engine_jev=sorted(work_recipes.ENGINE_JEV))
+                        raw=repr(raw), engine_jev=engines.ids())
     if not workflow_steps.of(kind).own_engine or source["kind"] not in workflow_steps.own_sources():
         raise explained(WorkflowError, "a {{kind}} step with a {{kind2}} source has no engine of its own",
                         kind=kind, kind2=repr(source["kind"]))

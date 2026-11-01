@@ -106,7 +106,8 @@ export interface RunPlan {
   tasks_emails: number; text_emails?: number; azure: boolean; jev_reuse: boolean;  // 190: text_emails
   text_tables?: number;  // 192: the emails' table attachments read as a part of a quote request (only while any)
   arm?: string; // 082: the chosen path (with S, a document on the G path has a type without a JEV path)
-  jev?: boolean; // 086: false = processing without JEV (GPT recognises the type, every document on the G path)
+  engine?: string; // 265: the run's AI engine (configs/engines.json)
+  jev?: boolean; // 086: an overview saved before 265: false = without JEV (GPT recognises the type, every document on G)
   statement_tables?: number; // 136: statements from a bank's table export, read by code (free)
 }
 export interface Readiness {

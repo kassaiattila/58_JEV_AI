@@ -136,8 +136,8 @@ def test_the_engine_bands_fall_back_to_jevs_until_one_of_their_own_is_set():
 # --- the email intent ---------------------------------------------------------------------------------------------
 
 def _message(tmp_path: Path, pdf: Path) -> EmailMessage:
-    return EmailMessage(message_id="m-265@example.test", sender="billing@example.test", subject="Számla",
-                        body="Csatoltan küldjük a számlát.", attachments=[{"filename": pdf.name, "path": str(pdf)}])
+    return EmailMessage(message_id="m-265@example.test", sender="billing@example.test", subject="Invoice",
+                        body="Please find our invoice attached.", attachments=[{"filename": pdf.name, "path": str(pdf)}])
 
 
 def test_an_email_and_its_attachment_are_recognised_with_the_same_engine(tmp_path, pdf):

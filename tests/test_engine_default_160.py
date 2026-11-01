@@ -51,7 +51,9 @@ def _start(wp_id: str) -> dict:
 
 def test_the_default_is_jev_and_gpt_until_someone_changes_it(db):
     assert app_settings.engine_default() == "jev"
-    assert app_settings.engine_setting() == {"engine": "jev", "actor": None, "updated_at": None}
+    setting = app_settings.engine_setting()
+    assert [c["engine"] for c in setting.pop("choices")] == ["jev", "decisions", "gpt"]  # 265: what can be chosen
+    assert setting == {"engine": "jev", "actor": None, "updated_at": None}
     saved = app_settings.save_engine_default("gpt", actor="tester")
     assert saved["engine"] == "gpt" and saved["actor"] == "tester" and saved["updated_at"]
     assert app_settings.engine_default() == "gpt"
@@ -69,52 +71,52 @@ def test_an_unknown_engine_is_refused(db):
 
 def test_a_package_without_saved_settings_follows_the_application(db):
     wp = _package(db / "in")
-    assert work_readiness.readiness(wp)["plan"]["jev"] is True
+    assert work_readiness.readiness(wp)["plan"]["engine"] == "jev"
     app_settings.save_engine_default("gpt", actor="tester")
     ready = work_readiness.readiness(wp)
-    assert ready["assignment_default"] is True and ready["plan"]["jev"] is False
+    assert ready["assignment_default"] is True and ready["plan"]["engine"] == "gpt"
     assert "jev" not in ready["budget"] and ready["budget"]["openai"] > 0
     run = _start(wp)  # starting the run saves the settings it used: GPT only
-    assert run["params"]["jev"] == "off"
-    assert work_recipes.current_assignment(wp)["params"]["jev"] == "off"
+    assert run["params"]["engine"] == "gpt"
+    assert work_recipes.current_assignment(wp)["params"]["engine"] == "gpt"
 
 
 def test_an_assignment_that_does_not_name_the_engine_takes_the_applications(db):
     app_settings.save_engine_default("gpt", actor="tester")
     wp = _package(db / "in")
     a = work_recipes.assign_recipe(wp, "processing", params={"jev_cache": "live"}, expected_revision=0, actor="tester")
-    assert a["params"]["jev"] == "off" and a["params"]["jev_cache"] == "live"
-    named = work_recipes.assign_recipe(wp, "processing", params={"jev": "on"}, expected_revision=a["revision"], actor="tester")
-    assert named["params"]["jev"] == "on"  # a named engine wins over the application's
+    assert a["params"]["engine"] == "gpt" and a["params"]["jev_cache"] == "live"
+    named = work_recipes.assign_recipe(wp, "processing", params={"engine": "jev"}, expected_revision=a["revision"], actor="tester")
+    assert named["params"]["engine"] == "jev"  # a named engine wins over the application's
 
 
 def test_saved_settings_and_runs_keep_their_own_engine(db):
     wp = _package(db / "in")
-    work_recipes.assign_recipe(wp, "processing", params={"jev": "on"}, expected_revision=0, actor="tester")
+    work_recipes.assign_recipe(wp, "processing", params={"engine": "jev"}, expected_revision=0, actor="tester")
     run = _start(wp)
     app_settings.save_engine_default("gpt", actor="tester")
-    assert work_recipes.current_assignment(wp)["params"]["jev"] == "on"
-    assert work_readiness.readiness(wp)["plan"]["jev"] is True
-    assert work_runs.get_run(run["run_id"])["params"]["jev"] == "on"
+    assert work_recipes.current_assignment(wp)["params"]["engine"] == "jev"
+    assert work_readiness.readiness(wp)["plan"]["engine"] == "jev"
+    assert work_runs.get_run(run["run_id"])["params"]["engine"] == "jev"
 
 
 def test_an_assignment_saved_before_the_engine_setting_stays_jev_and_gpt(db):
     """Before 086 an assignment had no `jev` setting; those runs used JEV, and the application's setting does not
     reinterpret them."""
     wp = _package(db / "in")
-    work_recipes.assign_recipe(wp, "processing", params={"jev": "on"}, expected_revision=0, actor="tester")
+    work_recipes.assign_recipe(wp, "processing", params={"engine": "jev"}, expected_revision=0, actor="tester")
     with store.connect() as c:  # the shape of an old assignment: every setting except the engine
         c.execute("UPDATE recipe_assignments SET params=? WHERE workpackage_id=?",
                   ('{"arm":"auto","azure_ocr":"on","jev_cache":"reuse","tasks":"off","unknown_documents":"facts"}', wp))
     app_settings.save_engine_default("gpt", actor="tester")
-    assert work_readiness.readiness(wp)["plan"]["jev"] is True
+    assert work_readiness.readiness(wp)["plan"]["engine"] == "jev"
 
 
 def test_a_recipe_without_the_engine_setting_is_unaffected(db):
     app_settings.save_engine_default("gpt", actor="tester")
     wp = _package(db / "in")
     a = work_recipes.assign_recipe(wp, "invoice-extraction", params={}, expected_revision=0, actor="tester")
-    assert "jev" not in a["params"]
+    assert not {"engine", "jev"} & set(a["params"])
 
 
 def test_a_mailbox_download_package_gets_the_applications_engine(db, monkeypatch):
@@ -122,7 +124,7 @@ def test_a_mailbox_download_package_gets_the_applications_engine(db, monkeypatch
     monkeypatch.setattr(emails, "BRIDGE_DATA_ROOT", db / "bridge" / "data")
     app_settings.save_engine_default("gpt", actor="tester")
     res = mailbox.fetch(REQ, actor="teszt", runner=FakeBridge(MAILS), inbox_root=db / "inbox")
-    assert work.get(res["workpackage"])["assignment"]["params"]["jev"] == "off"
+    assert work.get(res["workpackage"])["assignment"]["params"]["engine"] == "gpt"
 
 
 def test_a_watched_folder_package_gets_the_applications_engine(env):
@@ -135,7 +137,7 @@ def test_a_watched_folder_package_gets_the_applications_engine(env):
     later = datetime.now(timezone.utc) + timedelta(minutes=5)
     result = app_settings.scan(f["id"], now=later, actor=HUMAN["X-Actor"])
     params = work.get(result["workpackage"])["assignment"]["params"]
-    assert params["jev"] == "off" and params["jev_cache"] == "live"
+    assert params["engine"] == "gpt" and params["jev_cache"] == "live"
 
 
 def test_the_workflow_estimate_follows_the_applications_engine(db):
@@ -155,7 +157,9 @@ def test_the_workflow_estimate_follows_the_applications_engine(db):
 
 def test_the_service_reads_and_saves_the_setting(env):
     c = env["client"]
-    assert c.get("/api/settings/engine").json() == {"engine": "jev", "actor": None, "updated_at": None}
+    read = c.get("/api/settings/engine").json()
+    assert [(e["engine"], e["available"]) for e in read.pop("choices")] == [("jev", True), ("decisions", False), ("gpt", True)]
+    assert read == {"engine": "jev", "actor": None, "updated_at": None}
     assert c.put("/api/settings/engine", json={"engine": "gpt"}).status_code == 422  # a person's name is needed
     assert c.put("/api/settings/engine", headers=HUMAN, json={"engine": "both"}).status_code == 422
     saved = c.put("/api/settings/engine", headers=HUMAN, json={"engine": "gpt"})
@@ -169,9 +173,9 @@ def test_the_catalogue_shows_the_applications_engine_as_the_default(env):
     catalogue gives the engine the application would use."""
     c = env["client"]
 
-    def jev_default() -> str:
-        return next(r for r in c.get("/api/recipes").json()["recipes"] if r["id"] == "processing")["params"]["jev"]["default"]
+    def engine_default() -> str:
+        return next(r for r in c.get("/api/recipes").json()["recipes"] if r["id"] == "processing")["params"]["engine"]["default"]
 
-    assert jev_default() == "on"
+    assert engine_default() == "jev"
     c.put("/api/settings/engine", headers=HUMAN, json={"engine": "gpt"})
-    assert jev_default() == "off"
+    assert engine_default() == "gpt"

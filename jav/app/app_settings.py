@@ -468,17 +468,21 @@ def save_output_folder(path: str | None, *, check_dir: Callable[[str], Path], ac
 # --- the AI engine (160-D, plan F-csak-gpt Sz4) -------------------------------------------------------------------
 
 ENGINE_KEY = "engine"
-ENGINES = ("jev", "gpt")  # JEV and GPT (the default, decision 160) | GPT only, without JEV
-DEFAULT_ENGINE = "jev"
 
 
 def engine_setting() -> dict[str, Any]:
-    """The application's AI engine with who set it and when (both None while it is the default)."""
+    """The application's AI engine with who set it and when (both None while it is the default), and (265) every
+    engine of the registry with whether it can run here and why not (`jav.ai.engine.choices`). While nothing is saved,
+    the installation's engine (the owner's decision of 2026-11-01: without a JEV key, GPT only;
+    `jav.ai.engine.installation_default`)."""
+    from jav.ai import engine as engines
+
     with store.connect() as c:
         row = c.execute("SELECT value, actor, updated_at FROM app_options WHERE key=?", (ENGINE_KEY,)).fetchone()
     if row is None:
-        return {"engine": DEFAULT_ENGINE, "actor": None, "updated_at": None}
-    return {"engine": row["value"], "actor": row["actor"], "updated_at": row["updated_at"]}
+        return {"engine": engines.installation_default(), "actor": None, "updated_at": None,
+                "choices": engines.choices()}
+    return {"engine": row["value"], "actor": row["actor"], "updated_at": row["updated_at"], "choices": engines.choices()}
 
 
 def engine_default() -> str:
@@ -488,9 +492,17 @@ def engine_default() -> str:
 
 
 def save_engine_default(engine: str, *, actor: identity.Who) -> dict[str, Any]:
-    if engine not in ENGINES:
+    """265: an engine of the registry that can run here (the owner's decision of 2026-11-01: one that cannot is shown
+    with its reason, not offered)."""
+    from jav.ai import engine as engines
+
+    if engine not in engines.ids():
         raise explained(ValueError, "unknown engine {{engine}}; expected one of {{engines}}",
-                        engine=repr(engine), engines=list(ENGINES))
+                        engine=repr(engine), engines=engines.ids())
+    state = engines.availability(engine)
+    if not state.available:
+        raise explained(ValueError, "the engine {{engine}} cannot run here ({{reason}}: {{provider}})",
+                        engine=repr(engine), reason=state.reason, provider=state.provider)
     with store.connect() as c:
         c.execute("INSERT INTO app_options(key, value, actor, actor_id, updated_at) VALUES (?,?,?,?,?) ON CONFLICT(key)"
                   " DO UPDATE SET value=excluded.value, actor=excluded.actor, actor_id=excluded.actor_id,"

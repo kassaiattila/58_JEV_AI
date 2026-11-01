@@ -88,9 +88,9 @@ def test_the_pre_start_overview_counts_each_kind(isolated):
     plan = work_readiness.run_plan(work_recipes.recipe("processing"), {}, items, [None] * len(items))
     assert plan == {"documents": 3, "emails": 1, "statement_tables": 1, "attachments": 1,
                     "paths": {"S": 0, "G": 0, "unknown": 3}, "tasks_emails": 0, "text_emails": 1, "azure": True,
-                    "jev_reuse": True, "arm": "auto", "jev": True}  # 190: text_emails
+                    "jev_reuse": True, "arm": "auto", "engine": "jev"}  # 190: text_emails; 265: the engine
     assert list(plan) == ["documents", "emails", "statement_tables", "attachments", "paths", "tasks_emails", "text_emails",
-                          "azure", "jev_reuse", "arm", "jev"]
+                          "azure", "jev_reuse", "arm", "engine"]
     no_table = [i for i in items if i["kind"] != "statement_table"]
     assert "statement_tables" not in work_readiness.run_plan(work_recipes.recipe("processing"), {}, no_table, [None] * len(no_table))
     multi = work_recipes.recipe("multi-format-processing")

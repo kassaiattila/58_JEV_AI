@@ -16,9 +16,9 @@ it("distinguishes active recipes with visible names and independent recipe versi
   render(<RecipesPanel />);
   expect(await screen.findByRole("heading", { name: "PDF-ek \u00e9s levelek feldolgoz\u00e1sa" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Dokumentumok feldolgoz\u00e1sa — PDF, Word, Excel, TXT, CSV" })).toBeTruthy();
-  // 190: the processing is at version 3 (its email_text setting), the multi-format processing still at 2
+  // 190: the processing at version 3 (its email_text setting); 265: both name their AI engine (4 and 3)
+  expect(screen.getAllByText("Receptverzi\u00f3: 4")).toHaveLength(1);
   expect(screen.getAllByText("Receptverzi\u00f3: 3")).toHaveLength(1);
-  expect(screen.getAllByText("Receptverzi\u00f3: 2")).toHaveLength(1);
 });
 
 it("keeps email explanations out of the document-only recipe and explains its native path", async () => {
@@ -38,7 +38,7 @@ it("keeps email explanations out of the document-only recipe and explains its na
 
 it("uses the native recipe explanation on the package card and preserves it when changing language", async () => {
   const recipe = catalogue.recipes.find((entry) => entry.id === "multi-format-processing") as unknown as Recipe;
-  render(<RecipeParamList recipe={recipe} params={{ jev: "off" }} help={help as RecipeHelp} kinds={["document"]} />);
+  render(<RecipeParamList recipe={recipe} params={{ engine: "gpt" }} help={help as RecipeHelp} kinds={["document"]} />);
   expect(screen.getByText(/A GPT nyeri ki az adatokat, JEV-h\u00edv\u00e1s n\u00e9lk\u00fcl/)).toBeTruthy();
   expect(screen.queryByText(/A levelek sz\u00e1nd\u00e9k\u00e1t is a GPT ismeri fel/)).toBeNull();
   await act(() => setLanguage("en"));

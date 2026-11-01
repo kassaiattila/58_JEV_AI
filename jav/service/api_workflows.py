@@ -17,6 +17,7 @@ from fastapi import Depends, FastAPI
 from fastapi import Path as PathParam
 from pydantic import Field
 
+from jav.ai import engine as engines
 from jav.core import identity
 from jav.app import work_views, workflows
 from jav.service.service_shared import In, IsoDay, PartyId, checked_path, human_actor
@@ -46,7 +47,7 @@ class WorkflowSource(In):
 class WorkflowStepInput(In):
     source: WorkflowSource
     budget: Budget | None = None  # 146: the most an automatic start may reserve, per provider (USD)
-    engine: Literal["jev", "gpt"] | None = None  # 160-D: the step's own AI engine; None: the application's
+    engine: engines.EngineId | None = None  # 160-D/265: the step's own AI engine; None: the application's
 
 
 class CreateWorkflow(In):
@@ -68,7 +69,7 @@ class WorkflowEstimate(In):
     party_id: PartyId | None = None
     period_start: IsoDay | None = None
     period_end: IsoDay | None = None
-    engine: Literal["jev", "gpt"] | None = None  # 160-D: the step's own AI engine; None: the application's
+    engine: engines.EngineId | None = None  # 160-D/265: the step's own AI engine; None: the application's
 
 
 class StartWorkflowStep(In):

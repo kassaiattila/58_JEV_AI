@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.14.0",
+    "version": "1.15.0",
     "changelog": [
+      {
+        "version": "1.15.0",
+        "date": "2026-11-01",
+        "note": "265 (plan L, L4b): the help of the recipes' engine setting under its new name (`engine`; its options by engine: jev, gpt; until then `jev`: on, off), its texts unchanged; OpenAI Decisions' text comes with its screen (L6)."
+      },
       {
         "version": "1.14.0",
         "date": "2026-10-29",
@@ -225,11 +230,11 @@
         "review": "Such PDFs stop with a manual to-do, as before. No extra provider call."
       }
     },
-    "jev": {
+    "engine": {
       "help": "Whether the system uses JEV. Switched off, only OpenAI (GPT) works, together with Azure recognition if that is switched on.",
       "options": {
-        "on": "JEV recognises the document's type and the email's intent, and on the chosen path either chooses among the values (S) or checks what GPT read (G). This is the default.",
-        "off": "Without JEV, only OpenAI (GPT) works. GPT recognises the document's type (about 0.001–0.002 USD per document), and every document runs on the G path: GPT reads the data and the code checks it (every extracted value must be printed on the document, and the check-digit, amount and required-field checks remain). Measured on the golden set (2026-10-02): GPT recognised the type of 99 of 102 documents (JEV all 102) and stated its 3 errors confidently too; two of them get a to-do (one from a check in code: the type presumes a Hungarian issuer, but GPT says the issuer is not Hungarian), one can pass without a to-do. 27 of the 1010 fields of the 70 golden documents differed from the checked value. GPT also recognises the emails' intent, with the same questions as JEV (94 hits on the 96-email golden set, the 2 errors went to manual review; about 0.0025 USD per email, from a budget of at most 0.07 USD); the PDF attachments run as documents. The run gets no JEV budget, so no JEV call can happen."
+        "jev": "JEV recognises the document's type and the email's intent, and on the chosen path either chooses among the values (S) or checks what GPT read (G). This is the default.",
+        "gpt": "Without JEV, only OpenAI (GPT) works. GPT recognises the document's type (about 0.001–0.002 USD per document), and every document runs on the G path: GPT reads the data and the code checks it (every extracted value must be printed on the document, and the check-digit, amount and required-field checks remain). Measured on the golden set (2026-10-02): GPT recognised the type of 99 of 102 documents (JEV all 102) and stated its 3 errors confidently too; two of them get a to-do (one from a check in code: the type presumes a Hungarian issuer, but GPT says the issuer is not Hungarian), one can pass without a to-do. 27 of the 1010 fields of the 70 golden documents differed from the checked value. GPT also recognises the emails' intent, with the same questions as JEV (94 hits on the 96-email golden set, the 2 errors went to manual review; about 0.0025 USD per email, from a budget of at most 0.07 USD); the PDF attachments run as documents. The run gets no JEV budget, so no JEV call can happen."
       }
     }
   }
