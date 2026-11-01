@@ -1,8 +1,10 @@
 """231 (plan stage C, C2b): the reconciliation engine's rule readers, split out of `reconcile.py`.
 
-Plain-language summary: where the engine reads its rules: `configs/reconcile.json` (`_conf`, read once; every module
-of the engine reads it through this module, so a test changes it in one place) and the bands of the finance domain's
-own rule file (`configs/finance.json` `reconcile`). The engine itself is described in `reconcile.py`.
+Plain-language summary: where the engine reads its rules: `configs/reconcile.json` (`_conf`) and the bands of the
+finance domain's own rule file (`configs/finance.json` `reconcile`, `_bands`). Both are read when a rule applies (265,
+code review DOM-01: they were read once, so a case's own values and an edited default did not reach the engine); every
+module of the engine reads them through this module, so a test changes them in one place. The engine itself is
+described in `reconcile.py`.
 """
 
 from __future__ import annotations

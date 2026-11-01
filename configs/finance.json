@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "finance",
-    "version": "1.1.0",
-    "description": "The finance domain's own rules beyond the reconciliation's engine (configs/reconcile.json): the duplicate invoice search (duplicates, read by jav/domains/finance/duplicates.py: the families of invoice-like types, a document compared only with the earlier ones of its own family and a pro forma invoice its own; the fields that name the invoice number and the supplier; the values compared to tell a copy from a modified version) and the reconciliation's bands (reconcile, read by jav/domains/finance/reconcile.py: a forint card line around the invoice amount converted at the MNB rate, a forint bank line per rate day, the quick review's sure AI kind; 231: the cap of the AI pairing proposal a person starts on a pairing case). All proposals only; a person decides.",
+    "version": "1.1.1",
+    "description": "The finance domain's own rules beyond the reconciliation's engine (configs/reconcile.json): the duplicate invoice search (duplicates, read by jav/domains/finance/duplicates.py: the families of invoice-like types, a document compared only with the earlier ones of its own family and a pro forma invoice its own; the fields that name the invoice number and the supplier; the values compared to tell a copy from a modified version) and the reconciliation's bands (reconcile, read by jav/domains/finance/reconcile_rules.py when a rule applies, so a case's own values and an edited default count at once: a forint card line around the invoice amount converted at the MNB rate, a forint bank line per rate day, the quick review's sure AI kind; 231: the cap of the AI pairing proposal a person starts on a pairing case). All proposals only; a person decides.",
     "changelog": [
+      {
+        "version": "1.1.1",
+        "date": "2026-11-01",
+        "note": "265 (code review DOM-13): the description names the bands' reader (reconcile_rules.py) and that it reads them when a rule applies; no value changed."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-25",

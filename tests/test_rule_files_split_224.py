@@ -50,7 +50,7 @@ def test_the_duplicate_rules_are_the_finance_domains_with_their_values():
     from jav.domains.finance import duplicates
 
     f = cfg.load("finance")
-    assert f["meta"]["version"] == "1.1.0"  # 231 (C2c): the AI pairing proposal's cap added; the moved values unchanged
+    assert f["meta"]["version"] == "1.1.1"  # 231 (C2c): the AI pairing proposal's cap added; 265 (DOM-13): the description; the moved values unchanged
     d = f["duplicates"]
     assert list(d["families"]) == ["invoice", "proforma"] and d["families"]["proforma"] == ["proforma_invoice"]
     assert (d["number_field"], d["supplier_tax_field"], d["supplier_name_field"]) == (
