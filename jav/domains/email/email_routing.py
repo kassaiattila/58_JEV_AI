@@ -123,6 +123,7 @@ def _attachments(sources: list[str]) -> list[dict[str, Any]]:
     """The attachments of the email packages in use, each once (the first package's), with its email."""
     seen: set[str] = set()
     out = []
+    emails_read: dict[str, dict[str, Any]] = {}  # 265 (code review DOM-10): an email read once for all its attachments
     for wp_id in sources:
         try:
             wp = work.get(wp_id)
@@ -134,8 +135,10 @@ def _attachments(sources: list[str]) -> list[dict[str, Any]]:
                 continue
             seen.add(i["item_id"])
             mail = mails.get(i["parent_item_id"])
+            if mail is not None and mail["item_id"] not in emails_read:
+                emails_read[mail["item_id"]] = _email_of(mail)
             out.append({"item_id": i["item_id"], "file": Path(i["source_path"]).name, "path": _file_of(i),
-                        "package": wp_id, "email": _email_of(mail) if mail else None})
+                        "package": wp_id, "email": dict(emails_read[mail["item_id"]]) if mail else None})
     return out
 
 
