@@ -579,6 +579,19 @@ def _repeats(prepared: dict[str, Any], candidates: list[dict[str, Any]], confirm
     return out
 
 
+def settled_view(snapshot: dict[str, Any], prepared: dict[str, Any] | None = None) -> dict[str, Any]:
+    """265 (code review DOM-05): what a person's pairing decision reads of the proposal, without its candidate search:
+    the confirmed allocations, the ones that no longer fit (`unfit`), the marks whose line is gone (`unfit_marks`) and
+    the amounts allocated so far (`paid`), each exactly as `propose` gives it. A decision ran the whole proposal before
+    (2.8 s on 1 000 lines and 500 invoices, 20 s on 3 000 and 1 500)."""
+    prepared = prepared if prepared is not None else prepare(snapshot)
+    _rejected, confirmed, paid_line, paid_invoice, unfit = _settled(snapshot, prepared)
+    unfit_marks = [{**m, "reason": "line_gone"} for m in snapshot.get("marks") or [] if str(m["line_id"]) not in prepared["lines"]]
+    return {"confirmed": confirmed, "unfit": unfit, "unfit_marks": unfit_marks,
+            "paid": {"invoices": {k: str(v) for k, v in sorted(paid_invoice.items())},
+                     "lines": {k: str(v) for k, v in sorted(paid_line.items())}}}
+
+
 def propose(snapshot: dict[str, Any]) -> dict[str, Any]:
     """The proposal for a snapshot: candidate pairs, exclusions, every invoice's status and the unpaired lines. The
     snapshot's `decisions` (a person's `paid_by` / `not_this` per invoice and line) and `allocations` settle their

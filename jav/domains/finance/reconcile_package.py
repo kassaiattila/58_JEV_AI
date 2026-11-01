@@ -1068,8 +1068,8 @@ def _context(wp_id: str) -> dict[str, Any]:
     state = _decision_state()
     _refuse_approved(wp_id)
     snap, sc = scoped_snapshot(wp_id)
-    result = reconcile.propose(snap)
     prepared = reconcile.prepare(snap)
+    result = reconcile.settled_view(snap, prepared)  # 265 (code review DOM-05): not the whole proposal
     return {"state": state, "snap": snap, "scope": sc, "result": result, "prepared": prepared,
             "scope_ids": set(snap["scope_statements"]), "invoices": {i["id"]: i for i in snap["invoices"]},
             "left_out": set(snap["left_out"]),
