@@ -34,13 +34,6 @@ export const ITEM_STATUS: Record<string, string> = tmap({
   needs_ocr: "OCR needed",
 });
 
-export const FINAL_STATUS: Record<string, string> = tmap({
-  done: "Closed, no to-dos",
-  needs_review: "To-do",
-  needs_ocr: "OCR needed",
-  jev_unavailable: "JEV was unavailable",
-});
-
 export const MODE: Record<string, string> = tmap({ shadow: "Trial", apply: "Live" });
 
 // 056 U1: the Hungarian names of the fields and the list columns are in configs/field_labels.json — the service reads
@@ -86,7 +79,6 @@ export function nextFlowText(code: string | null | undefined, readsText = false)
 const INTERVAL_NAMES = tmap({ "15": "every 15 minutes", "30": "every 30 minutes", "60": "hourly", "240": "every 4 hours", "1440": "daily" });
 /** Intervals in the chosen language (as a function, so that they update on a language switch). */
 export const intervals = (): [number, string][] => [15, 30, 60, 240, 1440].map((m) => [m, INTERVAL_NAMES[String(m)]]);
-export const intervalText = (min: number) => intervals().find(([m]) => m === min)?.[1] ?? t("every {{min}} minutes", { min });
 
 const CHECK_TEXT: Record<string, string> = tmap({
   "balance.discontinuity": "The running balance is broken",

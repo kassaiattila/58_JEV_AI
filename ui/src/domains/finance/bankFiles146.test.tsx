@@ -1,13 +1,13 @@
 // 146 (backlog D-bank-files): the bank files the system reads, from the service's catalogue, in Settings › Processing
 // and folded on the new statement package's form; every text of the catalogue has its Hungarian translation.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import catalogue from "../../../../configs/bank_files.json";
 import { api } from "../../api";
 import type { BankFilesCatalogue } from "./api";
 import hungarian from "../../i18n/hu-native.json";
 import { setLanguage } from "../../i18n";
-import { BankFilesInfo, BankFilesPanel } from "./BankFiles";
+import { BankFilesPanel } from "./BankFiles";
 
 const CAT: BankFilesCatalogue = {
   version: "1.0.0", intro: catalogue.intro, read_by: catalogue.read_by, checks: catalogue.checks,
@@ -44,18 +44,6 @@ describe("the bank files the system reads", () => {
     expect(plain.textContent).toContain("Még nincs leírása");
     const none = screen.getByRole("region", { name: "Amit egyik olvasó sem ismer" });
     expect(none.textContent).toContain("OTP, K&H, Raiffeisen");
-  });
-
-  it("asks the service only when the folded list is opened", async () => {
-    const call = vi.spyOn(api, "bankFiles").mockResolvedValue(CAT);
-    const { container } = render(<BankFilesInfo />);
-    expect(screen.getByText("Milyen banki állományokat tud olvasni a rendszer?")).toBeTruthy();
-    expect(call).not.toHaveBeenCalled();
-    const details = container.querySelector("details") as HTMLDetailsElement;
-    details.open = true;
-    fireEvent(details, new Event("toggle"));
-    expect(await screen.findByText("Amit egyik olvasó sem ismer")).toBeTruthy();
-    expect(call).toHaveBeenCalledTimes(1);
   });
 
   it("has a Hungarian translation for every text of the catalogue", () => {

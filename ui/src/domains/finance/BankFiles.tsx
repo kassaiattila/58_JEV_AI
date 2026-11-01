@@ -4,7 +4,6 @@
 // each line's facts, what it does not read, its checks and notes; then the files no reader knows. Its texts are English
 // source strings translated here; the facts' names are the field labels. Shown in Settings › Processing and, folded,
 // on the new statement package's form.
-import { useState } from "react";
 import { api } from "../../api";
 import type { BankFile, BankFilesCatalogue } from "./api";
 import { useLoad } from "../../hooks";
@@ -60,17 +59,5 @@ export function BankFilesPanel() {
         <ul className="tight">{cat.not_read.map((n) => <li key={n}>{t(n)}</li>)}</ul>
       </section>
     </div>
-  );
-}
-
-/** Folded under a question; the catalogue is fetched only when it is opened. */
-export function BankFilesInfo() {
-  useLocale();
-  const [open, setOpen] = useState(false);
-  return (
-    <details onToggle={(e) => setOpen((e.currentTarget as HTMLDetailsElement).open)}>
-      <summary className="small">{t("Which bank files can the system read?")}</summary>
-      {open ? <BankFilesPanel /> : null}
-    </details>
   );
 }

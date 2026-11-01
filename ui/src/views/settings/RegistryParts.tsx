@@ -167,16 +167,6 @@ export function ThingState<C>({ thing }: { thing: RegistryThing<C> }) {
   );
 }
 
-/** 231 (U0): an empty registry list, with where its things come from: a process's example material, installed where a
- *  case of the process is started. */
-export function NoneYet({ text }: { text: string }) {
-  useLocale();
-  return (
-    <p className="muted">{text} {t("A process's example material installs an invented one: ")}
-      <a href="#/cases/new">{t("Cases › New case")}</a>{t(", then the process.")}</p>
-  );
-}
-
 /** The version a card shows, when there is more than one. */
 export function VersionPicker<C>({ thing, version, onChange }: { thing: RegistryThing<C>; version: number; onChange: (n: number) => void }) {
   useLocale();

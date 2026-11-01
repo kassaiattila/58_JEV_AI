@@ -750,9 +750,6 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .main:has(.side-slot) { padding-bottom: 0; } /* the tree ends just above the bottom: no air below it to scroll */
 .settings-page > .page-head { position: sticky; top: 0; z-index: 5; background: var(--canvas); }
 .nav-tree { display: flex; flex-direction: column; height: 100%; }
-.nav-search { padding: var(--sp-3) 0; }
-.nav-search input { width: 100%; border: 1px solid var(--line); border-radius: var(--r-md); padding: 7px 10px; background: var(--paper);
-  color: var(--ink); font: inherit; }
 .nav-scroll { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: var(--sp-4); }
 .nav-tree-list { list-style: none; margin: 0; padding: 0; }
 .nav-tree-list .nav-tree-list { padding-left: var(--sp-3); }
@@ -944,12 +941,6 @@ button.chip[aria-pressed="true"] { background: var(--tint); border-color: var(--
 .item-nav { display: flex; justify-content: space-between; gap: 8px; padding: 6px 8px; border-bottom: 1px solid var(--line-soft); }
 
 /* 146: the new work wizard and the workflows (list, control view) */
-/* 157: the wizard's numbers are 12 px; the current step's number is filled with ink, a done step's is green */
-.wizard-steps { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0 0 var(--sp-3); padding: 0 0 10px; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); color: var(--muted); }
-.wizard-steps li[aria-current="step"] { color: var(--ink); font-weight: 600; }
-.wizard-steps li[aria-current="step"] .wizard-n { background: var(--ink); border-color: var(--ink); color: var(--paper); }
-.wizard-steps li.done { color: var(--ok); }
-.wizard-n { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: var(--r-full); border: 1px solid currentColor; font-size: var(--fs-xs); font-weight: 600; font-variant-numeric: tabular-nums; margin-right: var(--sp-1); }
 .wizard-choices { display: grid; gap: 8px; border: 0; padding: 0; margin: 0 0 12px; }
 .wizard-choices legend { font-weight: 600; margin-bottom: 6px; }
 .wizard-choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px var(--sp-3); border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); cursor: pointer; }
@@ -1003,7 +994,7 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .template-output-head { display: flex; align-items: baseline; gap: var(--sp-1) var(--sp-3); flex-wrap: wrap; }
 .template-output-head h3 { margin: 0; }
 /* 231 (U3d): the processes whose cases deal with a partner of the chosen role, above the list */
-.partners-role-use { margin: 0 0 var(--sp-3); }
+.partner-role-use { margin: 0 0 var(--sp-3); }
 /* 231 (U3f): a letter frame: its text field by field (the label in muted 12 px text beside the value, kept as written),
    a language's fields under its name, the form with the same groups */
 .letter-frame h4 { margin: 0; font-size: var(--fs-sm); font-weight: 600; }
@@ -1038,11 +1029,6 @@ label.inline { display: inline-flex; align-items: center; gap: var(--sp-2); }
 .marker-help .plain { margin: var(--sp-2) 0 0; }
 .marker-help .mono { color: var(--ink); }
 .marker-scroll { max-height: 60vh; overflow: auto; border: 1px solid var(--line); border-radius: var(--radius); }
-.marker-table { border: 0; border-radius: 0; }
-.marker-table thead th { position: sticky; top: 0; z-index: 1; }
-.marker-table td { vertical-align: middle; }
-.marker-table .marker-group th { background: var(--paper); color: var(--ink); font-size: var(--fs-sm); font-weight: 600;
-  padding-top: var(--sp-3); border-bottom-color: var(--line); }
 .marker-extra { display: inline-flex; align-items: center; gap: var(--sp-1); margin-left: var(--sp-4); font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
 .copyable { display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
 .copyable code { font-size: var(--fs-xs); color: var(--ink); overflow-wrap: anywhere; }
