@@ -5404,5 +5404,6 @@
   "the invoice is excluded from the pairing: it is a confirmed duplicate copy": "a számla ki van zárva a párosításból: megerősített ismétlődő másolat",
   "the invoice is excluded from the pairing: it has no issue date": "a számla ki van zárva a párosításból: nincs kiállítási dátuma",
   "the invoice is excluded from the pairing: its currency is not handled here": "a számla ki van zárva a párosításból: a pénzneme itt nem kezelt",
-  "the invoice is excluded from the pairing: it has no positive, readable amount": "a számla ki van zárva a párosításból: nincs pozitív, olvasható összege"
+  "the invoice is excluded from the pairing: it has no positive, readable amount": "a számla ki van zárva a párosításból: nincs pozitív, olvasható összege",
+  "its stored version does not pass the tariff's checks: {{problem}}": "a tárolt változata nem felel meg a díjtábla ellenőrzéseinek: {{problem}}"
 }
