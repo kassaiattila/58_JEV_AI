@@ -38,3 +38,14 @@ def test_a_text_file_in_another_encoding_is_counted(tmp_path, monkeypatch) -> No
     (tmp_path / "notes.txt").write_bytes(b"sz\xe1ml\xe1t \xe9s \xfcgyfelet\n")  # accented letters in Windows-1250
     monkeypatch.setattr(lang_guard, "tracked_files", lambda root: ["notes.txt"])
     assert lang_guard.scan(tmp_path, lang_guard.load_guard(ROOT)).get("notes.txt", 0) == 1
+
+
+def test_a_utf16_text_file_is_counted_not_taken_for_binary(tmp_path, monkeypatch) -> None:
+    """272 (K5, the rest of TOOL-19): a UTF-16 text file (Windows PowerShell 5.1 writes one by default) has zero bytes
+    in it and was skipped as binary, so its Hungarian text passed the guard."""
+    (tmp_path / "out.txt").write_text("sz\u00e1ml\u00e1t \u00e9s \u00fcgyfelet\n", encoding="utf-16")  # with its byte order mark
+    (tmp_path / "be.txt").write_bytes("sz\u00e1ml\u00e1t \u00e9s \u00fcgyfelet\n".encode("utf-16-be"))  # without one
+    (tmp_path / "image.bin").write_bytes(b"\x89PNG\r\n\x1a\n\0\0\0\rIHDR")
+    monkeypatch.setattr(lang_guard, "tracked_files", lambda root: ["out.txt", "be.txt", "image.bin"])
+    counts = lang_guard.scan(tmp_path, lang_guard.load_guard(ROOT))
+    assert counts.get("out.txt") == 1 and counts.get("be.txt") == 1 and "image.bin" not in counts

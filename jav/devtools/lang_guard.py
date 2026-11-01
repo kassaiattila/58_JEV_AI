@@ -73,6 +73,20 @@ def tracked_files(root: Path) -> list[str]:
     return [p for p in out.decode("utf-8").split("\0") if p]
 
 
+def _utf16(raw: bytes) -> str | None:
+    """272 (K5): the text of a UTF-16 file (by its byte order mark, or a zero byte in every other place of a text of
+    ASCII-range letters), else None; such a file has zero bytes and was skipped as binary."""
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        return raw.decode("utf-16", errors="replace")
+    head = raw[:200]
+    if len(head) >= 8 and len(head) % 2 == 0:
+        if all(b == 0 for b in head[1::2]) and not any(b == 0 for b in head[0::2]):
+            return raw.decode("utf-16-le", errors="replace")
+        if all(b == 0 for b in head[0::2]) and not any(b == 0 for b in head[1::2]):
+            return raw.decode("utf-16-be", errors="replace")
+    return None
+
+
 def scan(root: Path, guard: Guard) -> dict[str, int]:
     """Hungarian line count of every tracked, non-allowed text file that has at least one such line."""
     counts: dict[str, int] = {}
@@ -83,10 +97,11 @@ def scan(root: Path, guard: Guard) -> dict[str, int]:
             raw = (root / rel).read_bytes()
         except OSError:
             continue  # deleted in the working tree
-        if b"\0" in raw:
+        text = _utf16(raw)  # 272 (K5, the rest of TOOL-19): Windows PowerShell 5.1 writes UTF-16 by default
+        if text is None and b"\0" in raw:
             continue  # binary
         try:
-            text = raw.decode("utf-8")
+            text = text if text is not None else raw.decode("utf-8")
         except UnicodeDecodeError:
             # 265 (code review TOOL-19): a text file in another encoding is read as Windows-1250 and counted, never
             # skipped (skipping it let Hungarian text past the guard)
