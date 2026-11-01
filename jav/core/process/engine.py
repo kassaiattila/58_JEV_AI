@@ -39,7 +39,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from typing import Any
 
-from jav.core import calls, lock, store
+from jav.core import calls, store
 from jav.core.clock import utc_stamp as _now
 from jav.core import observability
 from jav.core.identity import Actor, machine
@@ -153,7 +153,8 @@ def _context(row: dict[str, Any], step: StepDef) -> StepContext:
 
 
 def _alive(holder: str) -> bool:
-    return lock.is_held(calls.holder_path(holder))
+    """265 (code review CORE-11): the shared check, which refuses a malformed holder before it becomes a path."""
+    return calls.holder_alive(holder)
 
 
 def _take_here(case_id: str) -> bool:
