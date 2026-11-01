@@ -9,6 +9,7 @@
   still reached through the legacy sidecar (`key_fallback`, as before the registry).
 - A provider off by the registry's default says why (`off_reason`): OpenAI Decisions is under measurement; one an
   installation switched off says so.
+- Every engine's end state when its answerer could not be asked has a name in the lists (GPT only's showed its code).
 - OpenAI Decisions' reservation bounds its cost: a price per output token is refused without the most output tokens
   a request may produce.
 
@@ -114,3 +115,11 @@ def test_a_provider_off_by_default_says_why_and_one_switched_off_here_says_so(mo
     monkeypatch.setenv(providers.OFF_ENV, "")
     monkeypatch.setenv(providers.ON_ENV, "openai_decisions")
     assert providers.off_reason("openai_decisions") is None
+
+
+def test_every_engines_unavailable_end_state_has_a_name():
+    from jav.ai import engine as engines
+
+    names = cfg.load("datasets")["final_status"]
+    for engine_id in engines.ids():
+        assert engines.get(engine_id).unavailable_status in names, engine_id

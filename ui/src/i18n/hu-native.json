@@ -4236,6 +4236,7 @@
   "Use of JEV": "JEV használata",
   "JEV was unavailable": "JEV nem volt elérhető",
   "OpenAI Decisions was unavailable": "Az OpenAI Decisions nem volt elérhető",
+  "GPT was unavailable": "A GPT nem volt elérhető",
   "Processing without JEV: the system does not recognise the email's intent; read it and decide by hand": "JEV nélküli feldolgozás: a levél szándékát a rendszer nem ismeri fel; olvasd el, és döntsd el kézzel",
   "JEV where possible — cheaper, no line items; GPT elsewhere (S)": "JEV, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)",
   "With JEV (recommended)": "JEV-vel (ajánlott)",

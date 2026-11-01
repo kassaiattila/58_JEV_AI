@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "datasets",
-  "version": "1.44.0",
+  "version": "1.45.0",
   "changelog": [
+   {
+    "version": "1.45.0",
+    "date": "2026-11-01",
+    "note": "The final state of a GPT-only flow whose GPT question could not be asked (gpt_unavailable) has its name, as JEV's and OpenAI Decisions' have (it showed its code)."
+   },
    {
     "version": "1.44.0",
     "date": "2026-11-01",
@@ -235,7 +240,7 @@
   "naming_status": {"ready": "Done", "review": "To check (value)"},
   "name_state": {"ready": "Done", "review": "To check (value)", "pending": "Not yet", "none": "None (email)"},
   "item_status": {"done": "Processed", "failed": "Failed (value)", "cancelled": "Stopped", "needs_review": "To-do", "needs_ocr": "OCR needed"},
-  "final_status": {"done": "Closed, no to-dos", "needs_review": "To-do", "settled": "To-dos settled", "needs_ocr": "OCR needed", "jev_unavailable": "JEV was unavailable", "decisions_unavailable": "OpenAI Decisions was unavailable"},
+  "final_status": {"done": "Closed, no to-dos", "needs_review": "To-do", "settled": "To-dos settled", "needs_ocr": "OCR needed", "jev_unavailable": "JEV was unavailable", "decisions_unavailable": "OpenAI Decisions was unavailable", "gpt_unavailable": "GPT was unavailable"},
   "mode": {"shadow": "Trial", "apply": "Live"},
   "package_item_state": {"approved": "Approved", "live": "Processed live", "trial": "Processed in a trial", "running": "Being processed", "failed": "Failed with an error", "pending": "Pending", "removed": "Removed"},
   "reconcile_input_kind": {"statement": "Statement", "incoming": "Incoming invoice", "outgoing": "Outgoing invoice"},
