@@ -1,22 +1,27 @@
 {
  "meta": {
   "name": "ocr",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "changelog": [
+   {
+    "version": "1.2.1",
+    "date": "2026-11-01",
+    "note": "The notes and the description without the development process's references; no value changes."
+   },
    {
     "version": "1.2.0",
     "date": "2026-10-07",
-    "note": "121: Azure DI is called directly over its REST API when AZURE_DI_ENDPOINT and AZURE_DI_KEY are set (jav/adapters/azure_di.py; azure_di.api_version, azure_di.poll_interval_s); the legacy sidecar route stays for a machine without them. Before this, every document outside the legacy data folder failed before the network. An escalation that cannot run (no route, a failed call, an unknown outcome) now raises a to-do when the recipe's Azure switch is on. The cache key is unchanged: the new settings are not output settings, and the API version is the one every earlier Azure text was read with."
+    "note": "Azure DI is called directly over its REST API when AZURE_DI_ENDPOINT and AZURE_DI_KEY are set (jav/adapters/azure_di.py; azure_di.api_version, azure_di.poll_interval_s); the legacy sidecar route stays for a machine without them. Before this, every document outside the legacy data folder failed before the network. An escalation that cannot run (no route, a failed call, an unknown outcome) now raises a to-do when the recipe's Azure switch is on. The cache key is unchanged: the new settings are not output settings, and the API version is the one every earlier Azure text was read with."
    },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "OCR-lanc (BACKLOG 7, B5): szoveg nelkuli PDF -> oldalkep (pypdfium2, 300 dpi, szurke) -> tesseract szo-dobozok (TSV) -> ugyanaz a sor- es cella-epito, mint a szovegreteges PDF-nel (jav/pdf.py). Motor: nativ tesseract (a gepen telepitett 5.4, a magyar + angol nyelvcsomag a regi sidecar Docker-kepebol, tools/tessdata), tartalek: a regi sidecar-kep (aiflow-v4-sidecar) docker run-nal, ha nincs nativ. A regi sidecar beallitasai: hun+eng, 200 dpi -> itt 300 dpi (a szamlareszletezo apro szamai miatt), psm 3 (automatikus oldalfelbontas). Lemez-gyorsitotar runs/ocr/ (doc sha256 + konfig-hash + tesseract-verzio a kulcsban)."
+    "note": "The OCR chain: a PDF without text -> page images (pypdfium2, 300 dpi, grey) -> tesseract word boxes (TSV) -> the same line and cell builder as for a PDF with a text layer (jav/pdf.py). Engine: the native tesseract (5.4 installed on the machine, the Hungarian and English language data from the legacy sidecar's Docker image, tools/tessdata); fallback: the legacy sidecar image (aiflow-v4-sidecar) with docker run when there is no native one. The legacy sidecar's settings: hun+eng, 200 dpi -> 300 dpi here (for the small numbers of the bill's itemisation), psm 3 (automatic page segmentation). A disk cache in runs/ocr/ (the document's sha256, the config hash and the tesseract version in the key)."
    },
    {
     "version": "1.1.0",
     "date": "2026-09-30",
-    "note": "076: azure_di.data_root removed; the sidecar's /data mount is the legacy project's data folder (JAV_LEGACY_ROOT, jav/config.py). The OCR cache key now covers only the settings that can change the recognised text (jav/ocr.py output_settings), so paths, time limits, notes and this version record do not invalidate it; the existing cache was moved to the new key once (python -m jav.cli ocr-rekey), with no new OCR."
+    "note": "Azure_di.data_root removed; the sidecar's /data mount is the legacy project's data folder (JAV_LEGACY_ROOT, jav/config.py). The OCR cache key now covers only the settings that can change the recognised text (jav/ocr.py output_settings), so paths, time limits, notes and this version record do not invalidate it; the existing cache was moved to the new key once (python -m jav.cli ocr-rekey), with no new OCR."
    }
   ]
  },
@@ -24,7 +29,7 @@
  "escalation": {
   "engine": "azure_di",
   "enabled": true,
-  "note": "a felhasznalo dontese (2026-09-20, handoff 013 §8): tesseract alapbol, Azure DI csak gyenge OCR-nel - a kuszobok (atlagos szo-bizalom / gyenge szavak aranya) a policy.json ocr.escalate_* mezoiben; a gyenge helyi OCR helyett az Azure-szoveg megy tovabb, mindketto a gyorsitotarban marad"
+  "note": "The owner's decision (2026-09-20): tesseract by default, Azure DI only on weak OCR; the thresholds (mean word confidence, share of weak words) are in policy.json ocr.escalate_*; instead of the weak local OCR the Azure text goes on, and both stay in the cache"
  },
  "dpi": 300,
  "grayscale": true,
@@ -44,7 +49,7 @@
  },
  "docker": {
   "image": "aiflow-v4-sidecar",
-  "note": "a regi 10_AIFLOW_V4 sidecar kepe (tesseract-ocr-hun + poppler); a gepen ~30x lassabb a nativnal (a VM sok kontenerrel osztozik), ezert csak tartalek"
+  "note": "The legacy project's sidecar image (tesseract-ocr-hun + poppler); about 30 times slower than the native engine (the virtual machine is shared by many containers), so a fallback only"
  },
  "azure_di": {
   "sidecar_url": "http://127.0.0.1:8800",
@@ -52,7 +57,7 @@
   "timeout_s": 240,
   "api_version": "2024-11-30",
   "poll_interval_s": 1.0,
-  "note": "Azure Document Intelligence (prebuilt-read), PAID and priced per page; never 'auto': only escalation, engine = azure_di or JAV_OCR_ENGINE=azure_di. 121: directly over the REST API when AZURE_DI_ENDPOINT and AZURE_DI_KEY are set (any readable document; timeout_s bounds the whole call, polling included); otherwise through the legacy sidecar's /parse (chain: azure_di; sidecar_url, container_root), which reads only PDFs under the legacy project's data folder (the container's /data mount; JAV_LEGACY_ROOT). Word geometry: polygons in inches, from the REST result or the sidecar's evidence file. A changed api_version gives the Azure texts a new cache key (jav/ocr.py engine_version)."
+  "note": "Azure Document Intelligence (prebuilt-read), PAID and priced per page; never 'auto': only escalation, engine = azure_di or JAV_OCR_ENGINE=azure_di. Directly over the REST API when AZURE_DI_ENDPOINT and AZURE_DI_KEY are set (any readable document; timeout_s bounds the whole call, polling included); otherwise through the legacy sidecar's /parse (chain: azure_di; sidecar_url, container_root), which reads only PDFs under the legacy project's data folder (the container's /data mount; JAV_LEGACY_ROOT). Word geometry: polygons in inches, from the REST result or the sidecar's evidence file. A changed api_version gives the Azure texts a new cache key (jav/ocr.py engine_version)."
  },
  "quality": {
   "low_conf_word": 60,

@@ -6,7 +6,7 @@
    {
     "version": "1.0.0",
     "date": "2026-10-26",
-    "note": "231 (stage D, D-e1): the G-path verification of a claims history statement. It inherits `verify` for the shared document guard and the request size budget; its own question texts name the document, it asks no invoice question (document_nouls empty), and each list is asked about missing and extra rows (list_nouls)."
+    "note": "The G-path verification of a claims history statement. It inherits `verify` for the shared document guard and the request size budget; its own question texts name the document, it asks no invoice question (document_nouls empty), and each list is asked about missing and extra rows (list_nouls)."
    }
   ]
  },

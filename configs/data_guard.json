@@ -1,88 +1,93 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.15",
-    "description": "Adatőr (070 terv 2.1 S-adatőr, jav/devtools/data_guard.py): commit és feltöltés előtti személyesadat- és kulcsőr. A mintát ellenőrzőszám szűri (adószám, IBAN, bankszámla); a kitalált és nyilvános céges értékek az allow listán olvashatóan, a 069-es döntés szerint maradó saját adat a known listán csak sha256-tal és fájlhoz kötve, a tiltott kifejezések (saját cégnév, felhasználónév) csak sha256-tal.",
+    "version": "1.0.16",
+    "description": "The data guard (jav/devtools/data_guard.py): a personal-data and key guard before a commit and a push. A check digit filters the patterns (tax number, IBAN, bank account); invented and public company values are on the allow list in readable form, the own data kept by the owner's decision on the known list only as a sha256 tied to a file, and the forbidden phrases (an own company name, a user name) only as a sha256.",
     "changelog": [
+      {
+        "version": "1.0.16",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      },
       {
         "version": "1.0.15",
         "date": "2026-11-01",
-        "note": "265 (the owner's decision of 2026-11-01): the forbidden history's baseline-039 tag left the list; it no longer exists in this clone, so it could not be checked, and the old history stays guarded by its starting commit."
+        "note": "The owner's decision of 2026-11-01: the forbidden history's baseline-039 tag left the list; it no longer exists in this clone, so it could not be checked, and the old history stays guarded by its starting commit."
       },
       {
         "version": "1.0.14",
         "date": "2026-10-31",
-        "note": "265 (code review SEC-03, SEC-04, TOOL-10): push rules (main, release tags, one stage branch; no deletion, no archive branch); .playwright-mcp/ and the .jsonl and .log files blocked."
+        "note": "Code review SEC-03, SEC-04, TOOL-10: push rules (main, release tags, one stage branch; no deletion, no archive branch); .playwright-mcp/ and the .jsonl and .log files blocked."
       },
       {
         "version": "1.0.13",
         "date": "2026-10-31",
-        "note": "265 (code review SEC-01): a literal value assigned to one of the project's key variables (TypeSafeJAV_API_KEY, TYPESAFE_API_KEY, OPENAI_API_KEY, AZURE_DI_KEY) is blocked by shape, so a pasted .env line is caught even where no .env is read."
+        "note": "Code review SEC-01: a literal value assigned to one of the project's key variables (TypeSafeJAV_API_KEY, TYPESAFE_API_KEY, OPENAI_API_KEY, AZURE_DI_KEY) is blocked by shape, so a pasted .env line is caught even where no .env is read."
       },
       {
         "version": "1.0.12",
         "date": "2026-10-23",
-        "note": "209 (plan G-process-core R2b): the models' instructions and output schemas moved from jav/prompts/ to configs/prompts/; the known term's file list follows the path."
+        "note": "The models' instructions and output schemas moved from jav/prompts/ to configs/prompts/; the known term's file list follows the path."
       },
       {
         "version": "1.0.11",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the developer tools' modules moved into jav/devtools/; the paths here follow them, nothing else changed."
+        "note": "The developer tools' modules moved into jav/devtools/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.10",
         "date": "2026-10-23",
-        "note": "208 (plan G-process-core R2): the document reading's modules moved into jav/documents/; the paths here follow them, nothing else changed."
+        "note": "The document reading's modules moved into jav/documents/; the paths here follow them, nothing else changed."
       },
       {
         "version": "1.0.9",
         "date": "2026-10-22",
-        "note": "204 (R1b): the archived evidence-learning test left the known VAT number's paths."
+        "note": "The archived evidence-learning test left the known VAT number's paths."
       },
       {
         "version": "1.0.8",
         "date": "2026-10-17",
-        "note": "167 (review S-3): the card number pattern moved to jav/card_numbers.py (CARD), so the masking and the guard share one pattern; it also takes groups separated by hyphens or dots, one kind per number, and 15-digit American Express numbers (first digits 34 or 37, Luhn). The allow list keeps its card_number entry."
+        "note": "Review S-3: the card number pattern moved to jav/card_numbers.py (CARD), so the masking and the guard share one pattern; it also takes groups separated by hyphens or dots, one kind per number, and 15-digit American Express numbers (first digits 34 or 37, Luhn). The allow list keeps its card_number entry."
       },
       {
         "version": "1.0.7",
         "date": "2026-10-13",
-        "note": "153 (review C2): the bank statement exports read since 136-141 are guarded too: data/ (an input root) is a blocked path; .csv, .xml, .txt, .sta, .940 and .camt are blocked file types (requirements.txt allowed); a payment card number (sixteen digits in one run or in four groups, a scheme's first digit and a right Luhn check digit) is a value kind (card_number). Allowed: the published Visa test number of the card masking tests."
+        "note": "Review C2: the bank statement exports the system reads are guarded too: data/ (an input root) is a blocked path; .csv, .xml, .txt, .sta, .940 and .camt are blocked file types (requirements.txt allowed); a payment card number (sixteen digits in one run or in four groups, a scheme's first digit and a right Luhn check digit) is a value kind (card_number). Allowed: the published Visa test number of the card masking tests."
       },
       {
         "version": "1.0.0",
         "date": "2026-09-30",
-        "note": "071 data guard (plan 070 2.1): the first version, after the legacy project's scripts/hooks/pre-commit and scripts/secret_scan.py, with a check-digit filter, a search for keys, .env values and forbidden phrases, and a forbidden history before a push. The allow, known and deny lists come from a review of the tracked tree on 2026-09-30."
+        "note": "The data guard's first version, after the legacy project's scripts/hooks/pre-commit and scripts/secret_scan.py, with a check-digit filter, a search for keys, .env values and forbidden phrases, and a forbidden history before a push. The allow, known and deny lists come from a review of the tracked tree on 2026-09-30."
       },
       {
         "version": "1.0.1",
         "date": "2026-09-30",
-        "note": "071 D completeness: the NAS path left the setup guide (it became a general description), so the user name is no longer tolerated there; it stays tolerated only in the service's settings file."
+        "note": "Completeness: the network backup path left the setup guide (it became a general description), so the user name is no longer tolerated there; it stays tolerated only in the service's settings file."
       },
       {
         "version": "1.0.2",
         "date": "2026-09-30",
-        "note": "076: the invented IBANs of the injection probe replaced by values that also pass the domestic check digits (configs/experiments/document_injection.json 1.1.0)."
+        "note": "The invented IBANs of the injection probe replaced by values that also pass the domestic check digits (configs/experiments/document_injection.json 1.1.0)."
       },
       {
         "version": "1.0.3",
         "date": "2026-09-30",
-        "note": "076: the tolerated user name in configs/service.json removed; the second backup location moved to the local environment (JAV_BACKUP_COPY_TO)."
+        "note": "The tolerated user name in configs/service.json removed; the second backup location moved to the local environment (JAV_BACKUP_COPY_TO)."
       },
       {
         "version": "1.0.4",
         "date": "2026-10-08",
-        "note": "127 (S-injection, JEV part; 069 decision): the own data left in the JEV call sites (select_foreign, verify_foreign, verify_invoice_out) and in two email intent examples (intents) replaced by invented values; those paths left the known list."
+        "note": "JEV part: the own data left in the JEV call sites (select_foreign, verify_foreign, verify_invoice_out) and in two email intent examples (intents) replaced by invented values; those paths left the known list."
       },
       {
         "version": "1.0.5",
         "date": "2026-10-08",
-        "note": "128 (owner's decision): select_foreign tolerated again for one push only. Three earlier commits not yet pushed rewrote that file's line endings, so its old lines with our EU VAT number count as new on push; the remote history already carries them. The next version removes the path again."
+        "note": "Owner's decision: select_foreign tolerated again for one push only. Three earlier commits not yet pushed rewrote that file's line endings, so its old lines with our EU VAT number count as new on push; the remote history already carries them. The next version removes the path again."
       },
       {
         "version": "1.0.6",
         "date": "2026-10-08",
-        "note": "128: v1.11.0 is pushed, so select_foreign leaves the known list again (the state of 1.0.4)."
+        "note": "V1.11.0 is pushed, so select_foreign leaves the known list again (the state of 1.0.4)."
       }
     ]
   },

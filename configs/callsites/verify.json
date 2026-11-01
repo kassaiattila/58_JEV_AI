@@ -6,27 +6,27 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged; the {value} placeholder gets the repr (as before)"
+    "note": "moved out of the Python constants (config as data); the content unchanged; the {value} placeholder gets the repr (as before)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-20",
-    "note": "BACKLOG 1: a structured Noul instruction (the sde_cascade pattern) - the code passes an object: field_spec {name, meaning}, extracted_field (the raw value, not a repr), printed_on (the evidence lines), question; instead of the template sentence every Noul gives only its `question` text; the glossary under the `glossary` key; the questions' content unchanged, they only refer to the object's keys"
+    "note": "a structured Noul instruction (the sde_cascade pattern) - the code passes an object: field_spec {name, meaning}, extracted_field (the raw value, not a repr), printed_on (the evidence lines), question; instead of the template sentence every Noul gives only its `question` text; the glossary under the `glossary` key; the questions' content unchanged, they only refer to the object's keys"
    },
    {
     "version": "1.2.0",
     "date": "2026-10-08",
-    "note": "127 (5th group, round B; the owner's decisions of 2026-10-07): document_guard (backlog S-injection, JEV part), inherited by every verify_* call site: every Noul's instructions carry it as `rule` (the document text is data, not instructions). request_char_budget 110000, the value of the other verify_* call sites, now also for the Hungarian and the foreign invoice (verify_foreign inherits it): an oversized request keeps only the evidence lines (jav/jev_budget.py). New cache keys for every verification question: the G baseline's JEV check is re-measured. Backlog Q-credit-note: the invoice_number field spec names a credit note's own number."
+    "note": "5th group, round B; the owner's decisions of 2026-10-07: document_guard (JEV part), inherited by every verify_* call site: every Noul's instructions carry it as `rule` (the document text is data, not instructions). request_char_budget 110000, the value of the other verify_* call sites, now also for the Hungarian and the foreign invoice (verify_foreign inherits it): an oversized request keeps only the evidence lines (jav/jev_budget.py). New cache keys for every verification question: the G baseline's JEV check is re-measured. Backlog Q-credit-note: the invoice_number field spec names a credit note's own number."
    },
    {
     "version": "1.3.0",
     "date": "2026-10-22",
-    "note": "202 (plan G-core-generalisation M2a): the call site states what the code used to infer from a request's name or fill in itself: the document's description and the three document-level questions, which every other verify call site inherits (189: they are invoice questions; asking a non-invoice type other ones is a new request and a paid measurement). The requests sent to JEV are unchanged."
+    "note": "The call site states what the code used to infer from a request's name or fill in itself: the document's description and the three document-level questions, which every other verify call site inherits (they are invoice questions; asking a non-invoice type other ones is a new request and a paid measurement). The requests sent to JEV are unchanged."
    },
    {
     "version": "1.4.0",
     "date": "2026-10-29",
-    "note": "231 (stage F, F1; the owner's decisions of 2026-10-29): each document-level question names the extraction fields it reads (`fields`), and a pack is asked it only when it has every one of them: swapped parties needs the supplier's and the buyer's name and tax number, the missing and extra rows the line items. A type whose extraction (the answer's schema) has not got them (the terms and conditions, the tickets, the certificates, the statements; the utility bills name a customer, not a buyer) is no longer asked an invoice question about fields it does not have: a new request for those 21 packs; the Hungarian, the foreign, the proforma and the outgoing invoice's are unchanged."
+    "note": "The owner's decisions of 2026-10-29: each document-level question names the extraction fields it reads (`fields`), and a pack is asked it only when it has every one of them: swapped parties needs the supplier's and the buyer's name and tax number, the missing and extra rows the line items. A type whose extraction (the answer's schema) has not got them (the terms and conditions, the tickets, the certificates, the statements; the utility bills name a customer, not a buyer) is no longer asked an invoice question about fields it does not have: a new request for those 21 packs; the Hungarian, the foreign, the proforma and the outgoing invoice's are unchanged."
    }
   ]
  },

@@ -6,222 +6,222 @@
    {
     "version": "1.43.0",
     "date": "2026-10-29",
-    "note": "261 (plan B, B1f): the case state's labels (case_status), for the started cases a case's shared data table shows."
+    "note": "The case state's labels (case_status), for the started cases a case's shared data table shows."
    },
    {
     "version": "1.42.0",
     "date": "2026-10-29",
-    "note": "261 (the owner's decisions of 2026-10-29): the task kind of a case step whose run is over the cap a person approved (Waiting for me)."
+    "note": "The owner's decisions of 2026-10-29: the task kind of a case step whose run is over the cap a person approved (Waiting for me)."
    },
    {
     "version": "1.41.0",
     "date": "2026-10-29",
-    "note": "231 (stage F, F3 D4; the owner's decision of 2026-10-29: the service's texts follow the interface's language): every value caption is an English source; the Hungarian comes from the interface's dictionary (ui/src/i18n/hu-native.json), and a download shows it in the requesting interface's language. Named variants (value) where one English text has two Hungarian ones."
+    "note": "The owner's decision of 2026-10-29: the service's texts follow the interface's language: every value caption is an English source; the Hungarian comes from the interface's dictionary (ui/src/i18n/hu-native.json), and a download shows it in the requesting interface's language. Named variants (value) where one English text has two Hungarian ones."
    },
    {
     "version": "1.40.0",
     "date": "2026-10-28",
-    "note": "231 (stage U, U2d; the owner's decisions of 2026-10-28: one work list, the cases): the activity_action labels of a person's own steps and decisions on the cases (case_*), from the process core's history."
+    "note": "The owner's decisions of 2026-10-28: one work list, the cases: the activity_action labels of a person's own steps and decisions on the cases (case_*), from the process core's history."
    },
    {
     "version": "1.39.0",
     "date": "2026-10-27",
-    "note": "231 (stage D, D-f8): letter_approve and letter_reopen - a case's covering letter accepted, and an accepted letter reopened (its document changed), in the activity log with a label."
+    "note": "Letter_approve and letter_reopen - a case's covering letter accepted, and an accepted letter reopened (its document changed), in the activity log with a label."
    },
    {
     "version": "1.38.0",
     "date": "2026-10-26",
-    "note": "231 (stage D, D-d6): the task kind missing_info - getting the facts the rules miss, by a deadline."
+    "note": "The task kind missing_info - getting the facts the rules miss, by a deadline."
    },
    {
     "version": "1.37.0",
     "date": "2026-10-26",
-    "note": "231 (stage D, D-d4): decision_approve and decision_reopen - a case's decision made, and a made decision reopened (out of date), in the activity log with a label."
+    "note": "Decision_approve and decision_reopen - a case's decision made, and a made decision reopened (out of date), in the activity log with a label."
    },
    {
     "version": "1.36.0",
     "date": "2026-10-26",
-    "note": "231 (stage D, D-d2): field_check_approve and field_check_reopen - a field check's facts frozen as its version, and the frozen version reopened, in the activity log with a label."
+    "note": "Field_check_approve and field_check_reopen - a field check's facts frozen as its version, and the frozen version reopened, in the activity log with a label."
    },
    {
     "version": "1.35.0",
     "date": "2026-10-26",
-    "note": "231 (stage D0, D0-d): approval_return - a person returned a case step's result with a reason instead of approving it, in the activity log with a label."
+    "note": "Approval_return - a person returned a case step's result with a reason instead of approving it, in the activity log with a label."
    },
    {
     "version": "1.34.0",
     "date": "2026-10-25",
-    "note": "231 (plan stage C, C3b4): case_wrapped - a package made before its process was a pack, wrapped by a new case of it, appears in the activity log with a label."
+    "note": "Case_wrapped - a package made before its process was a pack, wrapped by a new case of it, appears in the activity log with a label."
    },
    {
     "version": "1.33.0",
     "date": "2026-10-25",
-    "note": "231 (plan stage C, C0): activity_action retyped - a package taken over as a process pack's case appears in the activity log with a label."
+    "note": "Activity_action retyped - a package taken over as a process pack's case appears in the activity log with a label."
    },
    {
     "version": "1.32.0",
     "date": "2026-10-24",
-    "note": "231 (plan stage A, A7e): the task kinds of a process pack's case in the Waiting for me list: a step to start, a message whose arrival is unknown, a follow-up."
+    "note": "The task kinds of a process pack's case in the Waiting for me list: a step to start, a message whose arrival is unknown, a follow-up."
    },
    {
     "version": "1.31.0",
     "date": "2026-10-23",
-    "note": "216 (plan G-process-core P2e): the labels of the Waiting for me list (dataset waiting): task_kind (a to-do, a run's approval, a logic pack's approval, a step's budget), task_origin (live, trial, measurement) and task_assignee (the person's own, anyone's); English source text, translated by the interface."
+    "note": "The labels of the Waiting for me list (dataset waiting): task_kind (a to-do, a run's approval, a logic pack's approval, a step's budget), task_origin (live, trial, measurement) and task_assignee (the person's own, anyone's); English source text, translated by the interface."
    },
    {
     "version": "1.30.0",
     "date": "2026-10-22",
-    "note": "196 (plan F-Word-output W3): the activity_action label of a quote's reply letter accepted (jav/quote_letter.py)."
+    "note": "The activity_action label of a quote's reply letter accepted (jav/quote_letter.py)."
    },
    {
     "version": "1.29.0",
     "date": "2026-10-21",
-    "note": "192 (plan F-quote-package B5): activity_action labels of a quote approved as a version and of its approval reopened (jav/quote_draft.py)."
+    "note": "Activity_action labels of a quote approved as a version and of its approval reopened (jav/quote_draft.py)."
    },
    {
     "version": "1.28.0",
     "date": "2026-10-21",
-    "note": "191 (plan F-quote-package B3): source_kind label of the quote package."
+    "note": "Source_kind label of the quote package."
    },
    {
     "version": "1.27.0",
     "date": "2026-10-20",
-    "note": "181 (plan 170 L5): activity_action labels of a package's scope given and removed (jav/package_scope.py) and of the email routing's decisions (jav/email_routing.py); source_kind label of the email routing package."
+    "note": "Activity_action labels of a package's scope given and removed (jav/package_scope.py) and of the email routing's decisions (jav/email_routing.py); source_kind label of the email routing package."
    },
    {
     "version": "1.26.0",
     "date": "2026-10-19",
-    "note": "178 (plan 170 L4): activity_action label of a package's output template chosen (jav/outputs/templates.py)."
+    "note": "Activity_action label of a package's output template chosen (jav/outputs/templates.py)."
    },
    {
     "version": "1.25.0",
     "date": "2026-10-19",
-    "note": "175 (the owner's decision of 2026-10-19): activity_action labels for the three new sources of the activity log: a duplicate decision, a choice between statements of the same days, and a person's own workflow steps (workflow_<action>)."
+    "note": "The owner's decision of 2026-10-19: activity_action labels for the three new sources of the activity log: a duplicate decision, a choice between statements of the same days, and a person's own workflow steps (workflow_<action>)."
    },
    {
     "version": "1.24.0",
     "date": "2026-10-18",
-    "note": "171 (plan 170 L1): activity_action package_release - approving and releasing a package (its open live runs approved together, a released package version recorded) appears in the activity log with a label."
+    "note": "Activity_action package_release - approving and releasing a package (its open live runs approved together, a released package version recorded) appears in the activity log with a label."
    },
    {
     "version": "1.23.0",
     "date": "2026-10-18",
-    "note": "171 (plan 170, K20): activity_action statement_scope, statement_account, statement_add, reconcile_accept_sources, reconcile_approve and reconcile_reopen - the statement package's scope, account assignment and added statements, and the reconciliation's accepted sources, approval and reopening appear in the activity log with a label instead of their code."
+    "note": "Activity_action statement_scope, statement_account, statement_add, reconcile_accept_sources, reconcile_approve and reconcile_reopen - the statement package's scope, account assignment and added statements, and the reconciliation's accepted sources, approval and reopening appear in the activity log with a label instead of their code."
    },
    {
     "version": "1.22.0",
     "date": "2026-10-18",
-    "note": "169 (DECISIONS 169): a reconciliation package's item list (dataset reconcile_inputs) - reconcile_input_kind (statement, incoming or outgoing invoice), reconcile_input_source (the run its result comes from: approved, live, trial, accepted as a source, an evaluation on the command line) and reconcile_invoice_state (where an invoice stands in the pairing); activity_action reconcile_leave_out and reconcile_restore - documents left out of a reconciliation package and restored."
+    "note": "A reconciliation package's item list (dataset reconcile_inputs) - reconcile_input_kind (statement, incoming or outgoing invoice), reconcile_input_source (the run its result comes from: approved, live, trial, accepted as a source, an evaluation on the command line) and reconcile_invoice_state (where an invoice stands in the pairing); activity_action reconcile_leave_out and reconcile_restore - documents left out of a reconciliation package and restored."
    },
    {
     "version": "1.21.0",
     "date": "2026-10-17",
-    "note": "168 (plan F-item-list-and-adding): package_item_state - each item of the package's item list reads approved, live, trial, running, failed, pending or removed, by the run whose result counts now (approved live > live > trial). activity_action items_remove and items_restore - several items removed or restored in one step."
+    "note": "Package_item_state - each item of the package's item list reads approved, live, trial, running, failed, pending or removed, by the run whose result counts now (approved live > live > trial). activity_action items_remove and items_restore - several items removed or restored in one step."
    },
    {
     "version": "1.20.0",
     "date": "2026-10-17",
-    "note": "167 (review 153 E): final_status settled - an item that ended with to-dos and has none open now (its to-dos were settled by a person) reads Teendő, rendezve on the run page instead of Teendő."
+    "note": "Review 153 E: final_status settled - an item that ended with to-dos and has none open now (its to-dos were settled by a person) reads Teendő, rendezve on the run page instead of Teendő."
    },
    {
     "version": "1.19.0",
     "date": "2026-10-17",
-    "note": "160-C S3: run_scope - a run over only the package's pending items (the runs table's Scope column); activity_action item_remove, item_restore and items_add - removing, restoring and adding items appear in the activity log with a label (English source text, translated by the interface)."
+    "note": "Run_scope - a run over only the package's pending items (the runs table's Scope column); activity_action item_remove, item_restore and items_add - removing, restoring and adding items appear in the activity log with a label (English source text, translated by the interface)."
    },
    {
     "version": "1.18.0",
     "date": "2026-10-12",
-    "note": "151 (DECISIONS 151): activity_action run_cancel and run_supersede - stopping a run and superseding an older live run appear in the activity log with a label."
+    "note": "Activity_action run_cancel and run_supersede - stopping a run and superseding an older live run appear in the activity log with a label."
    },
    {
     "version": "1.17.0",
     "date": "2026-10-12",
-    "note": "149 (DECISIONS 149): labels.next_flow archive:sent - the suggested next step of a sent message without a document attachment (its intent is not asked)."
+    "note": "Labels.next_flow archive:sent - the suggested next step of a sent message without a document attachment (its intent is not asked)."
    },
    {
     "version": "1.16.0",
     "date": "2026-10-12",
-    "note": "147 (DECISIONS 147): labels.direction - an invoice's direction from the own parties (incoming, outgoing, between own parties, not an own party's, unclear), the documents table's new Direction column."
+    "note": "Labels.direction - an invoice's direction from the own parties (incoming, outgoing, between own parties, not an own party's, unclear), the documents table's new Direction column."
    },
    {
     "version": "1.15.0",
     "date": "2026-10-10",
-    "note": "140 (DECISIONS 140, the statement package): source_kind statements - a work package of one own party's bank statements for a period (jav/statement_package.py)."
+    "note": "The statement package: source_kind statements - a work package of one own party's bank statements for a period (jav/statement_package.py)."
    },
    {
     "version": "1.14.0",
     "date": "2026-10-10",
-    "note": "137 (DECISIONS 137): the run's reconciliation view is retired with the review page's pair panel (the reconciliation package does that work), so its label tables reconcile_kind, reconcile_status, reconcile_decision and reconcile_reason go; the package has its own labels in the interface."
+    "note": "The run's reconciliation view is retired with the review page's pair panel (the reconciliation package does that work), so its label tables reconcile_kind, reconcile_status, reconcile_decision and reconcile_reason go; the package has its own labels in the interface."
    },
    {
     "version": "1.13.0",
     "date": "2026-10-10",
-    "note": "132 E2: reconcile_status partly_paid - an invoice with part of its amount allocated and nothing proposed for the rest (the label was missing since 131 E1; English source text, translated by the interface)."
+    "note": "Reconcile_status partly_paid - an invoice with part of its amount allocated and nothing proposed for the rest (the label was missing E1; English source text, translated by the interface)."
    },
    {
     "version": "1.12.0",
     "date": "2026-10-09",
-    "note": "131 E1 (DECISIONS 131): the reconciliation package - source_kind reconcile, and the activity log's reconciliation actions (scope, allocation, rejection, needs-no-invoice mark, revocation)."
+    "note": "The reconciliation package - source_kind reconcile, and the activity log's reconciliation actions (scope, allocation, rejection, needs-no-invoice mark, revocation)."
    },
    {
     "version": "1.11.0",
     "date": "2026-10-09",
-    "note": "131 (DECISIONS 131): reconcile_status amount_only - a line with exactly an invoice's amount but nothing else tying them, listed for a person to decide (English source text, translated by the interface)."
+    "note": "Reconcile_status amount_only - a line with exactly an invoice's amount but nothing else tying them, listed for a person to decide (English source text, translated by the interface)."
    },
    {
     "version": "1.10.0",
     "date": "2026-10-09",
-    "note": "130 (backlog F-reconciliation K3): reconcile_status rate_missing - a card line tied to an invoice of another currency whose issue date has no known MNB rate yet (English source text, translated by the interface)."
+    "note": "Reconcile_status rate_missing - a card line tied to an invoice of another currency whose issue date has no known MNB rate yet (English source text, translated by the interface)."
    },
    {
     "version": "1.9.0",
     "date": "2026-10-08",
-    "note": "129 (backlog F-reconciliation K2): labels of the run's reconciliation view - the row kind, the reconciliation status, a person's decision and the reason a document or line is left out (English source text, translated by the interface)."
+    "note": "Labels of the run's reconciliation view - the row kind, the reconciliation status, a person's decision and the reason a document or line is left out (English source text, translated by the interface)."
    },
    {
     "version": "1.8.0",
     "date": "2026-10-07",
-    "note": "126 (backlog F-duplicate): duplicate labels of the documents table's mark - a copy or modified version a person confirmed, and a suspicion by its kind while the to-do is open (English source text, translated by the interface)."
+    "note": "Duplicate labels of the documents table's mark - a copy or modified version a person confirmed, and a suspicion by its kind while the to-do is open (English source text, translated by the interface)."
    },
    {
     "version": "1.7.0",
     "date": "2026-10-06",
-    "note": "120: native_state labels for the machine claim, grounding, reading, interpretation and correctness states of the native facts table (Hungarian written with codepoints)."
+    "note": "Native_state labels for the machine claim, grounding, reading, interpretation and correctness states of the native facts table (Hungarian written with codepoints)."
    },
    {
     "version": "1.6.0",
     "date": "2026-10-01",
-    "note": "082: labels of the unified-name state in the item lists (name_state: ready / review / not yet processed / an email without a file name)"
+    "note": "Labels of the unified-name state in the item lists (name_state: ready / review / not yet processed / an email without a file name)"
    },
    {
     "version": "1.5.0",
     "date": "2026-09-30",
-    "note": "078: labels of the new file-name view of a run (naming_status: ready / review folder)"
+    "note": "Labels of the new file-name view of a run (naming_status: ready / review folder)"
    },
    {
     "version": "1.4.0",
     "date": "2026-09-29",
-    "note": "062 (decision of 2026-09-29): a new action in the activity log: an accepted task done by hand (activity_action.task_done)"
+    "note": "Decision of 2026-09-29: a new action in the activity log: an accepted task done by hand (activity_action.task_done)"
    },
    {
     "version": "1.3.0",
     "date": "2026-09-28",
-    "note": "061 (decision of 2026-09-28, the active user and assignment): the labels of the activity log's actions (activity_action)"
+    "note": "Decision of 2026-09-28, the active user and assignment: the labels of the activity log's actions (activity_action)"
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "058 K5.1: the labels of the Emails result table - the proposed next steps (next_flow) and how much of the email's text the intent recognition saw (body_status); K5.3: the task proposal's decision (task_decision)"
+    "note": "The labels of the Emails result table - the proposed next steps (next_flow) and how much of the email's text the intent recognition saw (body_status); the task proposal's decision (task_decision)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "058 (decision of 2026-09-28): a batch can be hidden - the wp_status label (active / hidden) for a list asked with the hidden ones"
+    "note": "Decision of 2026-09-28: a batch can be hidden - the wp_status label (active / hidden) for a list asked with the hidden ones"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "056 U1 (decisions of 2026-09-28): the uniform data view - the Hungarian labels of the datasets' enumerated columns (search and sorting go by the label too), the cache's size and the download's upper limit"
+    "note": "Decisions of 2026-09-28: the uniform data view - the Hungarian labels of the datasets' enumerated columns (search and sorting go by the label too), the cache's size and the download's upper limit"
    }
   ]
  },

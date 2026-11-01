@@ -7,12 +7,12 @@
       {
         "version": "1.1.0",
         "date": "2026-10-10",
-        "note": "134 (DECISIONS 134): the proposal leaves out a buyer tax number read from the supplier's side - swapped with the supplier's (the supplier side holds a number printed as the buyer's more often) or printed as a supplier's more often than as a buyer's; in the store a rail company's and a service provider's numbers had been proposed as the buyer company's. supplier_check: an incoming invoice whose supplier tax number is an own party's while the buyer's is another or missing gets the parties:own_tax_as_supplier to-do (in a worker run)."
+        "note": "The proposal leaves out a buyer tax number read from the supplier's side - swapped with the supplier's (the supplier side holds a number printed as the buyer's more often) or printed as a supplier's more often than as a buyer's; in the store a rail company's and a service provider's numbers had been proposed as the buyer company's. supplier_check: an incoming invoice whose supplier tax number is an own party's while the buyer's is another or missing gets the parties:own_tax_as_supplier to-do (in a worker run)."
       },
       {
         "version": "1.0.0",
         "date": "2026-10-10",
-        "note": "133: first version. Thresholds tried on the store's invoices (read only, 0 USD): a misread letter in a long word (e.g. one letter of nine) stays above similar_word.min_ratio; two different personal names sharing a family name stay apart because a variant must be found whole."
+        "note": "First version. Thresholds tried on the store's invoices (read only, 0 USD): a misread letter in a long word (e.g. one letter of nine) stays above similar_word.min_ratio; two different personal names sharing a family name stay apart because a variant must be found whole."
       }
     ]
   },

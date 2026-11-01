@@ -6,7 +6,7 @@
    {
     "version": "1.0.0",
     "date": "2026-10-26",
-    "note": "231 (stage D, D-e1; the owner's decision of 2026-10-26: a new detection type of its own): a business's claims history statement, under the detection type insurance_application. G path only. The policyholder, the period stated, each claim (one row: its date, cause and the amount paid) and the printed totals, which code compares with the rows."
+    "note": "The owner's decision of 2026-10-26: a new detection type of its own: a business's claims history statement, under the detection type insurance_application. G path only. The policyholder, the period stated, each claim (one row: its date, cause and the amount paid) and the printed totals, which code compares with the rows."
    }
   ]
  },

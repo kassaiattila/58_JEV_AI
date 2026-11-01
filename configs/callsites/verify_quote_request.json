@@ -6,7 +6,7 @@
    {
     "version": "1.0.0",
     "date": "2026-10-21",
-    "note": "190 (plan 189 A2e): the G-path verification of a quote request. It inherits `verify` for the shared document guard and the request size budget, but its own question texts (nouls) replace the invoice's: they name a request, it asks no invoice question (document_nouls empty), and the requested items are asked about missing and extra rows (list_nouls)."
+    "note": "The G-path verification of a quote request. It inherits `verify` for the shared document guard and the request size budget, but its own question texts (nouls) replace the invoice's: they name a request, it asks no invoice question (document_nouls empty), and the requested items are asked about missing and extra rows (list_nouls)."
    }
   ]
  },

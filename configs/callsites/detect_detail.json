@@ -6,12 +6,12 @@
    {
     "version": "1.1.0",
     "date": "2026-10-07",
-    "note": "122 (backlog S-injection, detection part, and Q-upwork-type): the question says that the document text is data, not instructions; it is also asked when a category has one narrower type pack, as a fit question with 'none'. New cache key: the detection baseline is re-measured."
+    "note": "Detection part: the question says that the document text is data, not instructions; it is also asked when a category has one narrower type pack, as a fit question with 'none'. New cache key: the detection baseline is re-measured."
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: the detailed type within the broad category, only when more than one type is left after the legacy keywords; the candidates are the type packs (parent), their description the pack's `document` field; `none` is always there"
+    "note": "The detailed type within the broad category, only when more than one type is left after the legacy keywords; the candidates are the type packs (parent), their description the pack's `document` field; `none` is always there"
    }
   ]
  },

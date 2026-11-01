@@ -6,42 +6,42 @@
    {
     "version": "2.4.0",
     "date": "2026-10-26",
-    "note": "231 (stage D, D-e1; the owner's decision of 2026-10-26 'a new main type'): new type insurance_application in the family request_like: the documents of a business's request for insurance cover (a quote request form, a property schedule, a claims history statement), three type packs under it. A claim notification stays other (insurance_claim_form). quote_request.not_for and other.not_for name it; request_like's description names it. A new option for every detection question: the type golden set is re-measured (paid; a sub-budget asked for at the D-h stop)."
+    "note": "The owner's decision of 2026-10-26 'a new main type': new type insurance_application in the family request_like: the documents of a business's request for insurance cover (a quote request form, a property schedule, a claims history statement), three type packs under it. A claim notification stays other (insurance_claim_form). quote_request.not_for and other.not_for name it; request_like's description names it. A new option for every detection question: the type golden set is re-measured (paid; a sub-budget asked for at the D-h stop)."
    },
    {
     "version": "2.3.1",
     "date": "2026-10-22",
-    "note": "197 (plan 197 K2b): the taught ticket candidate (belepo_jegy_taught) in the category map, under the ticket. Not a detection option: the candidate is never picked (auto_detect false), so no detection question changes."
+    "note": "The taught ticket candidate (belepo_jegy_taught) in the category map, under the ticket. Not a detection option: the candidate is never picked (auto_detect false), so no detection question changes."
    },
    {
     "version": "2.3.0",
     "date": "2026-10-21",
-    "note": "190 (plan 189 A2e; the owner's decision of 2026-10-21 'a new document type too'): new type quote_request in a new family request_like: a customer's request for a price quote, as a form or a list; other.not_for names it. A new option for every detection question: the type golden set is re-measured (paid, the A2 sub-budget)."
+    "note": "The owner's decision of 2026-10-21 'a new document type too': new type quote_request in a new family request_like: a customer's request for a price quote, as a form or a list; other.not_for names it. A new option for every detection question: the type golden set is re-measured (paid, the A2 sub-budget)."
    },
    {
     "version": "2.2.0",
     "date": "2026-10-08",
-    "note": "127 (5th group, round B; backlog Q-pro-forma-JEV): JEV could not tell the Számlázz.hu pro formas from invoices (0.47-0.52 on 3 of 4), because both entries separated them by timing, which the page does not show, and proforma_invoice.not_for described the pro formas themselves (serial number, VAT breakdown). Now the document's own title decides: proforma_invoice.what (after its first clause), not_for and examples, invoice_hu.what (after its first clause), the last sentence of its not_for and one example; an advance invoice (előlegszámla) or an invoice issued on a díjbekérő is an invoice. The first clauses GPT is shown are unchanged, so the GPT detection instructions are byte-identical. New cache key for every JEV detection question: the detection baseline is re-measured."
+    "note": "5th group, round B: JEV could not tell the Számlázz.hu pro formas from invoices (0.47-0.52 on 3 of 4), because both entries separated them by timing, which the page does not show, and proforma_invoice.not_for described the pro formas themselves (serial number, VAT breakdown). Now the document's own title decides: proforma_invoice.what (after its first clause), not_for and examples, invoice_hu.what (after its first clause), the last sentence of its not_for and one example; an advance invoice (előlegszámla) or an invoice issued on a díjbekérő is an invoice. The first clauses GPT is shown are unchanged, so the GPT detection instructions are byte-identical. New cache key for every JEV detection question: the detection baseline is re-measured."
    },
    {
     "version": "2.1.0",
     "date": "2026-10-07",
-    "note": "122 (GPT round approved on 2026-10-07): (1) backlog Q-gpt-foreign-receipt (the owner's decision of 2026-10-02 'fix the type description'): the receipt's first clause - the one GPT is shown - names the Hungarian issuer and sends a foreign business's receipt to invoice_foreign, as invoice_foreign already says; receipt.not_for and an invoice_foreign example say the same. (2) backlog F-pro-forma (the owner's decision of 2026-10-02 'new type: pro forma invoice'): new type proforma_invoice in the invoice family; invoice_hu and payment_reminder point to it. New cache key for every detection question: the detection baseline is re-measured."
+    "note": "GPT round approved on 2026-10-07: (1) (the owner's decision of 2026-10-02 'fix the type description'): the receipt's first clause - the one GPT is shown - names the Hungarian issuer and sends a foreign business's receipt to invoice_foreign, as invoice_foreign already says; receipt.not_for and an invoice_foreign example say the same. (2) (the owner's decision of 2026-10-02 'new type: pro forma invoice'): new type proforma_invoice in the invoice family; invoice_hu and payment_reminder point to it. New cache key for every detection question: the detection baseline is re-measured."
    },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "moved out of the Python constants (ROADMAP §1 config as data); the content unchanged; the Upwork policy of 2026-09-20 in the two invoice descriptions"
+    "note": "moved out of the Python constants (config as data); the content unchanged; the Upwork policy of 2026-09-20 in the two invoice descriptions"
    },
    {
     "version": "2.0.0",
     "date": "2026-09-20",
-    "note": "registry schema v2 (BACKLOG registry schema): description -> what + not_for + examples + parent (families: invoice_like, contract_like, bank_like, official_like, other); the Choice criterion is a structured object; the descriptions' content unchanged, not_for points to the sibling types"
+    "note": "registry schema v2 (registry schema): description -> what + not_for + examples + parent (families: invoice_like, contract_like, bank_like, official_like, other); the Choice criterion is a structured object; the descriptions' content unchanged, not_for points to the sibling types"
    },
    {
     "version": "2.0.1",
     "date": "2026-09-29",
-    "note": "066 Á13: anonymisation - a real tax number in an example replaced with an invented value with a valid check digit (the criterion means the same; a new cache key, a recognition golden run needed)"
+    "note": "Anonymisation - a real tax number in an example replaced with an invented value with a valid check digit (the criterion means the same; a new cache key, a recognition golden run needed)"
    }
   ]
  },

@@ -6,22 +6,22 @@
    {
     "version": "1.3.0",
     "date": "2026-10-06",
-    "note": "120 (silent content errors): distinct_parties role-pair check(s) supplier_name/customer_name; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
+    "note": "Silent content errors: distinct_parties role-pair check(s) supplier_name/customer_name; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
    },
    {
     "version": "1.2.0",
     "date": "2026-09-28",
-    "note": "053 T3.0/T3.2: invoice line items - the line_items list with the GPT schema's item fields (the prompt and the schema unchanged, the extraction costs no more); line item checks in code: line_items_total (the items' sum = the total) and line_items_arithmetic (per row quantity × unit price ≈ net, net × (1 + VAT rate) ≈ gross)"
+    "note": "Invoice line items - the line_items list with the GPT schema's item fields (the prompt and the schema unchanged, the extraction costs no more); line item checks in code: line_items_total (the items' sum = the total) and line_items_arithmetic (per row quantity × unit price ≈ net, net × (1 + VAT rate) ≈ gross)"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "047 T1.2: parent and the legacy detect.json's keywords for choosing the detailed type (source: 10_AIFLOW_V4/flows/doc-extract-bare/types/villamos_energia_szamla/detect.json, sha256 4c8348b119ce90c2); the extraction unchanged"
+    "note": "Parent and the legacy detect.json's keywords for choosing the detailed type (source: 10_AIFLOW_V4/flows/doc-extract-bare/types/villamos_energia_szamla/detect.json, sha256 4c8348b119ce90c2); the extraction unchanged"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "tipus-csomag (BACKLOG 1, kozmu-kor): magyar villamos energia elszamolo szamla (MVM Next / ELMU) a regi projektbol - extends utility_bill_hu; a gyermek-mezok a regi schema.json sorrendjeben (distribution_licensee: name; metering_point_id / meter_serial / tariff / reading_method: text; meroallasok es fogyasztas: number); required + consumption_kwh, vat_consistency (regi rules.json); nem pontozott: metering_point_id, meter_serial; prompt es sema verbatim; tariff cimkes szoveg-jelolt (Arszabas), reading_method zart Choice (Leol / Becs / Dikt / EII) a select_utility hivasi helyen"
+    "note": "Type pack: a Hungarian electricity settlement bill (MVM Next / ELMU) from the legacy project - extends utility_bill_hu; the child fields in the legacy schema.json's order (distribution_licensee: name; metering_point_id, meter_serial, tariff, reading_method: text; the meter readings and the consumption: number); required + consumption_kwh, vat_consistency (legacy rules.json); not scored: metering_point_id, meter_serial; the prompt and the schema verbatim; tariff a labelled text candidate, reading_method a closed Choice (Leol / Becs / Dikt / EII) at the select_utility call site"
    }
   ],
   "source": "10_AIFLOW_V4/flows/doc-extract-bare/types/villamos_energia_szamla (config version 1.0.1, 2026-09-07; prompt sha256 80ce141017c52228, schema 2ef510cbe207824a; regi mert scan micro 0.9684 = 184/190 gpt-4o + tesseract)"

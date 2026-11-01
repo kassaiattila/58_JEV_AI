@@ -6,17 +6,17 @@
    {
     "version": "1.2.0",
     "date": "2026-10-28",
-    "note": "231 (stage U, U-A7): the meaning of the request's new field, whether the loss of rental income is to be covered."
+    "note": "The meaning of the request's new field, whether the loss of rental income is to be covered."
    },
    {
     "version": "1.1.0",
     "date": "2026-10-27",
-    "note": "231 (stage U, U-A6): the meanings of the request's three new fields (the chosen deductible, the contract term, the waiting days). A new question for a request stating them."
+    "note": "The meanings of the request's three new fields (the chosen deductible, the contract term, the waiting days). A new question for a request stating them."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-26",
-    "note": "231 (stage D, D-e1): the G-path verification of an insurance quote request form. It inherits `verify` for the shared document guard and the request size budget; its own question texts name the document, it asks no invoice question (document_nouls empty), and each list is asked about missing and extra rows (list_nouls)."
+    "note": "The G-path verification of an insurance quote request form. It inherits `verify` for the shared document guard and the request size budget; its own question texts name the document, it asks no invoice question (document_nouls empty), and each list is asked about missing and extra rows (list_nouls)."
    }
   ]
  },

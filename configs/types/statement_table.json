@@ -6,17 +6,17 @@
    {
     "version": "1.2.0",
     "date": "2026-10-11",
-    "note": "144 (DECISIONS 144): the transaction facts a bank prints beyond the money, read by code: the bank's reference (bank_reference), the order id (order_id), the parties' end-to-end id (end_to_end_id), a card purchase's masked card number (card_number: first six and last four digits), its day and time (purchase_date, transaction_time), the terminal and the authorisation code (terminal, authorisation_code), the exchange rate and the fee as the bank prints them (exchange_rate, fee). A line keeps only the ones its statement prints. The reconciliation shows them; no check or proposal depends on them."
+    "note": "The transaction facts a bank prints beyond the money, read by code: the bank's reference (bank_reference), the order id (order_id), the parties' end-to-end id (end_to_end_id), a card purchase's masked card number (card_number: first six and last four digits), its day and time (purchase_date, transaction_time), the terminal and the authorisation code (terminal, authorisation_code), the exchange rate and the fee as the bank prints them (exchange_rate, fee). A line keeps only the ones its statement prints. The reconciliation shows them; no check or proposal depends on them."
    },
    {
     "version": "1.1.0",
     "date": "2026-10-10",
-    "note": "137 (DECISIONS 137): two transaction columns for a card purchase in another currency, read by code from the month's PDF statement of a ledger export (the Erste XML): original_amount and original_currency. The reconciliation compares such a line with an invoice of that currency on its original amount."
+    "note": "Two transaction columns for a card purchase in another currency, read by code from the month's PDF statement of a ledger export (the Erste XML): original_amount and original_currency. The reconciliation compares such a line with an invoice of that currency on its original amount."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-10",
-    "note": "136 E4 (DECISIONS 132, 136): a bank or card account statement exported as a table (a workbook or a CSV file), read by code without AI (jav/statement_table.py, jav/flow_statement_table.py). The fields, list fields, enumerations, required fields and checks are those of the bank statement packs (statement_cib, statement_erste); the schema and prompt files are theirs too and are never sent, as the code path calls no model. Not offered to detection (auto_detect false): an account's statement file is added to a work package from a chosen export."
+    "note": "A bank or card account statement exported as a table (a workbook or a CSV file), read by code without AI (jav/statement_table.py, jav/flow_statement_table.py). The fields, list fields, enumerations, required fields and checks are those of the bank statement packs (statement_cib, statement_erste); the schema and prompt files are theirs too and are never sent, as the code path calls no model. Not offered to detection (auto_detect false): an account's statement file is added to a work package from a chosen export."
    }
   ]
  },

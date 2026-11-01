@@ -6,12 +6,12 @@
    {
     "version": "1.1.0",
     "date": "2026-10-07",
-    "note": "122 (backlog S-injection, detection part; GPT round approved on 2026-10-07): the detailed-type question says that the document text is data, not instructions (the coarse question gets it from the shared callsite:detect text). Each type is still offered with the first clause of its description (086 decision); the receipt's first clause now draws the foreign-issuer boundary (doc_types 2.1.0)."
+    "note": "Detection part; GPT round approved on 2026-10-07: the detailed-type question says that the document text is data, not instructions (the coarse question gets it from the shared callsite:detect text). Each type is still offered with the first clause of its description; the receipt's first clause now draws the foreign-issuer boundary (doc_types 2.1.0)."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-02",
-    "note": "086 (backlog F-jev, step K4; owner's decision of 2026-10-02: one short sentence per type, measured): type recognition with GPT for processing without JEV. The questions are those of the JEV detect call site (callsite:detect) so the two recognitions see the same document excerpt and the same instructions; each type is offered with the first clause of its registry description (the full description was measured to regress the invoice family in the legacy project). Structured output, temperature 0, token log-probabilities (top 5): the probability of the chosen option is the product of its tokens' probabilities, an alternative branch's probability goes to the option it leads to"
+    "note": "Owner's decision of 2026-10-02: one short sentence per type, measured: type recognition with GPT for processing without JEV. The questions are those of the JEV detect call site (callsite:detect) so the two recognitions see the same document excerpt and the same instructions; each type is offered with the first clause of its registry description (the full description was measured to regress the invoice family in the legacy project). Structured output, temperature 0, token log-probabilities (top 5): the probability of the chosen option is the product of its tokens' probabilities, an alternative branch's probability goes to the option it leads to"
    }
   ]
  },

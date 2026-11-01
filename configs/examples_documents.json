@@ -1,19 +1,24 @@
 {
   "meta": {
     "name": "examples_documents",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "date": "2026-10-28",
-    "description": "231 (stage U, U1e; the owner's decision of 2026-10-28): the invented documents a case of the documents process can start on: the invented invoices, credit notes and receipts of configs/golden_synthetic.json and the invented customers' quote requests on a printed form of configs/golden_quotes.json, each as the measurement prints it (jav/evals/document_examples.py; `python -m jav.cli examples --set documents --write`). Every name and number is invented.",
+    "description": "The owner's decision of 2026-10-28: the invented documents a case of the documents process can start on: the invented invoices, credit notes and receipts of configs/golden_synthetic.json and the invented customers' quote requests on a printed form of configs/golden_quotes.json, each as the measurement prints it (jav/evals/document_examples.py; `python -m jav.cli examples --set documents --write`). Every name and number is invented.",
     "changelog": [
+      {
+        "version": "1.1.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-28",
-        "note": "231 U1e: a fourth packet, the invented consultancy's invoices (and a credit note) the reconciliation's example pairs with its statements."
+        "note": "A fourth packet, the invented consultancy's invoices (and a credit note) the reconciliation's example pairs with its statements."
       },
       {
         "version": "1.0.0",
         "date": "2026-10-28",
-        "note": "231 U1e: three packets: invoices, foreign invoices and receipts, quote requests."
+        "note": "Three packets: invoices, foreign invoices and receipts, quote requests."
       }
     ]
   },

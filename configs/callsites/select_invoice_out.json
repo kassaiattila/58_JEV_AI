@@ -6,17 +6,17 @@
    {
     "version": "1.1.0",
     "date": "2026-10-12",
-    "note": "152: the account question no longer asks for the IBAN when the same account is printed in both forms. The candidate finder lists such an account once, in the form it saw first (usually the domestic one), so the JEV split between that only option and 'none': 31 of the 43 real outgoing invoices of the 151 measurement got a low-confidence to-do, every one of them printing both forms. The question now says the two forms are one account listed once."
+    "note": "The account question no longer asks for the IBAN when the same account is printed in both forms. The candidate finder lists such an account once, in the form it saw first (usually the domestic one), so the JEV split between that only option and 'none': most outgoing invoices of a measurement got a low-confidence to-do, every one of them printing both forms. The question now says the two forms are one account listed once."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-12",
-    "note": "151 (backlog F-outgoing-invoice-S-path; DECISIONS 151): the S path's questions for an outgoing invoice, on the pattern of select_foreign with the roles turned round: the SUPPLIER is the issuer, our own company; the BUYER is the customer, Hungarian or foreign (an EU VAT number). Hungarian and English layouts (Issuer / Kiallito, Customer / Vevo, two columns sharing lines with the invoice details), 'Szamlaszam' followed by a short code as the invoice number, the delivery date as the fulfilment date, a foreign billing currency with a VAT summary converted into HUF (a tax-reporting conversion, not the totals), an invoicing service named in the footer that is neither party, E-AAC / AAM / reverse charge as a VAT of 0. No own data: every example value is invented."
+    "note": "The S path's questions for an outgoing invoice, on the pattern of select_foreign with the roles turned round: the SUPPLIER is the issuer, our own company; the BUYER is the customer, Hungarian or foreign (an EU VAT number). Hungarian and English layouts (Issuer / Kiallito, Customer / Vevo, two columns sharing lines with the invoice details), 'Szamlaszam' followed by a short code as the invoice number, the delivery date as the fulfilment date, a foreign billing currency with a VAT summary converted into HUF (a tax-reporting conversion, not the totals), an invoicing service named in the footer that is neither party, E-AAC / AAM / reverse charge as a VAT of 0. No own data: every example value is invented."
    },
    {
     "version": "1.2.0",
     "date": "2026-10-22",
-    "note": "202 (plan G-core-generalisation M2a): the call site states what the code used to infer from a request's name or fill in itself: the money request's payment-method lines. The requests sent to JEV are unchanged."
+    "note": "The call site states what the code used to infer from a request's name or fill in itself: the money request's payment-method lines. The requests sent to JEV are unchanged."
    }
   ]
  },

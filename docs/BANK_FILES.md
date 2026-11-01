@@ -6,7 +6,7 @@
 
 Which bank files the system reads, and how. A file read by code costs nothing, gives the same result every time and checks itself by its balances. A PDF statement no code reads is extracted by AI, paid within the run's budget. Bring statements in with a Bank statements package: its survey shows, before anything is stored, which reader takes each file.
 
-Catalogue version 1.0.0. The interface shows the same list under New work package › Bank statements.
+Catalogue version 1.0.1. The interface shows the same list under New work package › Bank statements.
 
 | File | Bank | Read by | File types | Checks |
 |---|---|---|---|---|

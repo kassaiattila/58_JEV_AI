@@ -1,10 +1,15 @@
 {
   "meta": {
     "name": "example_mailboxes",
-    "version": "1.0.0",
-    "description": "231 (stage U, U1e; the owner's decision of 2026-10-28): the invented mailboxes the mailbox download and the email routing are tried on (jav/domains/email/mailbox_examples.py). A download of an invented mailbox's address is served by the invented bridge instead of Outlook: it sends each message of the requested folders (Inbox, Sent Items) and period to the system's own email receiver, as the Outlook bridge does, its attachments printed as PDFs. A message is written here, or taken from a golden set (`golden`: the set and its case, the email with its printed attachments); an attachment is a golden set's printed document. Every address is invented (the .example domain is reserved); the consultancy is the invented own party of example_parties.json, and its two sent emails carry two of its invented invoices.",
+    "version": "1.0.1",
+    "description": "The owner's decision of 2026-10-28: the invented mailboxes the mailbox download and the email routing are tried on (jav/domains/email/mailbox_examples.py). A download of an invented mailbox's address is served by the invented bridge instead of Outlook: it sends each message of the requested folders (Inbox, Sent Items) and period to the system's own email receiver, as the Outlook bridge does, its attachments printed as PDFs. A message is written here, or taken from a golden set (`golden`: the set and its case, the email with its printed attachments); an attachment is a golden set's printed document. Every address is invented (the .example domain is reserved); the consultancy is the invented own party of example_parties.json, and its two sent emails carry two of its invented invoices.",
     "changelog": [
-      {"version": "1.0.0", "date": "2026-10-28", "note": "231 (U1e): the invented consultancy's mailbox: two invoices it sent (March and June 2026), a customer's payment notice and an invented customer's quote request."}
+      {"version": "1.0.0", "date": "2026-10-28", "note": "The invented consultancy's mailbox: two invoices it sent (March and June 2026), a customer's payment notice and an invented customer's quote request."},
+      {
+        "version": "1.0.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      }
     ]
   },
   "mailboxes": [

@@ -6,12 +6,12 @@
       {
         "version": "1.0.0",
         "date": "2026-09-28",
-        "note": "045 K3b: the label dictionary of the source place search (a port of the V4 sidecar/app/grounding/context.py _SCALAR, without accents, in lower case). When a value stands in more than one place, the field's label at the line's start or right above it decides; without a clear label there is no box. The general labels (e.g. ‘Adószám’) confirm both parties' fields as a group (label_groups)."
+        "note": "The label dictionary of the source place search (a port of the V4 sidecar/app/grounding/context.py _SCALAR, without accents, in lower case). When a value stands in more than one place, the field's label at the line's start or right above it decides; without a clear label there is no box. The general labels (e.g. ‘Adószám’) confirm both parties' fields as a group (label_groups)."
       },
       {
         "version": "1.1.0",
         "date": "2026-10-02",
-        "note": "092 (the owner's report: fields without a source box): a value may run over up to multi_line_max_lines lines of one column; an address may also be found with its words in another order inside one column block (address_unordered); the country field's code is matched against the printed country name (countries: ISO 3166-1 alpha-2 code -> folded English, Hungarian and native names); address labels; English date labels; a party heading (seller / buyer) also supports that party's address, tax number and country. Box-only change: nothing sent to a model changes."
+        "note": "The owner's report: fields without a source box: a value may run over up to multi_line_max_lines lines of one column; an address may also be found with its words in another order inside one column block (address_unordered); the country field's code is matched against the printed country name (countries: ISO 3166-1 alpha-2 code -> folded English, Hungarian and native names); address labels; English date labels; a party heading (seller / buyer) also supports that party's address, tax number and country. Box-only change: nothing sent to a model changes."
       }
     ]
   },

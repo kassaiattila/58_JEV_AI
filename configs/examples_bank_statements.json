@@ -1,13 +1,18 @@
 {
   "meta": {
     "name": "examples_bank_statements",
-    "version": "1.0.0",
-    "description": "231 (stage U, U1e; the owner's decision of 2026-10-28): the bank statements process's invented statements, one packet per invented own party of configs/example_parties.json: each month's statement of its accounts as a bank's ISO 20022 camt.053 XML file, its balances and totals computed by code (jav/domains/finance/party_examples.py). Made by `python -m jav.cli examples --set bank_statements --write`; nothing in it is real.",
+    "version": "1.0.1",
+    "description": "The owner's decision of 2026-10-28: the bank statements process's invented statements, one packet per invented own party of configs/example_parties.json: each month's statement of its accounts as a bank's ISO 20022 camt.053 XML file, its balances and totals computed by code (jav/domains/finance/party_examples.py). Made by `python -m jav.cli examples --set bank_statements --write`; nothing in it is real.",
     "changelog": [
       {
         "version": "1.0.0",
         "date": "2026-10-28",
-        "note": "231 (U1e): the invented consultancy's four statements, March to June 2026."
+        "note": "The invented consultancy's four statements, March to June 2026."
+      },
+      {
+        "version": "1.0.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
       }
     ]
   },

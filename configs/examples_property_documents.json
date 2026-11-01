@@ -1,14 +1,19 @@
 {
   "meta": {
     "name": "examples_property_documents",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "date": "2026-10-27",
-    "description": "231 (stage U, U0; the owner's decisions of 2026-10-27): the invented documents a business property insurance case can start on, in packets, as a process's example material (`configs/processes/<id>.json` `examples.documents`). Each document is its printed pages, made from the golden set `configs/golden_property_documents.json` as the measurement prints it (`python -m jav.cli examples --write`; a test keeps them the same). The packets' titles are the interface's (English source, translated). Every name and number is invented.",
+    "description": "The owner's decisions of 2026-10-27: the invented documents a business property insurance case can start on, in packets, as a process's example material (`configs/processes/<id>.json` `examples.documents`). Each document is its printed pages, made from the golden set `configs/golden_property_documents.json` as the measurement prints it (`python -m jav.cli examples --write`; a test keeps them the same). The packets' titles are the interface's (English source, translated). Every name and number is invented.",
     "changelog": [
       {
         "version": "1.0.0",
         "date": "2026-10-27",
-        "note": "231 U0: the eight sets of the golden set as packets, with titles a person picks from."
+        "note": "The eight sets of the golden set as packets, with titles a person picks from."
+      },
+      {
+        "version": "1.0.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
       }
     ]
   },
