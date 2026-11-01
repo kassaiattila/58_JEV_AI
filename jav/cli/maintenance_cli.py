@@ -13,7 +13,8 @@ from jav.cli.cli_options import budget_args
 
 def _refresh_jev_version() -> None:
     """200: the daily backup looks where JEV's moving name points (one tiny probe a day); a failure never fails the
-    backup. The pinned version keeps answering; a newer one is only reported (`jav/ai/jev_version.py`)."""
+    backup. The pinned version keeps answering; a newer one is only reported (`jav/ai/jev_version.py`). 272 (K1a): the
+    probe spends from its own daily JEV budget (`configs/service.json` `backup.jev_version_usd`), through the call log."""
     import logging
 
     from jav.ai import jev_version
