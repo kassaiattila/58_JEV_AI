@@ -732,6 +732,20 @@ def scopes_under(prefix: str) -> list[str]:
             " GROUP BY budget_scope ORDER BY first", (escaped + "%",))]
 
 
+def scope_costs(scopes: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """265 (code review APPW-08): the calls of several budgets with only what a cost view adds up (provider, note,
+    cost, reserved maximum), in one query; `scope_journal` read every column of each budget separately."""
+    if not scopes:
+        return {}
+    with store.connect() as c:
+        rows = c.execute("SELECT budget_scope, provider, note, cost_usd, max_cost_usd FROM invocations WHERE budget_scope IN"
+                         f" ({','.join('?' * len(scopes))}) ORDER BY id", tuple(scopes)).fetchall()
+    out: dict[str, list[dict[str, Any]]] = {s: [] for s in scopes}
+    for r in rows:
+        out[r["budget_scope"]].append(dict(r))
+    return out
+
+
 def scope_journal(scope: str) -> list[dict[str, Any]]:
     """All calls of one budget (run), regardless of items: for the run's cost view (040 K2)."""
     with store.connect() as c:

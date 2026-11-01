@@ -334,10 +334,13 @@ def _cost(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, 
     an earlier one (free); a call without a known cost is held apart at its reserved maximum. Money as text."""
     pack = process_runtime.pack_for(case_id)
     lines, total = [], Decimal("0")
-    for step in pack.steps if pack else ():
+    steps = list(pack.steps) if pack else []
+    scopes = {step.id: list(capabilities.step_scopes(case_id, step.id, step.uses)) for step in steps}
+    journal = calls.scope_costs(sorted({s for found in scopes.values() for s in found}))  # 265 (APPW-08): one query
+    for step in steps:
         by: dict[str, dict[str, Any]] = {}
-        for scope in capabilities.step_scopes(case_id, step.id, step.uses):
-            for call in calls.scope_journal(scope):
+        for scope in scopes[step.id]:
+            for call in journal.get(scope, []):
                 line = by.setdefault(call["provider"], {"calls": 0, "reused": 0, "cost": Decimal("0"),
                                                         "open": Decimal("0")})
                 if calls.is_reused(call.get("note")):  # 265 (APPW-11): the run's cost view counts it alike
