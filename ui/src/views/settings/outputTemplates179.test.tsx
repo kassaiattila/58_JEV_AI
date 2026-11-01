@@ -107,7 +107,7 @@ describe("Settings › Output templates (179)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Upload and check" }));
     await waitFor(() => expect(window.location.hash).toBe("#/settings/outputs/tpl-0123456789"));  // back to the template's page
     expect(upload).toHaveBeenCalledWith({ output: "package_result", name: "Board report", path: "D:\\Synthetic\\board2.xlsx", template: "tpl-0123456789" });
-    expect(load).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));  // the list reloads after the hash changed (274: under load, later)
   });
 
   it("makes a version active and retires the active one (with a confirmation)", async () => {
