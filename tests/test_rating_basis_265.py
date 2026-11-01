@@ -55,6 +55,9 @@ def test_a_module_that_prices_no_unit_gives_no_premium_and_no_minimum() -> None:
     result = rating.calculate(TARIFF, "invented_tariff@1", checked, evaluation, modules=("burglary",))
     assert result.total is None and result.lines == ()
     assert "the module burglary prices no unit, so its minimum is not charged" in result.blockers, result.blockers
+    # 272 (K3, the rest of APPR-01): nor is the minimum said to apply beside that blocker (the case page showed both)
+    assert result.modules["burglary"]["minimum_applied"] is False
+    assert result.modules["burglary"]["total"] == HUF(0)
 
 
 def test_the_review_s_case_asks_for_the_interruption_sum_instead_of_charging_the_minimum() -> None:
