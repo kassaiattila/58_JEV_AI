@@ -4,11 +4,11 @@
 - X-09: the native progress read the flow-state store through a connection it never closed.
 - TOOL-17: the dependency audit's status went into the program folder, not the data folder.
 - TOOL-19: the language guard skipped a text file that is not UTF-8, so Hungarian text could pass in another encoding.
+272 (K5): the first two are checked by what the code does, not by its source text; UTF-16 is read too.
 """
 
 from __future__ import annotations
 
-import inspect
 from pathlib import Path
 
 from jav.core import store
@@ -21,13 +21,46 @@ from jav.runtime import deps_audit
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_the_flow_state_store_switches_to_wal_with_the_retry() -> None:
-    assert "store.ensure_wal(connection)" in inspect.getsource(persistence)
-    assert callable(store.ensure_wal)
+def test_the_flow_state_store_switches_to_wal_with_the_retry(tmp_path, monkeypatch) -> None:
+    """272 (K5): by what the store does, not by its source text."""
+    asked: list[object] = []
+    real = store.ensure_wal
+    monkeypatch.setattr(store, "ensure_wal", lambda c: asked.append(c) or real(c))
+    persister = persistence.ClosingSQLitePersister(str(tmp_path / "burr_state.sqlite"))
+    try:
+        assert len(asked) == 1
+        assert persister.connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
+    finally:
+        persister.connection.close()
 
 
-def test_the_native_progress_closes_its_flow_state_connection() -> None:
-    assert "contextlib.closing(sqlite3.connect(" in inspect.getsource(native_results)
+def test_the_native_progress_closes_its_flow_state_connection(tmp_path, monkeypatch) -> None:
+    """272 (K5): the connection to the flow-state store is closed once read (a source-text check before)."""
+    import sqlite3
+    from types import SimpleNamespace
+
+    opened: list[object] = []
+
+    class _Tracked:
+        def __init__(self, conn) -> None:
+            self.conn, self.closed = conn, False
+            opened.append(self)
+
+        def execute(self, *a):
+            return self.conn.execute(*a)
+
+        def close(self) -> None:
+            self.closed = True
+            self.conn.close()
+
+    with store.use_store(tmp_path / "jav.sqlite"):
+        burr = sqlite3.connect(tmp_path / "burr_state.sqlite")
+        burr.execute("CREATE TABLE burr_state (partition_key TEXT, app_id TEXT, sequence_id INTEGER, state TEXT)")
+        burr.commit()
+        burr.close()
+        monkeypatch.setattr(native_results, "sqlite3", SimpleNamespace(connect=lambda *a, **k: _Tracked(sqlite3.connect(*a, **k))))
+        native_results.unpublished_state("run-x", "item-x")
+    assert len(opened) == 1 and opened[0].closed
 
 
 def test_the_audit_status_is_in_the_data_folder() -> None:
