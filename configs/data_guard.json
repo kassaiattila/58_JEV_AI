@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.16",
+    "version": "1.0.17",
     "description": "The data guard (jav/devtools/data_guard.py): a personal-data and key guard before a commit and a push. A check digit filters the patterns (tax number, IBAN, bank account); invented and public company values are on the allow list in readable form, the own data kept by the owner's decision on the known list only as a sha256 tied to a file, and the forbidden phrases (an own company name, a user name) only as a sha256.",
     "changelog": [
+      {
+        "version": "1.0.17",
+        "date": "2026-11-01",
+        "note": "requirements-dev.txt, the development tools' list beside requirements.txt, is an allowed path too."
+      },
       {
         "version": "1.0.16",
         "date": "2026-11-01",
@@ -96,7 +101,8 @@
   ],
   "allowed_paths": [
     ".env.example",
-    "requirements.txt"
+    "requirements.txt",
+    "requirements-dev.txt"
   ],
   "blocked_paths": [
     ".env",

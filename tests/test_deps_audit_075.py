@@ -68,7 +68,7 @@ def test_run_writes_status_and_verdict_passes_when_clean(fake_tools, monkeypatch
     assert current["finding_count"] == 0 and not current["errors"] and not current["stale"]
     ok, line = deps_audit.verdict(current)
     assert ok and "0 known vulnerabilities in 2 Python and 137 UI packages" in line
-    assert any("requirements.lock" in cmd for cmd in calls)
+    assert any("requirements-dev.lock" in cmd for cmd in calls)  # 265 (TOOL-16): the runtime and the development tools
 
 
 def test_a_finding_fails_the_verdict(fake_tools, monkeypatch):

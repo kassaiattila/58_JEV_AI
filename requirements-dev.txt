@@ -1,0 +1,9 @@
+# The development tools beside the runtime packages (265, code review TOOL-16): the offline tests, property-based
+# tests with random inputs, coverage, and the full check's parallel test processes (jav/devtools/preflight.py).
+# Install from the locked file with its hashes: uv pip install --require-hashes -r requirements-dev.lock
+-r requirements.txt
+
+pytest
+hypothesis
+pytest-cov
+pytest-xdist

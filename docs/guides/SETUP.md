@@ -10,12 +10,14 @@ This guide lists what a machine needs to run the project. Git holds only the sou
 
 ```powershell
 uv venv --python 3.12.15 .venv   # the latest 3.12 patch release; uv fetches it if it is missing (an older uv may not know it: uv self update)
-uv pip install -r requirements.lock
+uv pip install --require-hashes -r requirements-dev.lock   # the runtime packages and the development tools, each with its hash
 .\.venv\Scripts\Activate.ps1
 python -m jav.cli hooks-install      # data guard: a check before every commit and push; once per clone
 uv tool install ruff==0.16.4         # the code check, in the version preflight counts with (pyproject.toml, ruff_version)
 python -m jav.cli preflight          # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
 ```
+
+**Package lists.** `requirements.txt` names the runtime packages, `requirements-dev.txt` adds the test tools; `requirements.lock` and `requirements-dev.lock` pin every package with its hashes, so an install refuses a package that differs from the one locked. A machine that only runs the service may install `requirements.lock`. A list change is locked again with the current pins as constraints, so nothing else moves: `uv pip compile requirements-dev.txt --generate-hashes -c requirements-dev.lock --python-version 3.12 --python-platform windows --no-header --no-annotate -o requirements-dev.lock` (and the same for `requirements.txt` into `requirements.lock`).
 
 **Data guard.** `hooks-install` points git at the versioned hooks in `scripts/githooks/` (through `core.hooksPath`). From then on a check runs before every commit and push, and stops the operation if the lines going into git contain personal data or a key: for example a real-looking tax number, bank account number, email address or phone number, or a key from `.env`. It also stops the operation if an internal working document, a document file, an image or a database would go into git. Until the hooks are installed, the start-up check (`preflight`) reports a failure. `python -m jav.cli data-guard` reviews the files already under version control. The rules: [DEVELOPMENT §1](DEVELOPMENT.md).
 
