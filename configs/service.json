@@ -6,17 +6,17 @@
       {
         "version": "1.12.0",
         "date": "2026-10-29",
-        "note": "231 (stage E, E4; the owner's decisions of 2026-10-29): `metrics`, the measurements of the long-running processes into a local file (`folder` under the data folder's runs), off by default."
+        "note": "The owner's decisions of 2026-10-29: `metrics`, the measurements of the long-running processes into a local file (`folder` under the data folder's runs), off by default."
       },
       {
         "version": "1.11.0",
         "date": "2026-10-29",
-        "note": "231 (stage E, E1; the owner's decisions of 2026-10-29): `workers`, how many workers may run on the store at once (one by default; each takes its own slot, and only the first runs the scheduled ticks)."
+        "note": "The owner's decisions of 2026-10-29: `workers`, how many workers may run on the store at once (one by default; each takes its own slot, and only the first runs the scheduled ticks)."
       },
       {
         "version": "1.10.0",
         "date": "2026-10-25",
-        "note": "231 (the owner's decision after a deleted project folder): the daily backup also takes the machine's local settings (.env with the keys and the second backup location) into local-env.zip, locally and in the second location (backup.with_env: true)."
+        "note": "The owner's decision after a deleted project folder: the daily backup also takes the machine's local settings (.env with the keys and the second backup location) into local-env.zip, locally and in the second location (backup.with_env: true)."
       },
       {
         "version": "1.9.1",
@@ -26,52 +26,52 @@
       {
         "version": "1.0.0",
         "date": "2026-09-27",
-        "note": "040 K2: the local service's limits. It answers only the own machine (a loopback address, Host and Origin checks), a request's body is limited, and documents can be added only from the allowed root folders."
+        "note": "The local service's limits. It answers only the own machine (a loopback address, Host and Origin checks), a request's body is limited, and documents can be added only from the allowed root folders."
       },
       {
         "version": "1.1.0",
         "date": "2026-09-28",
-        "note": "045 K3b: the interface's confidence bands (the values of the V4 fieldConfidence.ts): >= 0.90 confident, >= 0.50 to check, below likely wrong. Display only; the working thresholds stay in policy.json."
+        "note": "The interface's confidence bands (the values of the V4 fieldConfidence.ts): >= 0.90 confident, >= 0.50 to check, below likely wrong. Display only; the working thresholds stay in policy.json."
       },
       {
         "version": "1.2.0",
         "date": "2026-09-28",
-        "note": "061 decision (the owner's): folders and files without a limit — any existing local folder or file may be given, as in the legacy project. The limit can be turned back on with restrict_paths: true; then a path must fall under allowed_roots (+ the legacy data folder, + JAV_API_ROOTS)."
+        "note": "The owner's decision: folders and files without a limit — any existing local folder or file may be given, as in the legacy project. The limit can be turned back on with restrict_paths: true; then a path must fall under allowed_roots (+ the legacy data folder, + JAV_API_ROOTS)."
       },
       {
         "version": "1.3.0",
         "date": "2026-09-29",
-        "note": "064 decision (the owner's): a daily store backup at 12:00 (Windows Task Scheduler, scripts/backup-task.ps1), locally and in a second place, the latest 14 backups kept in both. The process state store is not backed up by default (with_burr: false). The interface warns when the latest successful backup is older than max_age_hours."
+        "note": "The owner's decision: a daily store backup at 12:00 (Windows Task Scheduler, scripts/backup-task.ps1), locally and in a second place, the latest 14 backups kept in both. The process state store is not backed up by default (with_burr: false). The interface warns when the latest successful backup is older than max_age_hours."
       },
       {
         "version": "1.4.0",
         "date": "2026-09-29",
-        "note": "067 (the owner's decision: a size and a pixel limit): input limits for every entry point (interface, command line, worker). Text extraction refuses a file larger than max_document_mb and a PDF with more pages than max_document_pages with a named error (the largest of the local store's 988 documents has 37 pages). The review page image is made at a lower resolution above max_page_megapixels, and text recognition does not process such a page (a to-do)."
+        "note": "The owner's decision: a size and a pixel limit: input limits for every entry point (interface, command line, worker). Text extraction refuses a file larger than max_document_mb and a PDF with more pages than max_document_pages with a named error (the largest of the local store's 988 documents has 37 pages). The review page image is made at a lower resolution above max_page_megapixels, and text recognition does not process such a page (a to-do)."
       },
       {
         "version": "1.5.0",
         "date": "2026-09-29",
-        "note": "067 (066 Á34): the browser origin by an exact match: the service's own address (the same machine and port as the request's), or a development interface on the dev_origins list (Vite, 5173). Until now a page on any local port was accepted."
+        "note": "The browser origin by an exact match: the service's own address (the same machine and port as the request's), or a development interface on the dev_origins list (Vite, 5173). Until now a page on any local port was accepted."
       },
       {
         "version": "1.6.0",
         "date": "2026-09-30",
-        "note": "070 D backup (the owner's decision): the internal working documents (handoffs, plans, reports, backlog, decisions log; jav/doc_scope.py) are not in git since 2026-09-29, so the daily backup takes them too (with_docs: true), in one compressed file, locally and in the second place."
+        "note": "The owner's decision: the internal working documents (the session notes, plans, reports and decisions log; jav/doc_scope.py) are not in git since 2026-09-29, so the daily backup takes them too (with_docs: true), in one compressed file, locally and in the second place."
       },
       {
         "version": "1.7.0",
         "date": "2026-09-30",
-        "note": "076: backup.copy_to is null in the tracked file; a machine's second backup location comes from the JAV_BACKUP_COPY_TO environment variable (.env), so no local path goes to GitHub."
+        "note": "Backup.copy_to is null in the tracked file; a machine's second backup location comes from the JAV_BACKUP_COPY_TO environment variable (.env), so no local path goes to GitHub."
       },
       {
         "version": "1.8.0",
         "date": "2026-09-30",
-        "note": "077 (J6): the PDF parsers (text layer, OCR page images, review page images) run in an isolated helper process (jav/isolated_pdf.py) with a time limit per request and a memory limit. Over a limit the text extraction fails the item with a named error, without a retry; the OCR page images give a to-do; the review page image a 422. isolated: false runs them in-process, as before."
+        "note": "The PDF parsers (text layer, OCR page images, review page images) run in an isolated helper process (jav/isolated_pdf.py) with a time limit per request and a memory limit. Over a limit the text extraction fails the item with a named error, without a retry; the OCR page images give a to-do; the review page image a 422. isolated: false runs them in-process, as before."
       },
       {
         "version": "1.9.0",
         "date": "2026-10-01",
-        "note": "081 (folder browsing): the Browse buttons open the operating system's own folder or file picker through the local service (jav/local_picker.py), in a separate process, one dialog at a time; a dialog left open longer than picker.timeout_s counts as cancelled."
+        "note": "Folder browsing: the Browse buttons open the operating system's own folder or file picker through the local service (jav/local_picker.py), in a separate process, one dialog at a time; a dialog left open longer than picker.timeout_s counts as cancelled."
       }
     ]
   },

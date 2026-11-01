@@ -8,7 +8,7 @@ Its own command runs separately from application ingestion, workers, review and 
 
 ## Run a local experiment
 
-Use a separate Windows checkout and virtual environment. The shared `requirements.lock` pins the measured native dependencies: `python-docx==1.2.0`, `lxml==6.0.2` and `defusedxml==0.7.1`; install that lockfile as described in [Setup](SETUP.md). Missing reader dependencies produce a visible unsupported result. Installing the dependencies does not by itself connect these readers to the application workflow.
+Use a separate Windows checkout and virtual environment. The shared `requirements.lock` pins the measured native dependencies with their hashes: `python-docx==1.2.0`, `lxml==6.1.0` and `defusedxml==0.7.1`; install that lockfile as described in [Setup](SETUP.md). Missing reader dependencies produce a visible unsupported result. Installing the dependencies does not by itself connect these readers to the application workflow.
 
 ```powershell
 & .\.venv\Scripts\python.exe -m jav.documents.readers .\synthetic-inbox --output .\runs\new-reading

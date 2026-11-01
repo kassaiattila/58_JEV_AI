@@ -290,7 +290,7 @@ def _child(configs: Path, given: Path, taken: Path) -> int:
     for row in json.loads(given.read_text(encoding="utf-8")):
         try:
             results[str(row["id"])] = {"outcome": trace.replay(row)}
-        except Exception as exc:  # reported per decision in the preview, not left out
+        except Exception as exc:  # noqa: BLE001 - reported per decision in the preview, not left out
             results[str(row["id"])] = {"error": f"{type(exc).__name__}: {exc}"}
     taken.write_text(json.dumps(results, ensure_ascii=False, default=str), encoding="utf-8")
     return 0

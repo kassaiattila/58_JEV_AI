@@ -13,7 +13,6 @@ import json
 import re
 from collections import Counter
 from datetime import date
-from pathlib import Path
 from typing import Any, Iterable
 
 from jav.app import package_result
@@ -98,10 +97,6 @@ def _migrate(conn) -> None:
 store.register_migration("reconcile", _migrate)
 
 
-def _has_table(c, name: str) -> bool:
-    return c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
-
-
 def verified(validation: Any) -> bool:
     """Whether a statement's lines are complete by its balance checks (`verified_when`)."""
     if isinstance(validation, str):
@@ -141,7 +136,7 @@ def _documents(c, counted: dict[str, Any], types: list[str]) -> list[dict[str, A
 
     suspicious = ({r["run_id"] for r in c.execute("SELECT DISTINCT run_id FROM review_reasons WHERE reason=?",
                                                   (SUSPICIOUS_ATTACHMENT,))}
-                  if _has_table(c, "review_reasons") else set())
+                  if store.has_table(c, "review_reasons") else set())
     corrected = package_result.latest_corrections(c)
     out = []
     for r in rows:
@@ -175,7 +170,7 @@ def _duplicate_marks() -> dict[str, str]:
     person called different (or a modified version) are `distinct`."""
     marks: dict[str, str] = {}
     with store.connect() as c:
-        if not _has_table(c, "duplicate_decisions"):
+        if not store.has_table(c, "duplicate_decisions"):
             return marks
         for r in c.execute("SELECT doc_id, other_doc_id, decision FROM duplicate_decisions"):
             if r["decision"] == "copy":
@@ -195,7 +190,7 @@ def _decision_rows(c=None) -> list[dict[str, Any]]:
     if c is None:
         with store.connect() as own:
             return _decision_rows(own)
-    if not _has_table(c, "reconcile_decisions"):
+    if not store.has_table(c, "reconcile_decisions"):
         return []
     return [dict(r) for r in c.execute("SELECT * FROM reconcile_decisions ORDER BY pair_key")]
 
@@ -329,7 +324,7 @@ def active_allocations(c=None) -> list[dict[str, Any]]:
     if c is None:
         with store.connect() as own:
             return active_allocations(own)
-    if not _has_table(c, "reconcile_allocations"):
+    if not store.has_table(c, "reconcile_allocations"):
         return []
     return [{"id": r["id"], "invoice_id": r["invoice_doc_id"], "line_id": r["line_id"], "statement_id": r["statement_doc_id"],
              "line_amount": r["line_amount"], "invoice_amount": r["invoice_amount"], "workpackage_id": r["workpackage_id"]}
@@ -341,7 +336,7 @@ def active_marks(c=None) -> list[dict[str, Any]]:
     if c is None:
         with store.connect() as own:
             return active_marks(own)
-    if not _has_table(c, "reconcile_line_marks"):
+    if not store.has_table(c, "reconcile_line_marks"):
         return []
     latest: dict[str, dict[str, Any]] = {}
     for r in c.execute("SELECT * FROM reconcile_line_marks WHERE revoked_at IS NULL ORDER BY id"):
@@ -366,16 +361,8 @@ def decisions_for(doc_ids: Iterable[str], c=None) -> list[dict[str, Any]]:
 
 
 def file_names(doc_ids: Iterable[str]) -> dict[str, str]:
-    ids = sorted(set(doc_ids))
-    if not ids:
-        return {}
-    out: dict[str, str] = {}
-    with store.connect() as c:
-        for start in range(0, len(ids), 500):  # stays under the SQLite parameter limit
-            chunk = ids[start:start + 500]
-            for r in c.execute(f"SELECT doc_id, source_path FROM documents WHERE doc_id IN ({','.join('?' * len(chunk))})", chunk):
-                out[r["doc_id"]] = Path(r["source_path"] or "").name
-    return out
+    """The documents' file names by their id (265, code review DOM-12: the store's shared reader)."""
+    return store.file_names(doc_ids)
 
 
 def scan() -> dict[str, Any]:

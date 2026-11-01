@@ -6,32 +6,32 @@
    {
     "version": "1.5.0",
     "date": "2026-10-12",
-    "note": "151 (backlog F-outgoing-invoice-S-path; DECISIONS 151): an S path (code candidates + a JEV Choice per field, configs/callsites/select_invoice_out.json); arms S and G, default_arm G, so the automatic path stays the G path until the owner decides on the measurement. The G path's verification keeps its own glossary (verify_invoice_out own_glossary), so its questions do not change."
+    "note": "An S path (code candidates + a JEV Choice per field, configs/callsites/select_invoice_out.json); arms S and G, default_arm G, so the automatic path stays the G path until the owner decides on the measurement. The G path's verification keeps its own glossary (verify_invoice_out own_glossary), so its questions do not change."
    },
    {
     "version": "1.4.0",
     "date": "2026-10-07",
-    "note": "121 (Q-szerepcsere): party_orientation on supplier_tax_id/buyer_tax_id, a to-do at buyer_tax_id when the pair stands the other way round than on most earlier documents of this type (worker runs only; jav/party_history.py). Extraction requests are unchanged."
+    "note": "Party_orientation on supplier_tax_id/buyer_tax_id, a to-do at buyer_tax_id when the pair stands the other way round than on most earlier documents of this type (worker runs only; jav/party_history.py). Extraction requests are unchanged."
    },
    {
     "version": "1.3.0",
     "date": "2026-10-06",
-    "note": "120 (silent content errors): distinct_parties role-pair check(s) supplier_tax_id/buyer_tax_id, supplier_name/buyer_name; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
+    "note": "Silent content errors: distinct_parties role-pair check(s) supplier_tax_id/buyer_tax_id, supplier_name/buyer_name; a to-do at the second field when both name one party (jav/fact_checks.py). Extraction requests are unchanged."
    },
    {
     "version": "1.2.0",
     "date": "2026-09-29",
-    "note": "069 (066 Á05, decision of 2026-09-29): a tax number check named tax_id for both parties (the issuer's is new): a recognised form (jav/taxid.py), otherwise a to-do. The extraction unchanged"
+    "note": "Decision of 2026-09-29: a tax number check named tax_id for both parties (the issuer's is new): a recognised form (jav/taxid.py), otherwise a to-do. The extraction unchanged"
    },
    {
     "version": "1.1.0",
     "date": "2026-09-28",
-    "note": "053 T3.2: line item checks in code (line_items_total, line_items_arithmetic); the itemised list is declared already"
+    "note": "Line item checks in code (line_items_total, line_items_arithmetic); the itemised list is declared already"
    },
    {
     "version": "1.0.0",
     "date": "2026-09-28",
-    "note": "047 T1.1: converted from the legacy type copy (jav/typepack_convert.py); the schema and the prompt verbatim; the G path only"
+    "note": "Converted from the legacy type copy (jav/typepack_convert.py); the schema and the prompt verbatim; the G path only"
    }
   ],
   "source": {

@@ -39,7 +39,6 @@ export const OUTPUTS: { key: OutputName; label: string; hint: string; format: "x
   { key: "reconcile_statement", label: "Reconciliation statement", hint: "A reconciliation package's statement: the draft's download and the file its approval stores", format: "xlsx" },
   { key: "quote", label: "Quote", hint: "A quote's Word document: the draft's download and the file its approval stores", format: "docx" },
 ];
-export const outputLabel = (o: OutputName) => t(OUTPUTS.find((x) => x.key === o)?.label ?? o);
 
 
 /** A check's problem or warning in words; the cell (`Sheet!B4`) and the detail are shown beside it. */

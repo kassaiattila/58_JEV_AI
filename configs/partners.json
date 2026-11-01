@@ -1,13 +1,18 @@
 {
   "meta": {
     "name": "partners",
-    "version": "1.0.0",
-    "description": "231 (plan stage B, B1; DECISIONS 231): the roles an outside party may play in the shared partner register (jav/app/partners.py). One partner may play several roles; a process names the role its partners play. The labels are English; the interface translates them.",
+    "version": "1.0.1",
+    "description": "The roles an outside party may play in the shared partner register (jav/app/partners.py). One partner may play several roles; a process names the role its partners play. The labels are English; the interface translates them.",
     "changelog": [
       {
         "version": "1.0.0",
         "date": "2026-10-24",
-        "note": "231 (B1): the first roles: customer, supplier, insured, broker."
+        "note": "The first roles: customer, supplier, insured, broker."
+      },
+      {
+        "version": "1.0.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
       }
     ]
   },

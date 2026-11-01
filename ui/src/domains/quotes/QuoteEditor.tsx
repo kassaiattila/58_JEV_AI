@@ -49,8 +49,7 @@ const LINE_MARK: Record<string, { cls: string; label: string }> = {
   not_listed: { cls: "s-warn", label: "not in the price list" }, failed: { cls: "s-failed", label: "the match failed" },
 };
 const OWN = "__own__"; // the picker's choice of a line outside the price list
-const EDITED = ["quantity", "unit_price", "discount_percent", "description", "unit", "note"] as const;
-type Edited = (typeof EDITED)[number];
+type Edited = "quantity" | "unit_price" | "discount_percent" | "description" | "unit" | "note";
 /** D0-g: what a refused save's comparison calls a line's fields and the quote's own */
 const LINE_FIELD: Record<string, string> = { sku: "Item", quantity: "Quantity", unit: "Unit", unit_price: "Unit price",
   discount_percent: "Discount %", description: "Description", note: "Note", checked: "Checked" };

@@ -1,9 +1,9 @@
-# Titkok - SOHA ne kerüljön verziókövetésbe
+# Secrets: never under version control
 .env
 .env.*
 !.env.example
 
-# Virtuális környezet
+# Virtual environment
 .venv/
 venv/
 
@@ -17,39 +17,39 @@ __pycache__/
 .coverage
 .hypothesis/
 
-# Eval nyers futások, cache, OCR-gyorsítótár (PII, nagy)
+# Raw evaluation runs, caches, the OCR cache (personal data, large)
 runs/
 
-# Tartós adattár (PII)
+# The durable store (personal data)
 store/
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
 
-# Beérkezett levelek és csatolmányok (PII)
+# Downloaded emails and attachments (personal data)
 inbox/
 
-# Helyi OCR-nyelvcsomagok (nagy bináris; beszerzés: docs/guides/SETUP.md)
+# Local OCR language data (large binaries; how to get them: docs/guides/SETUP.md)
 tools/tessdata/
 tools/tessdata_best/
 
-# Claude Code helyi beállítás (gépenkénti)
+# Claude Code's local settings (per machine)
 .claude/settings.local.json
 .claude/autopilot/
 
-# Frontend (később)
+# Frontend
 node_modules/
 ui/dist/
 
-# Operációs rendszer
+# Operating system
 Thumbs.db
 desktop.ini
 
-# Generált, minden preflightnál változó állapotoldal (python -m jav.cli preflight / admin --write)
+# The generated state page, changed by every preflight (python -m jav.cli preflight / admin --write)
 docs/STATE.md
 
-# Belső munkaanyag (070, döntés 2026-09-29): helyben marad, a GitHubra nem kerül, a napi mentés viszi.
-# A minták egy helye: jav/core/doc_scope.py (tests/test_doc_scope_070.py ellenőrzi az egyezést).
+# Internal working documents: they stay local, never go to GitHub, and the daily backup copies them.
+# The one place of these patterns: jav/core/doc_scope.py (tests/test_doc_scope_070.py checks that they match).
 docs/handoffs/
 docs/plans/
 docs/reports/
@@ -62,10 +62,11 @@ docs/INDEX.md
 docs/CONTINUE_PROMPT_*.md
 docs/*_????-??-??.md
 
-# Felület (040 K3): függőségek és build
+# The interface: its packages and build; the browser tools' screenshots and page snapshots
 ui/node_modules/
 ui/dist/
 .playwright-mcp/
+.playwright-cli/
 
 # Local Codex configuration and reviewed hook installation.
 .codex/

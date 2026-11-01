@@ -120,7 +120,6 @@
   "Ellenőrzendő": "To check",
   "Valószínűleg hibás": "Likely wrong",
   "csak a neve ismert": "only its name is known",
-  "link: {{host}}": "link: {{host}}",
   "nem olvasható (kép vagy más formátum)": "not readable (image or other format)",
   "szövegfelismerés kell": "needs text recognition",
   "A levél szövege a letöltéskor elvágódhatott ({{n}} karakternél): a vége hiányozhat, a szándék-felismerés sem látta.": "The email text may have been cut at download (at {{n}} characters): the end may be missing, and intent recognition did not see it either.",

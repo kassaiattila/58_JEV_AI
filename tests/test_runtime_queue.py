@@ -54,21 +54,15 @@ def test_backoff_delays_next_claim(isolated):
     assert queue.claim("w") is None
 
 
-def test_release_does_not_burn_attempt(isolated):
-    queue.enqueue("run_item", run_id="r1", payload={}, dedup_key="a")
-    job = queue.claim("w")
-    assert queue.release(job.id, delay_s=0) == "queued"
-    again = queue.claim("w")
-    assert again.id == job.id and again.attempts == 0
-
-
 def test_cancel_queued_and_running(isolated):
-    queued = queue.enqueue("run_item", run_id="r1", payload={}, dedup_key="a")
-    running = queue.enqueue("run_item", run_id="r1", payload={}, dedup_key="b")
-    assert queue.cancel(queued.id) == "cancelled"
+    # 265 (code review CORE-08): through the run's stop, the one way the application cancels jobs (the single-job
+    # `cancel` and `release` were used only by tests)
+    first = queue.enqueue("run_item", run_id="r1", payload={}, dedup_key="a")
+    second = queue.enqueue("run_item", run_id="r1", payload={}, dedup_key="b")
     claimed = queue.claim("w")
-    assert claimed.id == running.id
-    assert queue.cancel(claimed.id) == "cancel_requested"
+    assert claimed.id == first.id
+    assert queue.cancel_run_jobs("r1") == {"cancelled": 1, "cancel_requested": 1}
+    assert queue.get(second.id).status == "cancelled"
     with pytest.raises(queue.JobCancelled):
         queue.check_cancellation(claimed.id)
     assert queue.finish_cancelled(claimed.id) == "cancelled"

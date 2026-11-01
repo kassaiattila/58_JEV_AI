@@ -89,7 +89,8 @@ def test_the_checker_notices_a_wrong_relation():
 
 
 def test_the_golden_set_has_the_card_cases():
-    card = {k for k in CASES if k.startswith("fx_") and not (CASES[k]["note"] or "").startswith(("149", "151"))}  # 149, 151: bank lines
+    # 265 (DOC-17): by the id, not the note's round; the card round's eighth case is a bank account's line it leaves alone
+    card = {k for k in CASES if k.startswith("fx_card_")} | {"fx_bank_account_line"}
     assert len(card) == 8 and all(reconcile.check_case(CASES[k]) == [] for k in card)
 
 

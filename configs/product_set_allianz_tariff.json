@@ -1,13 +1,18 @@
 {
   "meta": {
     "name": "product_set_allianz_tariff",
-    "version": "1.0.0",
-    "description": "231 (stage U, U-A5; jav/app/product_sets.py): the tariff of the real corporate property product (configs/product_source_allianz_property.json) as a product set of its own, an example: the condition documents print no premium rate, so every rate per thousand, minimum and factor value here is invented (the owner's decision of 2026-10-27: invented rates marked as an example), on the real premium factors and in the structure of the owner's design (its deductible factors 1.03 / 0.96 / 0.885 are kept). It prices each of the product's 22 modules on the facts of configs/facts_allianz_property.json; a process installs it as example material (made by the examples' machine) and removes it again. The design's factor for a cover without business interruption is not here: interruption is a module priced on its own sum insured. Live rates are the owner's to give.",
+    "version": "1.0.1",
+    "description": "Jav/app/product_sets.py: the tariff of the real corporate property product (configs/product_source_allianz_property.json) as a product set of its own, an example: the condition documents print no premium rate, so every rate per thousand, minimum and factor value here is invented (the owner's decision of 2026-10-27: invented rates marked as an example), on the real premium factors and in the structure of the owner's design (its deductible factors 1.03 / 0.96 / 0.885 are kept). It prices each of the product's 22 modules on the facts of configs/facts_allianz_property.json; a process installs it as example material (made by the examples' machine) and removes it again. The design's factor for a cover without business interruption is not here: interruption is a module priced on its own sum insured. Live rates are the owner's to give.",
     "changelog": [
       {
         "version": "1.0.0",
         "date": "2026-10-27",
-        "note": "231 (U-A5): the first version, invented rates."
+        "note": "The first version, invented rates."
+      },
+      {
+        "version": "1.0.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
       }
     ]
   },

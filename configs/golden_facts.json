@@ -1,13 +1,18 @@
 {
  "meta": {
   "name": "golden_facts",
-  "version": "1.0.0",
-  "description": "197 (plan 197 K1, jav/evals_facts.py): the general facts (the native reader's source-bound facts, without a type pack) measured on a held-out family's labelled documents. A family names a type pack whose legacy golden cases are used with the pack withheld: the documents go straight to the general facts, and the pack's scored fields are looked for among the facts by value (the same comparison as the data point golden sets). The documents are split into a development and an evaluation half by the sha256 of the file, fixed before any measurement: sorted, alternately, the same file always in the same half (a file repeated in the manifest is one document). The development half is what a taught type may learn from (K2); the evaluation half is what it is measured on.",
+  "version": "1.0.1",
+  "description": "Jav/evals_facts.py: the general facts (the native reader's source-bound facts, without a type pack) measured on a held-out family's labelled documents. A family names a type pack whose legacy golden cases are used with the pack withheld: the documents go straight to the general facts, and the pack's scored fields are looked for among the facts by value (the same comparison as the data point golden sets). The documents are split into a development and an evaluation half by the sha256 of the file, fixed before any measurement: sorted, alternately, the same file always in the same half (a file repeated in the manifest is one document). The development half is what a taught type may learn from; the evaluation half is what it is measured on.",
   "changelog": [
    {
     "version": "1.0.0",
     "date": "2026-10-22",
-    "note": "197 (DECISIONS 197): the ticket (belepo_jegy), 10 distinct documents of its 11 legacy cases, 5 + 5."
+    "note": "The ticket (belepo_jegy), 10 distinct documents of its 11 legacy cases, 5 + 5."
+   },
+   {
+    "version": "1.0.1",
+    "date": "2026-11-01",
+    "note": "The notes and the description without the development process's references; no value changes."
    }
   ]
  },

@@ -111,8 +111,6 @@ def _read_file(path: Path, *, name: str | None = None) -> Reading:
     sha = hashlib.sha256(data).hexdigest()
     camt = next((p for p in conf["profiles"] if p.get("layout") == "camt053"), None)
     if camt is not None and path.suffix.lower() == ".xml" and _is_camt(data):  # 141: a bank's ISO 20022 statement
-        if len(data) > conf["limits"]["max_bytes"]:
-            raise StatementTableError("the file is over the size limit")
         return _read_camt(data, camt, conf["limits"], file_name, sha)
     rows, repairs = _rows(path, data, conf)
     source = {"file": file_name, "sha256": sha, "repairs": repairs}

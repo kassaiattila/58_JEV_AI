@@ -6,12 +6,12 @@
    {
     "version": "1.1.0",
     "date": "2026-10-28",
-    "note": "231 (stage U, U-A7): the meanings of the schedule's new protection fields, and the protection class as printed (a number or a Roman numeral)."
+    "note": "The meanings of the schedule's new protection fields, and the protection class as printed (a number or a Roman numeral)."
    },
    {
     "version": "1.0.0",
     "date": "2026-10-26",
-    "note": "231 (stage D, D-e1): the G-path verification of a property schedule of one site. It inherits `verify` for the shared document guard and the request size budget; its own question texts name the document, it asks no invoice question (document_nouls empty), and each list is asked about missing and extra rows (list_nouls)."
+    "note": "The G-path verification of a property schedule of one site. It inherits `verify` for the shared document guard and the request size budget; its own question texts name the document, it asks no invoice question (document_nouls empty), and each list is asked about missing and extra rows (list_nouls)."
    }
   ]
  },

@@ -1,10 +1,14 @@
 // Translation completeness check (057, modelled on the legacy V4 `ui/scripts/check-i18n.mjs`, simplified).
-// An English translation is required for:
+// A translation is required for:
 //  - the string literal of every `t("…")` call in the interface (by TypeScript parsing, not by regex);
 //  - the labels coming from the service: the dataset column names (`jav/app/datasets.py` `_col(...)`), the enumerated
 //    labels (`configs/datasets.json` labels) and the field / column names (`configs/field_labels.json`).
-// Errors: a missing key, an empty translation, a differing placeholder ({{name}}), the same key translated differently
-// in two files.
+// 265 (code review UI-03): the sources are English and Hungarian is the default display language, so each label needs
+// its Hungarian entry (`hu-native.json`); an older Hungarian source needs its English entry instead (`en-*.json`). An
+// English source shows itself in the English interface, so an identity entry is refused (they were 5 047, most of the
+// English dictionary).
+// Errors: a missing translation, an empty one, a differing placeholder ({{name}}), the same key translated differently
+// in two files, an English identity entry.
 // Run: `npm run i18n:check`; `--self-test`: checks the error branches.
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -15,7 +19,7 @@ import ts from "typescript";
 const UI = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ROOT = path.resolve(UI, "..");
 
-export function validate(required, dictionaries) {
+export function validate(required, dictionaries, hungarian = {}) {
   const errors = [];
   const merged = {};
   const holes = (s) => (s.match(/\{\{\w+\}\}/g) ?? []).sort().join("|");
@@ -23,11 +27,19 @@ export function validate(required, dictionaries) {
     for (const [k, v] of Object.entries(dict)) {
       if (typeof v !== "string" || !v.trim()) errors.push(`${file}: empty translation: ${k}`);
       else if (holes(k) !== holes(v)) errors.push(`${file}: different placeholders: ${k}`);
+      else if (k === v) errors.push(`${file}: an identity entry (the English source shows itself): ${k}`);
       if (k in merged && merged[k] !== v) errors.push(`${file}: different translation: ${k}`);
       merged[k] = v;
     }
   }
-  for (const k of required) if (!(k in merged)) errors.push(`missing English translation: ${k}`);
+  for (const [k, v] of Object.entries(hungarian)) {
+    if (typeof v !== "string" || !v.trim()) errors.push(`hu-native.json: empty translation: ${k}`);
+    else if (holes(k) !== holes(v)) errors.push(`hu-native.json: different placeholders: ${k}`);
+  }
+  for (const k of required) {
+    // an older Hungarian source counts with its English entry (one that differs from it)
+    if (!(k in hungarian) && !(k in merged && merged[k] !== k)) errors.push(`missing Hungarian translation (hu-native.json): ${k}`);
+  }
   return errors;
 }
 
@@ -194,12 +206,19 @@ function dictionaries() {
     .map((f) => [f, JSON.parse(fs.readFileSync(path.join(dir, f), "utf8"))]);
 }
 
+const hungarianDictionary = () => JSON.parse(fs.readFileSync(path.join(UI, "src", "i18n", "hu-native.json"), "utf8"));
+
 const direct = process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (!direct) {
   // loaded as a module (e.g. for the key list): no check runs
 } else if (process.argv.includes("--self-test")) {
   assert.deepEqual(validate(["Szia {{név}}"], [["ok", { "Szia {{név}}": "Hi {{név}}" }]]), []);
   assert.ok(validate(["Szia"], [["hiány", {}]]).some((e) => e.includes("missing")));
+  // 265 (UI-03): an English source needs its Hungarian entry, not an English one; an identity entry is refused
+  assert.deepEqual(validate(["Hello"], [["en", {}]], { Hello: "Szia" }), []);
+  assert.ok(validate(["Hello"], [["en", { Hello: "Hello" }]], {}).some((e) => e.includes("missing Hungarian")));
+  assert.ok(validate([], [["en", { Hello: "Hello" }]], {}).some((e) => e.includes("identity entry")));
+  assert.ok(validate([], [], { "Hi {{a}}": "Szia {{b}}" }).some((e) => e.includes("hu-native.json: different placeholders")));
   assert.ok(validate(["Szia"], [["üres", { Szia: "" }]]).some((e) => e.includes("empty")));
   assert.ok(validate(["Szia {{a}}"], [["rossz", { "Szia {{a}}": "Hi {{b}}" }]]).some((e) => e.includes("placeholders")));
   assert.ok(validate(["Szia"], [["egy", { Szia: "Hi" }], ["kettő", { Szia: "Hey" }]]).some((e) => e.includes("different translation")));
@@ -216,7 +235,7 @@ if (!direct) {
   console.log("check-i18n --audit: no untranslated Hungarian text.");
 } else {
   const required = new Set([...uiKeys(walk(path.join(UI, "src"))), ...serverKeys()]);
-  const errors = validate([...required].sort(), dictionaries());
+  const errors = validate([...required].sort(), dictionaries(), hungarianDictionary());
   if (errors.length) {
     console.error(errors.join("\n"));
     console.error(`\n${errors.length} error(s) (${required.size} required label(s)).`);

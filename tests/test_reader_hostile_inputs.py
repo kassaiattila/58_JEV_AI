@@ -3,12 +3,12 @@ from io import BytesIO
 import os
 import zipfile
 
+import docx  # noqa: F401 - required: a broken install fails these tests instead of skipping them (265, TOOL-15)
 import pytest
 
 from jav.documents.readers.limits import DEFAULT_LIMITS
 from jav.documents.readers.pipeline import read_files
 
-pytest.importorskip("docx", reason="Native reader dependencies await integration")
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object reader boundary")
 
 

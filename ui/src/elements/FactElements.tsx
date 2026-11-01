@@ -56,7 +56,7 @@ function Source({ s }: { s: AssessedUnit["sources"][string] | undefined }) {
 
 // --- editing a unit's facts ------------------------------------------------------------------------------------------
 
-const asNumber = (s: string) => s.replace(/[\s ]/g, "").replace(",", ".");
+const asNumber = (s: string) => s.replace(/[\s\u00a0]/g, "").replace(",", ".");
 
 function shown(def: CatalogueFact, value: unknown): string {
   if (value === undefined || value === null) return "";

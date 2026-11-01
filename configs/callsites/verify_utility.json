@@ -6,12 +6,12 @@
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "G-kar ellenorzo hivasi hely a magyar kozmu-szamlakhoz (BACKLOG 1 kozmu-kor): a Noul-kerdesek (nouls) a verify.json-bol oroklodnek (inherits), itt a hat tipus-csomag unio-mezoinek leirasai (field_specs a regi schema.json description mezoibol angolra irva; minden csomag csak a sajat mezoit ellenorzi), a csonkulas- es masfajta-szam-ellenorzott mezok listaja; a kerdes-azonosito verify_utility; az elso G-kar golden utan: glossary_in_state (a glosszar egyszer a state-ben, nem ~90 Noul instrukciojaban - max_tokens_exceeded a 4 oldalas villany / gaz szamlakon)"
+    "note": "The G path's verification call site for the Hungarian utility bills: the Noul questions (nouls) are inherited from verify.json (inherits); here the descriptions of the six type packs' union of fields (field_specs, written in English from the legacy schema.json descriptions; each pack checks only its own fields) and the lists of fields checked for truncation and for a different kind of number; the question id is verify_utility. After the first G path golden run: glossary_in_state (the glossary once in the state, not in about 90 Noul instructions: max_tokens_exceeded on the 4-page electricity and gas bills)"
    },
    {
     "version": "1.0.1",
     "date": "2026-09-21",
-    "note": "request_char_budget 110000 (keres-meret keret, mint a select_utility-ben): a 9 oldalas Dijbeszedo-koteg teljes szovegevel az ellenorzo keres max_tokens_exceeded hibat adott (2/10 eset mindket OCR-szoveggel); tullepesnel a source_lines csak az evidencia-sorok +-1, vegso esetben elmarad; token-hibanal egyszeri ujraprobalas szukebb kerettel (jav/jev_budget.py) - handoff 015"
+    "note": "request_char_budget 110000 (the request size budget, as in select_utility): with the whole text of the 9-page bill bundle the verification request failed with max_tokens_exceeded (2 of 10 cases with both OCR texts); over the budget the source_lines keep only the evidence lines and one line around each, and drop them as a last resort; on a token error the request is tried once more with a narrower budget (jav/jev_budget.py)"
    }
   ]
  },

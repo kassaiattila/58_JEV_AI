@@ -1,11 +1,11 @@
 """Semantic proposals cannot invent evidence or silently omit source bytes."""
+import docx  # noqa: F401 - required: a broken install fails these tests instead of skipping them (265, TOOL-15)
 import pytest
 import os
 
 from jav.documents.readers.interpretation import ProposedExtraction, ground, score, source_view
 from jav.documents.readers.pipeline import read_files
 
-pytest.importorskip("docx", reason="Native reader dependencies await integration")
 pytestmark = pytest.mark.skipif(os.name != "nt", reason="Windows Job Object reader boundary")
 
 

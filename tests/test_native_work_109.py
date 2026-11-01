@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from jav.app import app_settings, work, work_readiness, work_recipes, work_runs
-from jav.core import store
+from jav.core import display, store
 from jav.documents.native_contracts import DOCUMENT_SUFFIXES
 from jav.runtime import worker
 from jav.core import queue
@@ -52,6 +52,12 @@ def test_native_s_is_rejected_before_queue_and_provider_reservation(isolated):
     ready = work_readiness.readiness(wp["id"])
     assert not ready["ready"]
     assert "native_s_unsupported" in {b["code"] for b in ready["blockers"]}
+    # 265 (code review X-16): the message is in the display language, from the interface's dictionaries
+    with display.use("hu"):
+        hungarian = work_readiness.readiness(wp["id"])
+    message = next(b["message"] for b in hungarian["blockers"] if b["code"] == "native_s_unsupported")
+    english = "Native documents require GPT extraction; the JEV-only path has no predefined field contract."
+    assert message == display.text(english, "hu") != english
     with pytest.raises(work.NotReady):
         work_runs.start_run(wp["id"], mode="apply", expected_assignment_revision=1,
                        input_hash=ready["input_hash"], actor="reviewer")

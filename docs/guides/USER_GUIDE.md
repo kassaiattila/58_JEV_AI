@@ -62,7 +62,7 @@ Tables work the same way in every list:
 
 Every table has a **Download** (*Letöltés*) button in its top-right corner. The panel lets you choose:
 
-- **Format:** Excel (one worksheet, numbers stored as numbers), CSV (semicolon-separated, so Hungarian Excel splits it into columns) or JSON (for machine processing).
+- **Format:** Excel (one worksheet, numbers stored as numbers), CSV (semicolon-separated, so Hungarian Excel splits it into columns; in the Hungarian interface the number and amount columns have a decimal comma, so Excel reads them as numbers) or JSON (for machine processing).
 - **Rows:** ‘All rows’ (*Minden sor*), ‘Filtered rows’ (*A szűrt sorok*) or ‘Selected rows’ (*A kijelölt sorok*). You can only select rows in tables that have a checkbox on each row (for example the tables in Result). By default the narrowest scope is chosen: the selection; failing that, the filter; otherwise all rows.
 - **Columns:** only the visible columns, or all columns including the hidden ones.
 

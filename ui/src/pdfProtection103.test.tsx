@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api, type Health, type PdfProtection } from "./api";
 import { setLanguage } from "./i18n";
 import { PdfProtectionPanel } from "./views/settings/PdfProtectionPanel";
-import hu from "./i18n/hu-pdf-protection.json";
+import hungarian from "./i18n/hu-native.json";
 
 const report = (state: PdfProtection["state"], reason: string): PdfProtection => ({
   state, reason, configured: { isolated: true, memory_mb: 512, require_memory_limit: false },
@@ -16,6 +16,9 @@ const health = (service: PdfProtection, worker: PdfProtection): Health => ({
 });
 
 beforeEach(async () => { await setLanguage("en"); });
+const hu = hungarian as Record<string, string>;
+const PANEL = ["PDF memory protection", "Service", "Worker", "Protected", "Memory limit unavailable", "Unknown", "Stale", "Configured limit", "Effective limit", "Strict mode", "On", "Off", "Not established", "The reader has not started yet.", "The helper has stopped.", "Windows could not apply the memory limit.", "Isolation is disabled.", "The memory limit is disabled.", "The operating system applied the memory limit.", "The worker is not running.", "The worker instance has ended.", "The report has expired.", "No current report is available.", "The report cannot be verified.", "Settings changed after the helper started.", "The helper is starting.", "The memory limit could not be established.", "The status request failed.", "Strict mode refuses PDF reading without a memory limit. It is off by default."];
+
 afterEach(async () => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); await setLanguage("hu"); });
 
 it("separates a protected service from an unprotected worker and shows configured versus effective limits", async () => {
@@ -30,6 +33,7 @@ it("separates a protected service from an unprotected worker and shows configure
   expect(service.textContent).toContain("Strict mode: Off");
   await act(() => setLanguage("hu"));
   expect(screen.getByRole("group", { name: hu.Worker }).textContent).toContain(hu["Memory limit unavailable"]);
+  expect(screen.getByRole("region", { name: hu["PDF memory protection"] })).toBeTruthy();
 });
 
 it("keeps legacy or missing reports unknown", async () => {
@@ -66,9 +70,9 @@ it("a failed refresh invalidates a green observation immediately", async () => {
 });
 
 it("contains a non-empty Hungarian translation for every panel message", () => {
-  for (const [source, translated] of Object.entries(hu)) {
-    expect(source.trim()).toBeTruthy();
-    expect(translated.trim()).toBeTruthy();
-    expect(translated).not.toBe(source);
+  // 265 (code review UI-03): in the shared Hungarian dictionary (until then the panel's own)
+  for (const source of PANEL) {
+    expect(hu[source]?.trim(), source).toBeTruthy();
+    expect(hu[source]).not.toBe(source);
   }
 });

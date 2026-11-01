@@ -1,18 +1,23 @@
 {
   "meta": {
     "name": "process:monthly_reconciliation",
-    "version": "1.1.0",
-    "description": "231 (stage U, U2c; the owner's decision of 2026-10-28: a chain is a multi-step process): an own party's period in one case: its incoming invoices and its bank statements are read side by side, and once both are done, the reconciliation pairs them for the party and the period, as the workflow template of the same name was (configs/workflows.json until then). Each step runs a case of its own process, a sub-case (run_case@1), and waits until it closes; a paid run of a sub-case waits for a person's start with its cost cap.",
+    "version": "1.1.1",
+    "description": "The owner's decision of 2026-10-28: a chain is a multi-step process: an own party's period in one case: its incoming invoices and its bank statements are read side by side, and once both are done, the reconciliation pairs them for the party and the period, as the workflow template of the same name was (configs/workflows.json until then). Each step runs a case of its own process, a sub-case (run_case@1), and waits until it closes; a paid run of a sub-case waits for a person's start with its cost cap.",
     "changelog": [
+      {
+        "version": "1.1.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      },
       {
         "version": "1.1.0",
         "date": "2026-10-29",
-        "note": "261 (the owner's decision of 2026-10-29): repeated for the next period: a case's page offers its next period's case, the new case's form filled in (the next period, the same sources taking only the new documents, a mailbox's range moved on)."
+        "note": "The owner's decision of 2026-10-29: repeated for the next period: a case's page offers its next period's case, the new case's form filled in (the next period, the same sources taking only the new documents, a mailbox's range moved on)."
       },
       {
         "version": "1.0.0",
         "date": "2026-10-28",
-        "note": "231 (U2c): the first version: three sub-case steps (the incoming invoices from a folder or files, the bank statements, then the reconciliation after both) and its tabs: Overview, History; started by hand for a party and a period, each of the first two steps with its own documents."
+        "note": "The first version: three sub-case steps (the incoming invoices from a folder or files, the bank statements, then the reconciliation after both) and its tabs: Overview, History; started by hand for a party and a period, each of the first two steps with its own documents."
       }
     ]
   },

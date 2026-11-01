@@ -133,7 +133,7 @@ def _start(wf: dict[str, Any], sdef: dict[str, Any], *, actor: identity.Who, sta
     st = _steps(wf["id"])[step]
     try:
         workflow_steps.of(sdef["kind"]).start(_context(wf, sdef, st, actor))  # 181: the kind's own start
-    except Exception as exc:  # the step shows why; a person retries it
+    except Exception as exc:  # noqa: BLE001 - the step shows why; a person retries it
         log.warning("workflow %s step %s did not start: %s", wf["id"], step, exc)
         _done(wf, step, actor, "failed", phase="failed", note=str(exc)[:1000])
     except BaseException:  # 153 (review D2): interrupted (the process stops): the claim is released, then it stops
@@ -281,7 +281,7 @@ def _start_run(wf: dict[str, Any], sdef: dict[str, Any], st: dict[str, Any], wp_
             _update_step(c, wf["id"], step, phase="started", workpackage_id=wp_id, run_id=res["run_id"])
             _event(c, wf["id"], step, "run", actor, {"workpackage_id": wp_id, "run_id": res["run_id"]})
             traced(c, res["run_id"])
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - the step shows why the run did not start; a person retries it
         log.warning("workflow %s step %s: run not started: %s", wf["id"], step, exc)
         _done(wf, step, actor, "failed", phase="failed", workpackage_id=wp_id, note=str(exc)[:1000])
 
@@ -338,7 +338,7 @@ def tick(now: float | None = None) -> int:
     for r in rows:
         try:
             advance(r["id"], actor=auto_actor(r))
-        except Exception:  # one workflow's trouble does not stop the others
+        except Exception:  # noqa: BLE001 - one workflow's trouble does not stop the others
             log.exception("workflow %s could not advance", r["id"])
     return len(rows)
 

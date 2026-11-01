@@ -1,19 +1,24 @@
 {
   "meta": {
     "name": "process:insurance_offer",
-    "version": "1.9.0",
-    "description": "231 (stage D, D-f3; the owner's decisions of 2026-10-26): a business property insurance quote as a process pack of shared capabilities only. A case processes the documents of its source (the quote request form, a property schedule per site, the claims history), turns what they hold into facts of the assessed units, asks the company register and the sanctions list, and a person checks and freezes the facts; the rules of the product version the case kept are evaluated, missing facts are asked for by a deadline, a person decides on the risk, the premium is computed from the tariff the case kept, and a person decides on the premium (above the limit another person than the risk's). The product, its rules, its tariff, the registers and the limit are invented (the trial); a live product and a live limit are the owner's decisions.",
+    "version": "1.9.1",
+    "description": "The owner's decisions of 2026-10-26: a business property insurance quote as a process pack of shared capabilities only. A case processes the documents of its source (the quote request form, a property schedule per site, the claims history), turns what they hold into facts of the assessed units, asks the company register and the sanctions list, and a person checks and freezes the facts; the rules of the product version the case kept are evaluated, missing facts are asked for by a deadline, a person decides on the risk, the premium is computed from the tariff the case kept, and a person decides on the premium (above the limit another person than the risk's). The product, its rules, its tariff, the registers and the limit are invented (the trial); a live product and a live limit are the owner's decisions.",
     "changelog": [
-      {"version": "1.9.0", "date": "2026-10-28", "note": "231 (U3b; the owner's decisions of 2026-10-28: what a process uses is chosen from the shared library): its letter frame, its offer document, its send mode and its offer document's template are resources a process may set its own value of (until now fixed in its steps); the values are the same. Its tariff follows from its product (`derived`, U3c; the owner's decision of 2026-10-28: the tariff is part of the product): a case keeps the active version of the tariff its product names, and a process sets no tariff of its own."},
-      {"version": "1.8.0", "date": "2026-10-28", "note": "231 (U-A8; the walkthrough of 2026-10-28): the missing facts step asks for the facts the case's tariff reads too, so a case no longer stops at the premium for a fact nobody was asked for."},
-      {"version": "1.7.0", "date": "2026-10-27", "note": "231 (U0): what the process is for, shown when a person picks a process to start a case of; its example material (the invented product set and the invented documents' packets)"},
-      {"version": "1.6.0", "date": "2026-10-27", "note": "231 (D-f9): the Overview opens with what holds the case, each with the view where it is resolved; the five work views are complete."},
-      {"version": "1.5.0", "date": "2026-10-27", "note": "231 (D-f8): the covering letter (letter@1, a person accepts it; the offer's document attached) and its send into the output folder (send@1, a person starts it), on the Decision and release view."},
-      {"version": "1.4.0", "date": "2026-10-26", "note": "231 (D-f7): the offer's Word document, printed from the accepted premium and stored with its version, on the Decision and release view."},
-      {"version": "1.3.0", "date": "2026-10-26", "note": "231 (D-f6): the Decision and release view shows the two decisions (the risk, then the premium) with their choices and the second person."},
-      {"version": "1.2.0", "date": "2026-10-26", "note": "231 (D-f5): the Calculation and versions view: the rules' evaluation, the missing facts and the premium, each with its versions; the cost moves to the Overview."},
-      {"version": "1.1.0", "date": "2026-10-26", "note": "231 (D-f4): the Data check view: the field review of the check (the units, the disagreements to settle, the freeze), the facts read from the documents, and the two registers' answers."},
-      {"version": "1.0.0", "date": "2026-10-26", "note": "231 (D-f3): the first version: from the documents to the premium decision; its work views come with stage D-f's elements."}
+      {
+        "version": "1.9.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      },
+      {"version": "1.9.0", "date": "2026-10-28", "note": "The owner's decisions of 2026-10-28: what a process uses is chosen from the shared library: its letter frame, its offer document, its send mode and its offer document's template are resources a process may set its own value of (until now fixed in its steps); the values are the same. Its tariff follows from its product (`derived`; the owner's decision of 2026-10-28: the tariff is part of the product): a case keeps the active version of the tariff its product names, and a process sets no tariff of its own."},
+      {"version": "1.8.0", "date": "2026-10-28", "note": "The walkthrough of 2026-10-28: the missing facts step asks for the facts the case's tariff reads too, so a case no longer stops at the premium for a fact nobody was asked for."},
+      {"version": "1.7.0", "date": "2026-10-27", "note": "What the process is for, shown when a person picks a process to start a case of; its example material (the invented product set and the invented documents' packets)"},
+      {"version": "1.6.0", "date": "2026-10-27", "note": "The Overview opens with what holds the case, each with the view where it is resolved; the five work views are complete."},
+      {"version": "1.5.0", "date": "2026-10-27", "note": "The covering letter (letter@1, a person accepts it; the offer's document attached) and its send into the output folder (send@1, a person starts it), on the Decision and release view."},
+      {"version": "1.4.0", "date": "2026-10-26", "note": "The offer's Word document, printed from the accepted premium and stored with its version, on the Decision and release view."},
+      {"version": "1.3.0", "date": "2026-10-26", "note": "The Decision and release view shows the two decisions (the risk, then the premium) with their choices and the second person."},
+      {"version": "1.2.0", "date": "2026-10-26", "note": "The Calculation and versions view: the rules' evaluation, the missing facts and the premium, each with its versions; the cost moves to the Overview."},
+      {"version": "1.1.0", "date": "2026-10-26", "note": "The Data check view: the field review of the check (the units, the disagreements to settle, the freeze), the facts read from the documents, and the two registers' answers."},
+      {"version": "1.0.0", "date": "2026-10-26", "note": "The first version: from the documents to the premium decision; its work views come with the assessment's elements."}
     ]
   },
   "id": "insurance_offer",

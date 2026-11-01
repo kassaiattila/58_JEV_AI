@@ -1,13 +1,18 @@
 {
  "meta": {
   "name": "golden_quotes",
-  "version": "1.0.0",
-  "description": "Invented IT quote requests (189, plan F-IT-quote-request A1): emails to an invented IT company selling hardware, licences and services, its price list, and for each email the expected result: its intent, the request's data and requested items, the match of each item to the price list (or the blocker when none or more than one fits) and the quote the code computes from the price list. Every name, address, tax number and phone number is invented; the tax numbers, phone numbers and email domains are on the data guard's allow lists. The attachments are written when a case is laid out (`jav/quote_golden.py`): a PDF from `rows` (three spaces separate the columns, `jav/synthetic_pdf.py`), an Excel sheet from `table`. Quote rules: a line's net amount is the unit price times the quantity, less a price list discount, rounded to whole forints; the VAT is the price list's rate on the net total, rounded to whole forints. The items' `written` text is informative (scored by a person's acceptance); quantity, unit and the matched item are scored exactly. Built by the measurer, so a result on them is measured on its own examples.",
+  "version": "1.0.1",
+  "description": "Invented IT quote requests: emails to an invented IT company selling hardware, licences and services, its price list, and for each email the expected result: its intent, the request's data and requested items, the match of each item to the price list (or the blocker when none or more than one fits) and the quote the code computes from the price list. Every name, address, tax number and phone number is invented; the tax numbers, phone numbers and email domains are on the data guard's allow lists. The attachments are written when a case is laid out (`jav/quote_golden.py`): a PDF from `rows` (three spaces separate the columns, `jav/synthetic_pdf.py`), an Excel sheet from `table`. Quote rules: a line's net amount is the unit price times the quantity, less a price list discount, rounded to whole forints; the VAT is the price list's rate on the net total, rounded to whole forints. The items' `written` text is informative (scored by a person's acceptance); quantity, unit and the matched item are scored exactly. Built by the measurer, so a result on them is measured on its own examples.",
   "changelog": [
    {
     "version": "1.0.0",
     "date": "2026-10-21",
-    "note": "189 (the owner's decisions of 2026-10-21): 13 emails, 10 requests and 3 that are not, 3 in English; 6 requests in the body, 4 in an attached form (2 PDF, 2 Excel); 24 price list items in three categories, a 5% volume discount on hardware from 10 pieces."
+    "note": "The owner's decisions of 2026-10-21: 13 emails, 10 requests and 3 that are not, 3 in English; 6 requests in the body, 4 in an attached form (2 PDF, 2 Excel); 24 price list items in three categories, a 5% volume discount on hardware from 10 pieces."
+   },
+   {
+    "version": "1.0.1",
+    "date": "2026-11-01",
+    "note": "The notes and the description without the development process's references; no value changes."
    }
   ]
  },

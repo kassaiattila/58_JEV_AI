@@ -647,6 +647,6 @@ def approve_run(run_id: str, *, actor: identity.Who, review_version: str | None 
     if rule is not None and rule.after_approval is not None and approved["approval"]:
         try:
             rule.after_approval(approved)
-        except Exception:  # noqa: BLE001 - the approval stands; the rule's failure is logged with its traceback
+        except Exception:  # the approval stands; the rule's failure is logged with its traceback
             logging.getLogger("jav.app.work").exception("the approval rule of package %s failed", run["workpackage_id"])
     return approved

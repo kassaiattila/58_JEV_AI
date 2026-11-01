@@ -152,7 +152,7 @@ def _parts(annotation: Any) -> tuple[Any, bool]:
     if get_origin(annotation) in (Union, types.UnionType):
         args = get_args(annotation)
         rest = tuple(a for a in args if a is not type(None))
-        return (rest[0] if len(rest) == 1 else Union[rest]), len(rest) < len(args)  # noqa: UP007 - built from parts
+        return (rest[0] if len(rest) == 1 else Union[rest]), len(rest) < len(args)  # built from parts
     return annotation, False
 
 

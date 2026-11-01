@@ -1,23 +1,28 @@
 {
   "meta": {
     "name": "fx",
-    "version": "1.2.0",
-    "description": "130 F-reconciliation K3 (jav/fx.py): the official daily exchange rates of the Hungarian central bank (MNB), fetched only for the days a reconciliation needs and kept in the store. Only dates and currency codes leave the machine. The service answers its SOAP calls over plain HTTP only (HTTPS returns 404 for the same address), so every response passes a plausibility check, and a rate only shapes a proposal a person decides on. Decisions: DECISIONS 128 (MNB daily rate, automatic download, kept locally), DECISIONS 130 (HTTP accepted).",
+    "version": "1.2.1",
+    "description": "Jav/fx.py: the official daily exchange rates of the Hungarian central bank (MNB), fetched only for the days a reconciliation needs and kept in the store. Only dates and currency codes leave the machine. The service answers its SOAP calls over plain HTTP only (HTTPS returns 404 for the same address), so every response passes a plausibility check, and a rate only shapes a proposal a person decides on. Decisions: (MNB daily rate, automatic download, kept locally) (HTTP accepted).",
     "changelog": [
+      {
+        "version": "1.2.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      },
       {
         "version": "1.2.0",
         "date": "2026-10-25",
-        "note": "231 C2a: the service is asked through its connector (configs/connectors.json, mnb_rates): the address, the SOAP action and the timeout moved there unchanged, and every question also goes into the call log. The stored source name stays mnb, so the stored rates and their resolution are unchanged."
+        "note": "The service is asked through its connector (configs/connectors.json, mnb_rates): the address, the SOAP action and the timeout moved there unchanged, and every question also goes into the call log. The stored source name stays mnb, so the stored rates and their resolution are unchanged."
       },
       {
         "version": "1.1.0",
         "date": "2026-10-12",
-        "note": "149 (DECISIONS 149): CHF joins the fetched currencies (the outgoing invoices in francs)."
+        "note": "CHF joins the fetched currencies (the outgoing invoices in francs)."
       },
       {
         "version": "1.0.0",
         "date": "2026-10-09",
-        "note": "130 K3: first version. GetExchangeRates of http://www.mnb.hu/arfolyamok.asmx (tried on 2026-10-09: the rates come as an XML string with a decimal comma and a per-currency unit, e.g. 100 for JPY). A day without a publication (weekend, holiday) takes the latest published rate within lookback_days, but only when every day in between was fetched; a response with a day-to-day change above max_day_change is refused as a whole."
+        "note": "First version. GetExchangeRates of http://www.mnb.hu/arfolyamok.asmx (tried on 2026-10-09: the rates come as an XML string with a decimal comma and a per-currency unit, e.g. For JPY). A day without a publication (weekend, holiday) takes the latest published rate within lookback_days, but only when every day in between was fetched; a response with a day-to-day change above max_day_change is refused as a whole."
       }
     ]
   },

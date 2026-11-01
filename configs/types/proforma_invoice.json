@@ -6,7 +6,7 @@
    {
     "version": "1.0.0",
     "date": "2026-10-07",
-    "note": "122 (backlog F-pro-forma, the owner's decision of 2026-10-02 'new type: pro forma invoice'): a pro forma invoice (payment request) is read like a Hungarian invoice: the invoice_hu pack's fields, lists, checks, JEV call sites and prompt, plus prompt_note for the G path. Its serial number goes into invoice_number; a fulfilment date is not required. Its own coarse type (configs/doc_types.json), file-name token and label; not an invoice in the reports."
+    "note": "The owner's decision of 2026-10-02 'new type: pro forma invoice': a pro forma invoice (payment request) is read like a Hungarian invoice: the invoice_hu pack's fields, lists, checks, JEV call sites and prompt, plus prompt_note for the G path. Its serial number goes into invoice_number; a fulfilment date is not required. Its own coarse type (configs/doc_types.json), file-name token and label; not an invoice in the reports."
    }
   ]
  },

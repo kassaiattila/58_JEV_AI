@@ -1,28 +1,33 @@
 {
   "meta": {
     "name": "process:mailbox",
-    "version": "1.3.0",
-    "description": "231 (plan stage C, C3d; DECISIONS 231): the download of a mailbox's new emails as a process pack (until C3d the wizard's mailbox form and the workflows' emails step kind): a case downloads its mailbox's emails into its package (an asynchronous fetch through the Outlook bridge, the worker's download job), a person starts its live run within the package's estimate, and the case is done once a live run is approved. A download no step takes (a scheduled one) wraps its package by a case too (the owner's decision of 2026-10-26).",
+    "version": "1.3.1",
+    "description": "The download of a mailbox's new emails as a process pack (formerly the wizard's mailbox form and the workflows' emails step kind): a case downloads its mailbox's emails into its package (an asynchronous fetch through the Outlook bridge, the worker's download job), a person starts its live run within the package's estimate, and the case is done once a live run is approved. A download no step takes (a scheduled one) wraps its package by a case too (the owner's decision of 2026-10-26).",
     "changelog": [
+      {
+        "version": "1.3.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      },
       {
         "version": "1.3.0",
         "date": "2026-10-28",
-        "note": "231 (U2b; the owner's decisions of 2026-10-28: one work list, the cases): a mailbox download's batch made before every download's batch got a case, not hidden, is wrapped by a case of the pack (wraps by its kind)."
+        "note": "The owner's decisions of 2026-10-28: one work list, the cases: a mailbox download's batch made before every download's batch got a case, not hidden, is wrapped by a case of the pack (wraps by its kind)."
       },
       {
         "version": "1.2.0",
         "date": "2026-10-28",
-        "note": "231 (U1e; the owner's decision of 2026-10-28): how its example material is tried: the invented consultancy's mailbox, read by the invented bridge instead of Outlook."
+        "note": "The owner's decision of 2026-10-28: how its example material is tried: the invented consultancy's mailbox, read by the invented bridge instead of Outlook."
       },
       {
         "version": "1.1.0",
         "date": "2026-10-27",
-        "note": "231 (U0): what the process is for, shown when a person picks a process to start a case of"
+        "note": "What the process is for, shown when a person picks a process to start a case of"
       },
       {
         "version": "1.0.0",
         "date": "2026-10-26",
-        "note": "231 (C3d): the first version: the document processing step with the mailbox maker (process_documents@1), its tabs Emails and History, and the workflows' emails step (workflow)."
+        "note": "The first version: the document processing step with the mailbox maker (process_documents@1), its tabs Emails and History, and the workflows' emails step (workflow)."
       }
     ]
   },

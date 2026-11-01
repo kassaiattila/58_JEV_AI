@@ -75,11 +75,33 @@ def git_state() -> GitState | None:
     return GitState(branch=(branch.stdout.strip() if branch else "") or "?", head=head.stdout.strip(), dirty=dirty)
 
 
-def lint_limit(pyproject: Path = PYPROJECT) -> int | None:
+class RuffFailed(RuntimeError):
+    """265 (code review TOOL-09): Ruff is installed but its check did not finish (an error, a timeout)."""
+
+
+def _lint_settings(pyproject: Path = PYPROJECT) -> dict:
     if not pyproject.exists():
-        return None
+        return {}
     data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    return data.get("tool", {}).get("jav", {}).get("lint", {}).get("max_findings")
+    return data.get("tool", {}).get("jav", {}).get("lint", {})
+
+
+def lint_limit(pyproject: Path = PYPROJECT) -> int | None:
+    return _lint_settings(pyproject).get("max_findings")
+
+
+def ruff_pinned(pyproject: Path = PYPROJECT) -> str | None:
+    """265 (code review TOOL-09): the Ruff version the ratchet is counted with (`ruff_version` in pyproject.toml)."""
+    return _lint_settings(pyproject).get("ruff_version")
+
+
+def ruff_version() -> str | None:
+    """The installed Ruff's version (`ruff 0.16.4` -> `0.16.4`); None when Ruff is missing or does not answer."""
+    exe = ruff_executable()
+    r = _run([exe, "--version"], timeout=30) if exe else None
+    if r is None or r.returncode != 0:
+        return None
+    return r.stdout.strip().removeprefix("ruff").strip() or None
 
 
 def ruff_executable() -> str | None:
@@ -91,13 +113,16 @@ def ruff_executable() -> str | None:
 
 
 def ruff_findings() -> tuple[int, dict[str, int]] | None:
-    """(total findings, per rule) with the pyproject settings; None if Ruff is unavailable or failed."""
+    """(total findings, per rule) with the pyproject settings; None if Ruff is not installed. 265 (code review TOOL-09):
+    `RuffFailed` when it is installed but its check failed (it passed as "not available" before)."""
     exe = ruff_executable()
     if exe is None:
         return None
     r = _run([exe, "check", *LINT_PATHS, "--output-format", "json", "--no-cache", "--exit-zero"], timeout=120)
-    if r is None or r.returncode != 0:
-        return None
+    if r is None:
+        raise RuffFailed("the check did not finish (a timeout or the program could not start)")
+    if r.returncode != 0:
+        raise RuffFailed(f"exit code {r.returncode}: {(r.stderr or r.stdout).strip()[:300]}")
     items = json.loads(r.stdout or "[]")
     by_code: dict[str, int] = {}
     for it in items:
@@ -105,10 +130,14 @@ def ruff_findings() -> tuple[int, dict[str, int]] | None:
     return len(items), dict(sorted(by_code.items(), key=lambda kv: -kv[1]))
 
 
-def lint_verdict(count: int | None, limit: int | None) -> tuple[bool, str]:
-    """The ratchet's verdict. A missing Ruff or limit is not an error, only a notice."""
+def lint_verdict(count: int | None, limit: int | None, *, version: str | None = None,
+                 pinned: str | None = None) -> tuple[bool, str]:
+    """The ratchet's verdict. A missing Ruff or limit is not an error, only a notice. 265 (code review TOOL-09): another
+    Ruff version than the pinned one fails (its rules may count differently)."""
     if count is None:
-        return True, "Ruff is not available (install: uv tool install ruff) - skipped"
+        return True, f"Ruff is not available (install: uv tool install ruff{'==' + pinned if pinned else ''}) - skipped"
+    if pinned and version and version != pinned:
+        return False, f"Ruff {version} is not the pinned {pinned}: uv tool install ruff=={pinned}"
     if limit is None:
         return True, f"{count} finding(s) (no max_findings in pyproject.toml)"
     if count > limit:

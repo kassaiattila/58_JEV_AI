@@ -1,10 +1,10 @@
-# A projekt eszközbeállításai (040, K0). A függőségek forrása továbbra is a requirements.txt / requirements.lock
-# (telepítés: docs/guides/SETUP.md); ez a fájl nem teszi a csomagot telepíthetővé, csak a QA-eszközöket állítja be.
+# The project's tool settings. The dependencies come from requirements.txt / requirements.lock (installation:
+# docs/guides/SETUP.md); this file does not make the package installable, it only configures the quality tools.
 
 [project]
 name = "jav"
-version = "1.75.0"  # Single version source; update the UI package descriptors and README with each release.
-description = "Többnyelvű dokumentum- és e-mail-feldolgozó AI-flow-keretrendszer (Burr + Pydantic AI + JEV)"
+version = "1.76.0"  # Single version source; update the UI package descriptors and README with each release.
+description = "A multilingual AI-flow framework for processing documents and emails (Burr + Pydantic AI + JEV)"
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
@@ -20,9 +20,13 @@ line-length = 120
 extend-exclude = ["runs", "store", "inbox", "tools", ".venv"]
 
 [tool.ruff.lint]
-# A 038-as audit szabálykészlete: szintaxis, importok, definiálatlan nevek, tömörített utasítások.
-select = ["E4", "E7", "E9", "F"]
+# The rule set: syntax, imports, undefined names, compound statements; 265 (code review TOOL-09): a blind
+# `except Exception` (BLE001) and a swallowed exception (S110) need a stated reason, and an unused or inert `noqa` goes
+# (RUF100).
+select = ["E4", "E7", "E9", "F", "BLE001", "S110", "RUF100"]
 
 [tool.jav.lint]
-# Racsni: az összes Ruff-jelzés nem nőhet e fölé; javítás után csökkentsd (preflight ellenőrzi).
+# Ratchet: the number of Ruff findings may not grow above this; lower it after a fix (preflight checks it).
 max_findings = 0
+# The Ruff version the ratchet is counted with (preflight fails with another one): uv tool install ruff==0.16.4
+ruff_version = "0.16.4"

@@ -6,7 +6,7 @@
    {
     "version": "1.0.0",
     "date": "2026-10-29",
-    "note": "231 (stage F, F2c; the owner's decision of 2026-10-29): the S path of a seller's general terms and conditions, described by data alone: code finds the candidates with the `terms` profile (configs/candidate_profiles.json) and the pack's whole-line titles, JEV chooses. The registration number is left to the G path (no candidate finder reads it)."
+    "note": "The owner's decision of 2026-10-29: the S path of a seller's general terms and conditions, described by data alone: code finds the candidates with the `terms` profile (configs/candidate_profiles.json) and the pack's whole-line titles, JEV chooses. The registration number is left to the G path (no candidate finder reads it)."
    }
   ]
  },

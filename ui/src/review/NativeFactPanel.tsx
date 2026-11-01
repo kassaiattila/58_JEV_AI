@@ -120,7 +120,7 @@ function NativeFactEditor({ fact, result, draft, source, selected, disabled, onC
   const verifying = useRef(false);
   const context = useRef({ version: result.result_version, mounted: true });
   context.current.version = result.result_version;
-  useEffect(() => { context.current.mounted = true; return () => { context.current.mounted = false; }; }, []);
+  useEffect(() => { const c = context.current; c.mounted = true; return () => { c.mounted = false; }; }, []);
   const edit = draft?.nativeCitationEdits?.[fact.fact_id];
   const chosen = edit?.element || selected || "";
   const quote = edit?.quote ?? "";

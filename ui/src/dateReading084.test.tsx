@@ -54,7 +54,7 @@ describe("084 dates in Review", () => {
   it("reads a saved date back next to the saved amounts", () => {
     const text = savedValues({ issue_date: "2022-12-04", net_total: "28000", invoice_number: "A-1" },
       { issue_date: "date", net_total: "money", invoice_number: "invoice_number" });
-    expect(text.replace(/[  ]/g, " ")).toBe("Kiállítás dátuma: 2022-12-04; Nettó összeg: 28 000");
+    expect(text.replace(/[\u00a0\u202f]/g, " ")).toBe("Kiállítás dátuma: 2022-12-04; Nettó összeg: 28 000");
   });
 
   it("a selected date that can be read two ways is not offered for the box, and the panel says why", async () => {

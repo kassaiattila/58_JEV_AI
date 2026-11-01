@@ -9,8 +9,8 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from jav.documents.readers.contracts import SourceBundle, canonical_bytes, read_bundle, verify_evidence  # noqa: E402
-from reader_samples import raw_evidence_payload, sample_bundles, synthetic_payloads  # noqa: E402
+from jav.documents.readers.contracts import SourceBundle, canonical_bytes, read_bundle, verify_evidence
+from reader_samples import raw_evidence_payload, sample_bundles, synthetic_payloads
 
 
 def export_examples(destination: Path) -> dict:

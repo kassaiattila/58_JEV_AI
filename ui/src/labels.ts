@@ -34,13 +34,6 @@ export const ITEM_STATUS: Record<string, string> = tmap({
   needs_ocr: "OCR needed",
 });
 
-export const FINAL_STATUS: Record<string, string> = tmap({
-  done: "Closed, no to-dos",
-  needs_review: "To-do",
-  needs_ocr: "OCR needed",
-  jev_unavailable: "JEV was unavailable",
-});
-
 export const MODE: Record<string, string> = tmap({ shadow: "Trial", apply: "Live" });
 
 // 056 U1: the Hungarian names of the fields and the list columns are in configs/field_labels.json — the service reads
@@ -86,7 +79,6 @@ export function nextFlowText(code: string | null | undefined, readsText = false)
 const INTERVAL_NAMES = tmap({ "15": "every 15 minutes", "30": "every 30 minutes", "60": "hourly", "240": "every 4 hours", "1440": "daily" });
 /** Intervals in the chosen language (as a function, so that they update on a language switch). */
 export const intervals = (): [number, string][] => [15, 30, 60, 240, 1440].map((m) => [m, INTERVAL_NAMES[String(m)]]);
-export const intervalText = (min: number) => intervals().find(([m]) => m === min)?.[1] ?? t("every {{min}} minutes", { min });
 
 const CHECK_TEXT: Record<string, string> = tmap({
   "balance.discontinuity": "The running balance is broken",
@@ -395,15 +387,21 @@ export function numText(v: unknown, digits = 2): string {
   return Number.isFinite(n) ? n.toLocaleString(getLocale(), { maximumFractionDigits: digits }) : String(v);
 }
 
-/** 167 (review 160 U-13): an amount in a table: always two decimals and grouped thousands, a four-digit one too
- *  ("1 200,50", not "1200,5"); a non-number stays unchanged. */
-export function moneyText(v: unknown): string {
+/** 265 (code review UI-12): the one grouped amount: at least `minDigits` decimals (two at most), the thousands always
+ *  grouped, a four-digit amount too; a non-number stays unchanged. The tables' amounts and the quote's use it; the
+ *  reconciliation keeps its exact formatter (`reconcile/money.ts`, whole numbers beyond a float's precision). */
+export function groupedAmount(v: unknown, minDigits = 2): string {
   if (v === null || v === undefined || v === "") return "";
   const n = Number(v);
   return Number.isFinite(n)
-    ? n.toLocaleString(getLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: "always" } as unknown as Intl.NumberFormatOptions)
+    ? n.toLocaleString(getLocale(), { minimumFractionDigits: minDigits, maximumFractionDigits: Math.max(minDigits, 2),
+      useGrouping: "always" } as unknown as Intl.NumberFormatOptions)
     : String(v);
 }
+
+/** 167 (review 160 U-13): an amount in a table: always two decimals and grouped thousands, a four-digit one too
+ *  ("1 200,50", not "1200,5"); a non-number stays unchanged. */
+export const moneyText = (v: unknown): string => groupedAmount(v, 2);
 
 /** 081: a stored amount or quantity ("35.56", "28000") in the editing form, the Hungarian way: a decimal comma and no
  *  grouping ("35,56"). The local service reads what is typed back by the same habit ("28.000" = 28 000). */

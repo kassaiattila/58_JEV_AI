@@ -6,12 +6,12 @@
    {
     "version": "1.1.0",
     "date": "2026-10-08",
-    "note": "127 (5th group, round B): own data replaced (069 decision): the example buyer VAT number in buyer_tax_id is an invented one. The document guard and the request size budget (110000) come from verify 1.2.0. Backlog Q-credit-note and Q-receipt (the owner's decision of 2026-10-07): the invoice_number field spec names a credit note's own number and, on a receipt without an invoice number, the receipt number, else the transaction / payment id."
+    "note": "5th group, round B: own data replaced: the example buyer VAT number in buyer_tax_id is an invented one. The document guard and the request size budget (110000) come from verify 1.2.0. Backlog Q-credit-note and Q-receipt (the owner's decision of 2026-10-07): the invoice_number field spec names a credit note's own number and, on a receipt without an invoice number, the receipt number, else the transaction / payment id."
    },
    {
     "version": "1.0.0",
     "date": "2026-09-20",
-    "note": "G-kar ellenorzo hivasi hely a kulfoldi szamlahoz (BACKLOG 1, tipus-csomag invoice_foreign): a Noul-kerdesek (nouls) a verify.json-bol oroklodnek (inherits), itt csak a tipus-specifikus mezo-leirasok (field_specs a regi schema.json description mezoibol angolra irva), a csonkulas- es masfajta-szam-ellenorzott mezok listaja; a kerdes-azonosito verify_foreign"
+    "note": "The G path's verification call site for the foreign invoice (type pack invoice_foreign): the Noul questions (nouls) are inherited from verify.json (inherits); here only the type's own field descriptions (field_specs, written in English from the legacy schema.json descriptions) and the lists of fields checked for truncation and for a different kind of number; the question id is verify_foreign"
    }
   ]
  },

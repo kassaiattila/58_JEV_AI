@@ -216,7 +216,7 @@ def get_in(c: sqlite3.Connection, snapshot_id: str) -> dict[str, Any] | None:
     for n in range(0, len(shas), 500):  # well under every database's limit of bound values
         part = shas[n:n + 500]
         versions.update((r["sha256"], r["version"]) for r in c.execute(
-            f"SELECT sha256, version FROM rule_files WHERE sha256 IN ({','.join('?' * len(part))})", part))  # noqa: S608 - placeholders only
+            f"SELECT sha256, version FROM rule_files WHERE sha256 IN ({','.join('?' * len(part))})", part))  # placeholders only
     return {"snapshot_id": snapshot_id, "app_version": row["app_version"], "commit": row["git_commit"],
             "dirty": None if row["git_dirty"] is None else bool(row["git_dirty"]), "created_at": row["created_at"],
             "files": {p: {"sha256": s, "version": versions.get(s)} for p, s in files.items()}}

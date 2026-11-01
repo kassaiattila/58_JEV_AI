@@ -307,13 +307,13 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: Any) -> None:  # quieter default log
         return
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if self.path.rstrip("/") in ("", "/health"):
             self._json(200, {"ok": True, "service": "jav-m3-ingest", "auth": bool(self.token)})
         else:
             self._json(404, {"error": "not found"})
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         path = self.path.split("?", 1)[0].rstrip("/")
         refused = (403, "browser requests are not accepted") if self._from_browser() else \
             (401, "unauthorized") if not self._authorized() else None

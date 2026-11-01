@@ -17,7 +17,7 @@ import pytest
 
 from jav.app import app_settings, work, work_readiness  # noqa: F401  (app_settings: its tables, read by readiness)
 from jav.documents import source_instances
-from jav.core import store  # noqa: F401  (app_settings: its tables, read by readiness)
+from jav.core import store  # app_settings: its tables, read by readiness
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
 
 

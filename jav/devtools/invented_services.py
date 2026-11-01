@@ -102,7 +102,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
     # so a connection that sends nothing is closed after this many seconds instead of holding a thread for good
     timeout = READ_TIMEOUT_S
 
-    def do_POST(self) -> None:  # noqa: N802 - the standard library's name
+    def do_POST(self) -> None:  # the standard library's name
         length = int(self.headers.get("Content-Length") or 0)
         status, data = answer(self.path, self.rfile.read(min(length, MAX_QUESTION)))
         self.send_response(status)
@@ -111,7 +111,7 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - the standard library's name
+    def log_message(self, format: str, *args: Any) -> None:  # the standard library's name
         log.info("invented register: " + format, *args)
 
 

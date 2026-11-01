@@ -145,7 +145,7 @@ def _detect_gpt(state: DetectState, pdf) -> DetectState:
 
     try:
         state.result = _detect(pdf, state.source_path, run_id=state.run_id)
-    except Exception as exc:  # noqa: BLE001 - an error is a to-do, not the end of the flow (as on the G path)
+    except Exception as exc:  # an error is a to-do, not the end of the flow (as on the G path)
         if not isinstance(exc, JevUnavailableError):  # 265 (code review AI-05): a cause beyond the provider, logged
             log.exception("the type recognition failed on %s", Path(state.source_path).name)
         state.result = None
@@ -275,7 +275,7 @@ def _resolve_detail(state: DetectState, jev, chooser=None) -> None:
     except JevUnavailableError as exc:
         d = DetailResult(broad=broad, key=None, method="no_jev")
         state.detail_reasons = [f"jev_unavailable:{exc.reason}"]
-    except Exception as exc:  # noqa: BLE001 - only the GPT chooser gets here (no JEV): a to-do, the item goes on
+    except Exception as exc:  # only the GPT chooser gets here (no JEV): a to-do, the item goes on
         if chooser is None:
             raise
         log.exception("the detailed type choice failed")  # 265 (code review AI-05)

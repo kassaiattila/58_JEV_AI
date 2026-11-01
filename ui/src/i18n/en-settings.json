@@ -140,7 +140,6 @@
   "nincs a legutóbbi mentésben": "not in the latest backup",
   "A név csak betűt, számot, szóközt, pontot, @ jelet és kötőjelet tartalmazhat (legfeljebb 64 karakter).": "A name may contain only letters, digits, spaces, dots, @ and hyphens (at most 64 characters).",
   "Verzió": "Version",
-  "v{{version}} · commit {{commit}}": "v{{version}} · commit {{commit}}",
   "A commit nem ismert (a szolgáltatás git nélkül indult).": "The commit is unknown (the service started without git).",
   "A futó kód commitolatlan változást tartalmaz.": "The running code contains uncommitted changes.",
   "A szolgáltatás {{when}} óta fut; új kód az újraindítása után él.": "The service has been running since {{when}}; new code takes effect after a restart.",

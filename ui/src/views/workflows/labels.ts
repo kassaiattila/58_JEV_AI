@@ -37,14 +37,6 @@ export function centsUp(value: string | number): string {
   return (Math.ceil(Math.round(Number(value) * 1e6) / 1e4) / 100).toFixed(2);
 }
 
-/** 167 (review 160 U-9): a new estimate's proposal over a step's budget. A value the person typed in this form stays; a
- *  value from an earlier estimate (or from the repeated workflow) is replaced, so a re-estimate does raise it. */
-export function mergeProposal(current: WorkflowBudget, proposed: WorkflowBudget, typed: Record<string, boolean>): WorkflowBudget {
-  const out: WorkflowBudget = { ...current };
-  for (const [p, v] of Object.entries(proposed)) if (!typed[p]) out[p as keyof WorkflowBudget] = v;
-  return out;
-}
-
 export function budgetText(budget: WorkflowBudget | undefined): string {
   const parts = Object.entries(budget ?? {}).filter(([, v]) => v && Number(v) > 0).map(([p, v]) => `${PROVIDER[p] ?? p} ${v} USD`);
   return parts.length ? parts.join(" + ") : t("free only");

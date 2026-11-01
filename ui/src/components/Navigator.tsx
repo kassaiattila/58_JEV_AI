@@ -1,12 +1,11 @@
 // 263 (plan E, E1; the owner's decision of 2026-10-30: "a table of contents and one page"): a large amount of data shown
 // by its structure - groups, sections, lists and their items - as one table of contents beside one page. A branch opens
-// and closes; the chosen node and the way to it are always open; a search shows the matching nodes with the way to them.
+// and closes; the chosen node and the way to it are always open.
 // A node is a link (its page's address), so a reload, the browser's Back and a sent link keep the choice. Until 263
 // Settings had a menu, and each section a list with its detail below it.
 import { Fragment, useEffect, useRef, type ReactNode } from "react";
 import { Icon } from "./Icon";
 import { t, useLocale } from "../i18n";
-import { fold } from "../labels";
 
 export interface NavNode {
   key: string;
@@ -17,8 +16,6 @@ export interface NavNode {
   count?: number | null;
   /** a small state mark after the label (a retired thing's dash) */
   mark?: ReactNode;
-  /** more words a search matches (an item's tax number, a rule's kind) */
-  text?: string;
   /** its branches; undefined: a leaf; `loading`: they are being read */
   children?: NavNode[];
   loading?: boolean;
@@ -48,34 +45,17 @@ export function findNode(nodes: NavNode[], key: string | null | undefined): NavN
   return null;
 }
 
-/** The tree cut to the nodes a search matches, each with the way to it (a matching branch keeps all it holds). */
-function matching(nodes: NavNode[], words: string[]): NavNode[] {
-  const out: NavNode[] = [];
-  for (const n of nodes) {
-    const text = fold(`${n.label} ${n.text ?? ""}`);
-    if (words.every((w) => text.includes(w))) out.push(n);
-    else if (n.children) {
-      const below = matching(n.children, words);
-      if (below.length) out.push({ ...n, children: below });
-    }
-  }
-  return out;
-}
-
-/** `onQuery` gives the tree a search (a long tree); without it the tree has none. */
-export function Navigator({ nodes, selected, open, onToggle, query = "", onQuery, label }: {
-  nodes: NavNode[]; selected: string | null; open: Set<string>; onToggle: (key: string) => void;
-  query?: string; onQuery?: (q: string) => void; label: string;
+/** 265 (code review UI-13): no caller gave the tree a search, so it has none. */
+export function Navigator({ nodes, selected, open, onToggle, label }: {
+  nodes: NavNode[]; selected: string | null; open: Set<string>; onToggle: (key: string) => void; label: string;
 }) {
   useLocale();
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => { // the chosen node comes into the tree's view when the page opens on it
     box.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView?.({ block: "nearest" });
   }, [selected]);
-  const words = fold(query).split(/\s+/).filter(Boolean);
-  const shown = words.length ? matching(nodes, words) : nodes;
   const way = new Set(pathTo(nodes, selected));
-  const isOpen = (n: NavNode) => words.length > 0 || open.has(n.key) || way.has(n.key);
+  const isOpen = (n: NavNode) => open.has(n.key) || way.has(n.key);
 
   const branch = (list: NavNode[], depth: number): ReactNode => (
     <ul className="nav-tree-list">
@@ -113,14 +93,7 @@ export function Navigator({ nodes, selected, open, onToggle, query = "", onQuery
 
   return (
     <nav className="nav-tree" aria-label={label}>
-      {onQuery ? (
-        <div className="nav-search">
-          <input type="search" value={query} aria-label={t("Search")} placeholder={t("Search the settings…")} onChange={(e) => onQuery(e.target.value)} />
-        </div>
-      ) : null}
-      <div ref={box} className="nav-scroll">
-        {shown.length ? branch(shown, 0) : <p className="nav-loading muted small">{t("Nothing matches.")}</p>}
-      </div>
+      <div ref={box} className="nav-scroll">{branch(nodes, 0)}</div>
     </nav>
   );
 }

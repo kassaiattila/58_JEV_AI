@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition, invoice data extraction and email intent — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.75.0`** (2026-11-01). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.76.0`** (2026-11-01). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -54,7 +54,7 @@ How it is built: [architecture](docs/ARCHITECTURE.md). How to use the workspace:
 ## Getting started
 
 ```powershell
-uv venv --python 3.12 .venv; uv pip install -r requirements.lock   # details, OCR, keys: docs/guides/SETUP.md
+uv venv --python 3.12 .venv; uv pip install --require-hashes -r requirements-dev.lock   # details, OCR, keys: docs/guides/SETUP.md
 .\.venv\Scripts\Activate.ps1
 python -m jav.cli hooks-install        # data guard: checks before commit and push (once per clone)
 python -m jav.cli preflight            # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot

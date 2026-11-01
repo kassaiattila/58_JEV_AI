@@ -19,10 +19,7 @@ from __future__ import annotations
 import json
 import secrets
 from datetime import date
-from decimal import Decimal
 from typing import Any
-
-from pydantic import BaseModel
 
 from jav.app import capabilities, datasets, facts
 from jav.app.tablequery import Column
@@ -72,19 +69,6 @@ def _key(case_id: str, step_id: str, unit_id: str) -> str:
     return f"{case_id}:{step_id}:{unit_id}"
 
 
-def _plain(value: Any) -> Any:
-    """A typed value as JSON."""
-    if isinstance(value, BaseModel):
-        return value.model_dump(mode="json")
-    if isinstance(value, date):
-        return value.isoformat()
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, tuple):
-        return list(value)
-    return value
-
-
 def _checked(c: Any, case_id: str, step_id: str, catalogue_id: str, level: str, parent_id: str | None,
              values: dict[str, Any], sources: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """The facts typed and the sources read, with the parent of the level above (`FactError` otherwise)."""
@@ -100,7 +84,7 @@ def _checked(c: Any, case_id: str, step_id: str, catalogue_id: str, level: str, 
             raise facts.FactError(f"no unit {parent_id} to be the parent")
         if not rank or parent["level"] != cat.levels[rank - 1]:
             raise facts.FactError(f"a {level}'s parent is a {cat.levels[rank - 1] if rank else 'none'}, not a {parent['level']}")
-    typed = {name: _plain(facts.typed_fact(cat, name, level, value)) for name, value in values.items()}
+    typed = {name: facts.plain(facts.typed_fact(cat, name, level, value)) for name, value in values.items()}
     claims = {name: facts.SourceClaim.model_validate(claim).model_dump(mode="json") for name, claim in sources.items()
               if name in typed}
     return typed, claims

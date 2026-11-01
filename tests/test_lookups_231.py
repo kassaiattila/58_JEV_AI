@@ -113,7 +113,7 @@ def test_the_local_service_answers_over_http() -> None:
         port = running.server_address[1]
         request = urllib.request.Request(f"http://127.0.0.1:{port}/company", data=b'{"tax_number": "24681353-1-43"}',
                                          headers={"Content-Type": "application/json"}, method="POST")
-        with urllib.request.urlopen(request, timeout=5) as response:  # noqa: S310 - the invented local service
+        with urllib.request.urlopen(request, timeout=5) as response:  # the invented local service
             assert json.loads(response.read())["company"]["activity_code"] == "2562"
     finally:
         running.shutdown()

@@ -6,52 +6,52 @@
    {
     "version": "1.9.0",
     "date": "2026-10-29",
-    "note": "231 (stage F, F3 D4; the owner's decision of 2026-10-29: the file names follow the interface's language): the type tokens, the placeholders, the review folder, the manifest's name and the reasons', columns' and statuses' labels are English sources; their Hungarian (the earlier words, unchanged) comes from the interface's dictionary (ui/src/i18n/hu-native.json), and a name is built in the requesting interface's language. The legal forms are document vocabulary and stay."
+    "note": "The owner's decision of 2026-10-29: the file names follow the interface's language: the type tokens, the placeholders, the review folder, the manifest's name and the reasons', columns' and statuses' labels are English sources; their Hungarian (the earlier words, unchanged) comes from the interface's dictionary (ui/src/i18n/hu-native.json), and a name is built in the requesting interface's language. The legal forms are document vocabulary and stay."
    },
    {
     "version": "1.8.0",
     "date": "2026-10-26",
-    "note": "231 (stage D, D-e1): the insurance application (detection type insurance_application) and its three packs: the request form by the day cover starts and the policyholder, the property schedule by the policyholder and the site's number, the claims history by the end of its period and the policyholder."
+    "note": "The insurance application (detection type insurance_application) and its three packs: the request form by the day cover starts and the policyholder, the property schedule by the policyholder and the site's number, the claims history by the end of its period and the policyholder."
    },
    {
     "version": "1.7.0",
     "date": "2026-10-22",
-    "note": "197 (K2b): the taught ticket candidate (belepo_jegy_taught) is named as the ticket is."
+    "note": "The taught ticket candidate (belepo_jegy_taught) is named as the ticket is."
    },
    {
     "version": "1.6.0",
     "date": "2026-10-21",
-    "note": "190 (plan 189 A2e): the quote request (type pack and detection type quote_request): its deadline (the only date of the record, a filler when missing) and the customer; the reference is often missing, so it is not part of the name."
+    "note": "The quote request (type pack and detection type quote_request): its deadline (the only date of the record, a filler when missing) and the customer; the reference is often missing, so it is not part of the name."
    },
    {
     "version": "1.5.0",
     "date": "2026-10-17",
-    "note": "167 (review AI-7): the llm:truncated to-do (GPT's extraction cut off at its output cap, nothing extracted) is about the whole document, like llm:failed: its copy goes to the review folder."
+    "note": "Review AI-7: the llm:truncated to-do (GPT's extraction cut off at its output cap, nothing extracted) is about the whole document, like llm:failed: its copy goes to the review folder."
    },
    {
     "version": "1.4.0",
     "date": "2026-10-10",
-    "note": "136 E4: the token of a statement read from a bank's table export (KIVONAT_TABLA), named like the other bank statements."
+    "note": "The token of a statement read from a bank's table export (KIVONAT_TABLA), named like the other bank statements."
    },
    {
     "version": "1.3.0",
     "date": "2026-10-07",
-    "note": "122 (backlog F-pro-forma): the pro forma invoice's own token (DIJBEKERO), named like a Hungarian invoice."
+    "note": "The pro forma invoice's own token (DIJBEKERO), named like a Hungarian invoice."
    },
    {
     "version": "1.2.0",
     "date": "2026-10-06",
-    "note": "120: the role-pair check (validator:parties.same_entity) replaces the S-path-only parties:same_* reasons and, like them, marks the name parts of the copy's name."
+    "note": "The role-pair check (validator:parties.same_entity) replaces the S-path-only parties:same_* reasons and, like them, marks the name parts of the copy's name."
    },
    {
     "version": "1.1.0",
     "date": "2026-09-30",
-    "note": "078 free trial on the local runs: the long legal forms of names are shortened (legal_forms), a part over the limit is cut at a word boundary, and the street part drops a leading postcode and town when there is no comma and has one letter case."
+    "note": "Free trial on the local runs: the long legal forms of names are shortened (legal_forms), a part over the limit is cut at a word boundary, and the street part drops a leading postcode and town when there is no comma and has one letter case."
    },
    {
     "version": "1.0.0",
     "date": "2026-09-30",
-    "note": "078 (owner decisions of 2026-09-30): content-based names for copies of the processed documents, date first, no accents; a copy whose name rests on an open to-do, a missing field or an unknown type goes to the review folder. Ported from the legacy outputnaming.py / ingest_folder.py rules and generalised per type."
+    "note": "Owner decisions of 2026-09-30: content-based names for copies of the processed documents, date first, no accents; a copy whose name rests on an open to-do, a missing field or an unknown type goes to the review folder. Ported from the legacy outputnaming.py / ingest_folder.py rules and generalised per type."
    }
   ]
  },

@@ -1,10 +1,15 @@
 {
   "meta": {
     "name": "quote_match",
-    "version": "1.0.0",
-    "description": "191 (plan F-quote-package B4b, jav/quote_match.py): which item of the seller's price list a requested item of a quote request is. Code first takes an item code written in the request; otherwise one JEV request per requested item asks three questions together: `item`, a Choice over the price list's items (each by its name, code, unit and group; at most max_options, code preselecting by shared words from a longer list) plus none; `listed`, whether the list sells such a thing at all (the companion yes/no the TypeSafe Choice guidance recommends beside a none option); `specific`, whether the request says enough to tell one item of the list (several similar items and an open size, model or plan). The state is the requested item as written with its quantity and unit, the request's other items as context, and the price list as lines. No price goes to the model: code prices the line (jav/quote_pricing.py). The proposal's marks use the default policy bands (call site quote.match): sure, to check, or not in the list; a person reviews every line.",
+    "version": "1.0.1",
+    "description": "Jav/quote_match.py: which item of the seller's price list a requested item of a quote request is. Code first takes an item code written in the request; otherwise one JEV request per requested item asks three questions together: `item`, a Choice over the price list's items (each by its name, code, unit and group; at most max_options, code preselecting by shared words from a longer list) plus none; `listed`, whether the list sells such a thing at all (the companion yes/no the TypeSafe Choice guidance recommends beside a none option); `specific`, whether the request says enough to tell one item of the list (several similar items and an open size, model or plan). The state is the requested item as written with its quantity and unit, the request's other items as context, and the price list as lines. No price goes to the model: code prices the line (jav/quote_pricing.py). The proposal's marks use the default policy bands (call site quote.match): sure, to check, or not in the list; a person reviews every line.",
     "changelog": [
-      {"version": "1.0.0", "date": "2026-10-21", "note": "191 (plan F-quote-package B4b, DECISIONS 191): first version, written from the TypeSafe Choice guidance and the skill-suggestion cookbook (a Choice with a companion presence question); the instructions name the deciding facts generally, no example comes from the invented golden set."}
+      {"version": "1.0.0", "date": "2026-10-21", "note": "First version, written from the TypeSafe Choice guidance and the skill-suggestion cookbook (a Choice with a companion presence question); the instructions name the deciding facts generally, no example comes from the invented golden set."},
+      {
+        "version": "1.0.1",
+        "date": "2026-11-01",
+        "note": "The notes and the description without the development process's references; no value changes."
+      }
     ]
   },
   "request_id": "quote_match",

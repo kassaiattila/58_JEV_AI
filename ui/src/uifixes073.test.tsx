@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "./api";
 import english from "./i18n/en";
+import hungarianNative from "./i18n/hu-native.json";
 import { setLanguage } from "./i18n";
 import { reasonText } from "./labels";
 import { pullErrorText, pullSummary } from "./domains/email/Mailbox";
@@ -46,7 +47,8 @@ describe("download errors (073)", () => {
 
 describe("settings menu translations (073)", () => {
   it("every section label and hint has an English translation", () => {
-    const missing = settingsSections().flatMap((s) => [s.label, s.hint]).filter((k) => !(k in english));
+    // 265 (code review UI-03): an English source shows itself; a Hungarian one needs its English entry
+    const missing = settingsSections().flatMap((s) => [s.label, s.hint]).filter((k) => !(k in english) && !(k in hungarianNative));
     expect(missing).toEqual([]);
     expect(english["Receptek"]).toBe("Recipes");
   });

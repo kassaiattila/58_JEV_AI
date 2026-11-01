@@ -27,7 +27,7 @@ from typing import Any
 from jav.ai import checks, party_history
 
 from jav.documents import fact_checks
-from jav.core import taxid
+from jav.core import cfg, taxid
 from jav.ai.models import CheckResult, DocumentRecord
 
 HU_TAXID_WEIGHTS = taxid.HU_WEIGHTS
@@ -37,8 +37,21 @@ _IBAN_SHAPE = re.compile(r"^[A-Z]{2}[0-9]{2}[A-Z0-9]+$")
 _DIGITS_FULL = re.compile(r"^[0-9]+$")
 
 
+# 265 (code review AI-09): the arithmetic checks' tolerances (configs/policy.json `validators`), read when applied
+TOLERANCES = cfg.Section("policy", "validators")
+
+
+def _is_huf(inv: DocumentRecord, check: str) -> bool:
+    """Whether a document's amounts are checked as forints; without a currency, as `missing_currency` names it for the
+    check (the totals as another currency's, the line items' sum as forints: two rules, kept as they were)."""
+    if not inv.currency:
+        return TOLERANCES["missing_currency"][check] == "huf"
+    return inv.currency.upper() == "HUF"
+
+
 def vat_consistency(inv: DocumentRecord) -> CheckResult:
-    """|net + VAT - gross| <= tolerance. HUF: whole forints, tolerance 1; otherwise 2 decimals, tolerance 0.02."""
+    """|net + VAT - gross| <= tolerance (configs/policy.json `validators.totals`: whole forints within 1, another
+    currency within 0.02)."""
     if inv.net_total is None or inv.vat_total is None or inv.gross_total is None:
         return CheckResult(
             name="vat_consistency",
@@ -46,8 +59,7 @@ def vat_consistency(inv: DocumentRecord) -> CheckResult:
             code="totals.unparseable",
             detail=f"net={inv.net_total} vat={inv.vat_total} gross={inv.gross_total}",
         )
-    is_huf = (inv.currency or "").upper() == "HUF"
-    tol = Decimal("1") if is_huf else Decimal("0.02")
+    tol = Decimal(TOLERANCES["totals"]["huf" if _is_huf(inv, "totals") else "other"])
     diff = inv.net_total + inv.vat_total - inv.gross_total
     if abs(diff) <= tol:
         return CheckResult(name="vat_consistency", ok=True, code="totals.ok")
@@ -175,10 +187,18 @@ def format_check(value: object, regex: str, name: str = "format") -> CheckResult
 
 
 def _tolerance(inv: DocumentRecord, n: int) -> Decimal:
-    """Sum tolerance: for HUF, 2 Ft or half a forint per item (per-line rounding), otherwise 0.02 / 0.005 per item."""
-    if (inv.currency or "HUF").upper() == "HUF":
-        return max(Decimal("2"), Decimal("0.5") * n)
-    return max(Decimal("0.02"), Decimal("0.005") * n)
+    """Sum tolerance (configs/policy.json `validators.line_sum`): for HUF, 2 Ft or half a forint per item (per-line
+    rounding), otherwise 0.02 / 0.005 per item."""
+    t = TOLERANCES["line_sum"]
+    side = "huf" if _is_huf(inv, "line_sum") else "other"
+    return max(Decimal(t[f"{side}_min"]), Decimal(t[f"{side}_per_item"]) * n)
+
+
+def _line_tolerance(stated: Decimal) -> Decimal:
+    """A line's quantity x price or net x (1 + VAT) against its printed amount (configs/policy.json
+    `validators.line_arithmetic`): within 1, or within 1% of the amount."""
+    t = TOLERANCES["line_arithmetic"]
+    return max(Decimal(t["min"]), abs(stated) * Decimal(t["percent"]) / 100)
 
 
 def _rows(lines: list[int]) -> str:
@@ -241,7 +261,7 @@ def line_items_arithmetic(inv: DocumentRecord) -> CheckResult:
             pairs.append(("net*(1+vat)", li.net_amount * (1 + rate), li.gross_amount))
         for label, computed, stated in pairs:
             checked += 1
-            if abs(computed - stated) > max(Decimal("1"), abs(stated) / 100):
+            if abs(computed - stated) > _line_tolerance(stated):
                 bad.append(f"line {i}: {label}={computed.quantize(Decimal('0.01'))} vs {stated}")
     if bad:
         return CheckResult(name="line_items_arithmetic", ok=False, code="lines.arithmetic_mismatch", detail="; ".join(bad))
