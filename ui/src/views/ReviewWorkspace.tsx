@@ -3,7 +3,7 @@ import { api, type Alternative, type ItemResult, type Provenance, type RunItem, 
 import { DatasetPicker, runOption } from "../components/DatasetPicker";
 import { EngineMark } from "../components/EngineMark";
 import { NameModeSwitch, NameWarning } from "../components/NameCell";
-import { isShortcutTarget } from "../components/shortcuts";
+import { isShortcutTarget, isTyping, ownsKeys } from "../components/shortcuts";
 import { useDataset, useFitToScreen, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
 import { FIELD, fieldLabel, fold, ITEM_STATUS, itemName, when } from "../labels";
@@ -342,9 +342,11 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
   // box, and outside the boxes ↑/↓ (j/k) move between the fields, n/p switch items and Enter goes into the field
   useEffect(() => {
     const on = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement;
-      const typing = el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT");
-      const inField = typing && el.id.startsWith("fv-");
+      const el = e.target instanceof HTMLElement ? e.target : null;
+      const typing = isTyping(el);  // 272 (K3, the rest of UI-01): the shared test, as the other pages'
+      const inField = typing && el !== null && el.id.startsWith("fv-");
+      // a key a control already handled, or one in a control that owns the keys (a picker), is not the page's
+      if (e.defaultPrevented || (!inField && ownsKeys(el))) return;
       if ((e.key === "PageDown" || e.key === "PageUp") && (!typing || inField) && !(e.ctrlKey || e.metaKey || e.altKey)) {
         e.preventDefault();
         (e.key === "PageDown" ? onNext : onPrev)?.();
@@ -352,7 +354,7 @@ function PdfItemReview({ wpId, runId, itemId, approved, onChanged, onNext, onPre
       }
       if (e.key === "Escape") {
         if (selected.length) setSelected([]);
-        else if (typing) (el as HTMLInputElement).blur();
+        else if (typing && el) el.blur();
         return;
       }
       if (typing || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;

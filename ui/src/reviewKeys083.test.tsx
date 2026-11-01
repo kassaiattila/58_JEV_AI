@@ -194,4 +194,26 @@ describe("083 the keyboard flow in the whole workspace", () => {
     fireEvent.keyDown(document.activeElement!, { key: "PageDown" });
     expect(window.location.hash).toBe("#/workpackages/wp-k/review/b");
   });
+
+  // 272 (K3, the rest of UI-01): the item keys ran before the shared guard, so a picker's PageDown (or a key a control
+  // had already handled) also switched the item
+  it("PageDown in a picker, or one a control already handled, does not switch the item", async () => {
+    vi.spyOn(api, "run").mockResolvedValue(runView());
+    vi.spyOn(api, "settings").mockResolvedValue({ confidence_bands: { confident: 0.9, check: 0.5 } });
+    vi.spyOn(api, "words").mockReturnValue(new Promise(() => {}));
+    vi.spyOn(api, "item").mockResolvedValue(item(0, []));
+    window.location.hash = "";
+    render(<ReviewWorkspace wp={{ id: "wp-k" } as Workpackage} itemId="a" />);
+    await waitFor(() => expect(document.activeElement?.id).toMatch(/^fv-/));
+    const picker = document.createElement("button");
+    picker.setAttribute("aria-haspopup", "listbox");
+    document.body.appendChild(picker);
+    fireEvent.keyDown(picker, { key: "PageDown" });
+    expect(window.location.hash).toBe("");
+    const handled = new KeyboardEvent("keydown", { key: "PageDown", bubbles: true, cancelable: true });
+    handled.preventDefault();
+    document.activeElement!.dispatchEvent(handled);
+    expect(window.location.hash).toBe("");
+    picker.remove();
+  });
 });
