@@ -444,8 +444,17 @@ def _problems(pack: ProcessPack) -> list[str]:
     return problems
 
 
+_CHECKED: dict[str, ProcessPack] = {}
+"""265 (code review APPW-05): the packs checked once while the configs are frozen (the service, the worker); a case page
+loaded a pack seven to ten times, each a full check. Emptied when the configs are read again (`cfg.reload`)."""
+cfg.on_reload(_CHECKED.clear)
+
+
 def load(pack_id: str) -> ProcessPack:
-    """The process pack `pack_id`, read and checked; `PackError` with every problem."""
+    """The process pack `pack_id`, read and checked; `PackError` with every problem. 265 (code review APPW-05): with the
+    configs frozen (they cannot change in the process) a pack is checked once (`_CHECKED`); a pack model is frozen too."""
+    if cfg.frozen() and (kept := _CHECKED.get(pack_id)) is not None:
+        return kept
     try:
         data = cfg.load(f"process:{pack_id}")
     except FileNotFoundError as exc:
@@ -459,6 +468,8 @@ def load(pack_id: str) -> ProcessPack:
     problems = _problems(pack)
     if problems:
         raise PackError(f"process pack {pack_id!r}: " + "; ".join(problems))
+    if cfg.frozen():
+        _CHECKED[pack_id] = pack
     return pack
 
 
