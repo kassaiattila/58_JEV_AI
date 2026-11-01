@@ -52,3 +52,27 @@ def test_a_runs_to_dos_are_the_same_by_range(db) -> None:
     assert work_runs._own_reason_count(db, "run-1", "open") == 2
     assert store.close_run_reasons(db, "run-1") == 2
     assert work_runs._own_reason_count(db, "run-10", "open") == 1
+
+
+# 272 (K4): the two lookups above were checked by a simplified query; here the code's own queries are planned
+
+
+def test_the_earlier_answer_lookup_the_reservation_runs_reads_its_index(db) -> None:
+    from jav.core import calls
+
+    seen: list[str] = []
+    db.set_trace_callback(seen.append)
+    try:
+        assert calls._reuse_earlier(db, run_id="r", step_id="s", attempt=1, provider="openai", model="m",
+                                    request_hash="h", budget_scope=None) is None
+    finally:
+        db.set_trace_callback(None)
+    [lookup] = [s for s in seen if s.lstrip().startswith("SELECT") and "request_hash" in s]
+    assert "ix_invocations_answer" in _plan(db, lookup, ())
+
+
+def test_a_person_s_case_actions_of_a_day_read_the_history_by_its_time(db) -> None:
+    from jav.core.process import cases
+
+    sql = cases.person_actions_sql(["step_started", "step_decided"])
+    assert "ix_process_history_at" in _plan(db, sql, ("2026-11-01T00:00:00", "2026-11-02T00:00:00"))

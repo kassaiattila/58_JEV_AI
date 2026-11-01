@@ -189,7 +189,8 @@ _LIST_INPUTS = {"workpackages": "MAX(updated_at), SUM(revision)", "workpackage_s
 
 def _fingerprint(_scope: dict[str, str]) -> str:
     """263 (F3, H25): the case list is built again only when what it shows may have changed (its scope is applied to the
-    rows built once): the process core's cases, steps and tasks, the containers, their scope and the parties' names."""
+    rows built once): the process core's cases and steps (272: its tasks no more, the rows read none), the containers,
+    their scope and the parties' names."""
     with store.connect() as c:  # 265 (code review APPW-10): the rows read no task, so a task does not count
         parts = [store.table_marks(c, _LIST_INPUTS), cases.case_marks()]
     return hashlib.sha256(json.dumps(parts, default=str).encode("utf-8")).hexdigest()
