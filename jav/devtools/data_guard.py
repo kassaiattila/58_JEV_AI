@@ -484,6 +484,13 @@ def check_push(root: Path, guard: Guard, ref_lines: Iterable[str], remote: str =
             roots.append(proc.stdout.decode().strip())
     lines = [parts for parts in (line.split() for line in ref_lines) if len(parts) == 4]
     found: list[Finding] = _push_refs(guard, lines)
+    # 272 (K2, SEC-03; CLAUDE.md 2.3): what goes is built on the repository's current root commit (`push.root`)
+    base = str((guard.conf.get("push") or {}).get("root") or "")
+    if base and any(parts[1] != ZERO_SHA for parts in lines) and _git(
+            root, "rev-parse", "-q", "--verify", f"{base}^{{commit}}", check=False).returncode != 0:
+        found.append(Finding("push.root", 0, "push_root",
+                             "the repository's root commit (push.root in configs/data_guard.json) is not in this clone"))
+        base = ""
     for parts in lines:
         if parts[1] == ZERO_SHA:
             continue
@@ -491,6 +498,10 @@ def check_push(root: Path, guard: Guard, ref_lines: Iterable[str], remote: str =
         if any(_git(root, "merge-base", "--is-ancestor", r, local_sha, check=False).returncode == 0 for r in roots):
             found.append(Finding(local_ref, 0, "forbidden_history",
                                  "built on a history listed under forbidden_history in configs/data_guard.json"))
+            continue
+        if base and _git(root, "merge-base", "--is-ancestor", base, local_sha, check=False).returncode != 0:
+            found.append(Finding(_remote_ref, 0, "push_root",
+                                 "not built on the repository's root commit (push.root in configs/data_guard.json)"))
             continue
         revs = [local_sha, "--not", f"--remotes={remote}"] + ([] if remote_sha == ZERO_SHA else [remote_sha])
         commits = _git(root, "rev-list", *revs).stdout.decode().split()

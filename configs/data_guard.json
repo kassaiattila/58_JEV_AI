@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "data_guard",
-    "version": "1.0.17",
+    "version": "1.1.0",
     "description": "The data guard (jav/devtools/data_guard.py): a personal-data and key guard before a commit and a push. A check digit filters the patterns (tax number, IBAN, bank account); invented and public company values are on the allow list in readable form, the own data kept by the owner's decision on the known list only as a sha256 tied to a file, and the forbidden phrases (an own company name, a user name) only as a sha256.",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-11-01",
+        "note": "`push.root`: every branch and tag a push carries must be built on the repository's current root commit (a branch of another history, under any name, is refused)."
+      },
       {
         "version": "1.0.17",
         "date": "2026-11-01",
@@ -318,6 +323,7 @@
       "refs/tags/v*"
     ],
     "stage_branches": 1,
+    "root": "6c863ef1c14721f56f8d02484b0d8bfcbf2e4fb2",
     "deny": [
       "refs/heads/archive/*",
       "refs/tags/archive/*"
