@@ -56,7 +56,8 @@ def test_native_s_is_rejected_before_queue_and_provider_reservation(isolated):
     with display.use("hu"):
         hungarian = work_readiness.readiness(wp["id"])
     message = next(b["message"] for b in hungarian["blockers"] if b["code"] == "native_s_unsupported")
-    assert message.startswith("A natív dokumentumokhoz GPT-adatkinyerés kell")
+    english = "Native documents require GPT extraction; the JEV-only path has no predefined field contract."
+    assert message == display.text(english, "hu") != english
     with pytest.raises(work.NotReady):
         work_runs.start_run(wp["id"], mode="apply", expected_assignment_revision=1,
                        input_hash=ready["input_hash"], actor="reviewer")
