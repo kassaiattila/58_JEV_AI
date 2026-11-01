@@ -119,7 +119,8 @@ def test_a_provider_off_by_default_says_why_and_one_switched_off_here_says_so(mo
 
 def test_every_engines_unavailable_end_state_has_a_name():
     from jav.ai import engine as engines
+    from jav.app import datasets
 
-    names = cfg.load("datasets")["final_status"]
+    names = datasets.label_set("final_status")
     for engine_id in engines.ids():
         assert engines.get(engine_id).unavailable_status in names, engine_id
