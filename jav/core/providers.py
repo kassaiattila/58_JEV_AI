@@ -51,6 +51,7 @@ class Provider:
     budget: str
     enabled: bool
     off_note: str | None = None
+    key_fallback: str | None = None  # 274: how it is reached without its own key
 
 
 @dataclass(frozen=True)
@@ -77,7 +78,8 @@ def get(provider_id: str) -> Provider:
     except KeyError:
         raise UnknownProvider(f"no provider is described as {provider_id!r} in configs/{CONFIG}.json") from None
     return Provider(id=provider_id, label=str(raw["label"]), key=raw.get("key"), budget=str(raw["budget"]),
-                    enabled=bool(raw["enabled"]), off_note=raw.get("off_note"))
+                    enabled=bool(raw["enabled"]), off_note=raw.get("off_note"),
+                    key_fallback=raw.get("key_fallback"))
 
 
 def check_id(provider_id: str) -> str:

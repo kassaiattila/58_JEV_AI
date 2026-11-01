@@ -337,9 +337,12 @@ def _supplements(wp: dict[str, Any], r: dict[str, Any], params: dict[str, Any], 
         items = [i for i in wp["items"] if i["item_id"] in pending]
         found = [(level, f) for item_id, level, f in checks if item_id in pending]
         arms = _item_arms(r, params, items)
-        out[mode] = {"items": len(items), "ready": not any(level == "blocker" for level, _f in found),
-                     "blockers": [f for level, f in found if level == "blocker"],
+        plan = run_plan(r, params, items, arms)
+        blockers = [f for level, f in found if level == "blocker"]
+        if (blocker := engine_blocker(plan)) is not None:  # 274: a run of the pending items stops on it too
+            blockers.append(blocker)
+        out[mode] = {"items": len(items), "ready": not blockers, "blockers": blockers,
                      "warnings": warnings + [f for level, f in found if level == "warning"],
-                     "budget": _run_budget(r, params, items, arms), "plan": run_plan(r, params, items, arms),
+                     "budget": _run_budget(r, params, items, arms), "plan": plan,
                      "input_hash": _snapshot_hash(_input_snapshot(wp, items))}
     return out

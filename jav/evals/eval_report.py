@@ -144,8 +144,10 @@ def load_rows(path: Path | str) -> list[dict[str, Any]]:
 
 def _budget_skipped(row: dict[str, Any]) -> bool:
     reasons = row.get("review_reasons") or ()
+    # 274: every judgement service's own to-do (`jev_unavailable:`, `decisions_unavailable:`; configs/engines.json)
+    over = {f"{prefix}budget_exceeded" for prefix in engines.unavailable_prefixes()}
     return (str(row.get("error") or "").startswith("BudgetExceeded")
-            or any(r.endswith(":BudgetExceeded") or r == "jev_unavailable:budget_exceeded" for r in reasons))
+            or any(r.endswith(":BudgetExceeded") or r in over for r in reasons))
 
 
 def budget_skips(rows: list[dict[str, Any]]) -> list[str]:
@@ -624,13 +626,16 @@ def determinism_summary(js: list[Judgment]) -> list[dict[str, Any]]:
 
 
 def default_inputs() -> list[Path]:
-    """The latest runs/*.jsonl per pattern."""
-    out = []
+    """The latest runs/*.jsonl per flow and kind (a golden run, a determinism run), in the patterns' order. 274: by the
+    flow a file belongs to (`flow_of`), not by the pattern that found it, since a JEV pattern also finds another
+    engine's files (`*_determinism_S_n*.jsonl` takes `..._n5_decisions.jsonl`, GPT's `..._nojev.jsonl` too)."""
+    latest: dict[tuple[str | None, bool], Path] = {}
     for g in DEFAULT_GLOBS:
-        files = sorted(RUNS_DIR.glob(g))
-        if files:
-            out.append(files[-1])
-    return out
+        for f in sorted(RUNS_DIR.glob(g)):
+            key = (flow_of(f), is_determinism(f))
+            if key not in latest or f.name > latest[key].name:
+                latest[key] = f
+    return list(dict.fromkeys(latest.values()))
 
 
 def _f(v: Any) -> str:

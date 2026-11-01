@@ -1,7 +1,8 @@
 """Work package and run commands (040 K1): a thin command-line interface over `jav.app.work` and `jav.runtime`.
 
   recipes                                  every recipe with its status (080: the UI offers only the active one)
-  processing-migrate [--write]             080: move packages and watched folders onto the default processing
+  processing-migrate [--write]             080: move packages and watched folders onto the default processing;
+                                           265: save the old JEV switch again under its engine's name
   wp-create <folder> [--name N]            work package from the PDFs in a folder
   wp-create --files <pdf>... --name N      work package from the given files (possibly from several folders)
   wp-list | wp-show <wp>                   work packages; one package's items, recipe and readiness
@@ -50,12 +51,13 @@ def cmd_recipes(args):
 
 def cmd_processing_migrate(args):
     """080: moves every package and watched folder still on an internal or retired recipe onto the default processing,
-    keeping its settings. Without --write it only lists them."""
+    keeping its settings; 265: saves an active recipe's settings that name the AI engine with the old JEV switch again
+    under the engine's name, on the same recipe. Without --write it only lists them."""
     from jav.app import app_settings, work_recipes
     packages = work_recipes.migrate_assignments(write=args.write)
     folders = app_settings.migrate_folder_recipes(write=args.write)
-    target, verb = work_recipes.default_recipe()["id"], "moved" if args.write else "would move"
-    lines = [f"{verb}: {p['workpackage_id']}  {p['from']} {p['from_params']} -> {target} {p['params']}" for p in packages]
+    target, verb = work_recipes.default_recipe()["id"], "saved" if args.write else "would save"
+    lines = [f"{verb}: {p['workpackage_id']}  {p['from']} {p['from_params']} -> {p['to']} {p['params']}" for p in packages]
     lines += [f"{verb}: watched folder {f['id']} ({f['name']})  {f['from']} -> {target} {f['params']}" for f in folders]
     lines.append(f"{len(packages)} package(s), {len(folders)} watched folder(s)" + ("" if args.write else "; run with --write to apply"))
     return _out(args, {"packages": packages, "folders": folders, "written": args.write}, "\n".join(lines))
@@ -301,7 +303,8 @@ def register(sub) -> None:
 
     add("recipes", cmd_recipes, "every recipe with its status (configs/recipes.json)")
     p = add("processing-migrate", cmd_processing_migrate,
-            "move packages and watched folders off internal or retired recipes onto the default processing")
+            "move packages and watched folders off internal or retired recipes onto the default processing, and save"
+            " the old JEV switch again under its engine's name")
     p.add_argument("--write", action="store_true", help="apply the changes (without it: only list them)")
     p = add("wp-create", cmd_wp_create, "a batch from a folder's PDFs or from the files given")
     p.add_argument("folder", nargs="?")

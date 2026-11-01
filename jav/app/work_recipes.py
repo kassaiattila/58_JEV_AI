@@ -167,11 +167,17 @@ def _insert_assignment(c, wp_id: str, r: dict[str, Any], params: dict[str, Any],
 MIGRATION_ACTOR = "rendszer"  # data: the actor of the 080 migration in the assignment history (shown in the UI)
 
 
+def carried_hashes(r: dict[str, Any]) -> set[str]:
+    """274: the recipe's own hash and those of the versions whose saved settings it carries unchanged in meaning
+    (`carries_from` in configs/recipes.json: only a setting's name changed)."""
+    return {recipe_hash(r), *(str(c["hash"]) for c in r.get("carries_from", ()))}
+
+
 def migrate_assignments(*, write: bool) -> list[dict[str, Any]]:
     """080 (owner's decision of 2026-10-01: automatic migration): every package whose current assignment is not an
     active recipe moves onto the default processing, keeping its settings (`carried_params`); hidden packages too.
     Without `write` it only lists what it would do. Repeatable: a package already on the active recipe is left alone.
-    Old runs keep their own recipe snapshot."""
+    Old runs keep their own recipe snapshot. Each entry names the recipe it goes `to`."""
     target = default_recipe()
     with store.connect() as c:
         rows = c.execute("SELECT a.* FROM recipe_assignments a WHERE a.revision = (SELECT MAX(revision) FROM recipe_assignments b"
@@ -182,13 +188,15 @@ def migrate_assignments(*, write: bool) -> list[dict[str, Any]]:
         params = json.loads(row["params"])
         if recipe_status(old) == "active":
             # 265 (plan L): an active recipe's settings that name the engine with the old switch are saved again with
-            # its engine, on the recipe's current version (so the package does not warn that its processing changed)
-            if params == upgraded_params(params):
+            # its engine, on the recipe's current version (so the package does not warn that its processing changed).
+            # 274: only those saved on a version the recipe carries (`carried_hashes`); a setting saved on an older
+            # version keeps its warning, and the old switch is read as its engine wherever it is read
+            if params == upgraded_params(params) or row["recipe_hash"] not in carried_hashes(old):
                 continue
             new = carried_params(old, params)
             note = display.text("the AI engine setting saved again under its engine's name")
             out.append({"workpackage_id": row["workpackage_id"], "from": row["recipe_id"], "from_params": params,
-                        "params": new, "revision": row["revision"] + 1, "note": note})
+                        "to": old["id"], "params": new, "revision": row["revision"] + 1, "note": note})
             if write:
                 with store.connect() as c:
                     work._begin(c)
@@ -199,8 +207,8 @@ def migrate_assignments(*, write: bool) -> list[dict[str, Any]]:
         doc_type = f", típus: {params['doc_type']}" if params.get("doc_type") else ""
         # data (the assignment history, shown in the UI as written), not a label
         note = f"080: átállítás az egységes feldolgozásra (előtte: {old['title']}, {old['version']}. változat{doc_type})"
-        out.append({"workpackage_id": row["workpackage_id"], "from": row["recipe_id"], "from_params": params, "params": new,
-                    "revision": row["revision"] + 1, "note": note})
+        out.append({"workpackage_id": row["workpackage_id"], "from": row["recipe_id"], "from_params": params,
+                    "to": target["id"], "params": new, "revision": row["revision"] + 1, "note": note})
         if write:
             with store.connect() as c:
                 work._begin(c)

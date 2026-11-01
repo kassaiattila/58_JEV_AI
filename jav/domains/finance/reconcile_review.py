@@ -8,8 +8,9 @@ still decides is in the first group that fits, in this order:
 - `earlier`: the reason a person gave the partner's other lines (the most frequent);
 - `bank_category`: the reason the line's own category in the bank's export suggests (`reconcile.category_mark`);
 - `salary_rule`: the salary reason the memo or the description suggests (`reconcile.salary_mark`);
-- `ai_sure`: both engines (JEV and GPT) give the same kind of payment, it suggests a reason, and JEV's probability is
-  at least the threshold (`finance.json` `reconcile.ai_sure`, the owner's decision: 0.95);
+- `ai_sure`: two or more engines give the same kind of payment, it suggests a reason, and every judgement service's
+  probability is at least the threshold (`finance.json` `reconcile.ai_sure`, the owner's decision: 0.95); with the
+  installation's JEV and GPT, as before 265: both agree, and JEV is at least that sure;
 - `ai_review`: the AI suggests a reason below the threshold, or only one engine answered: to look at;
 - `expects_invoice`: the AI's kind says an invoice is expected and the line has no candidate (for information);
 - `rest`: everything else, for the pairing page.

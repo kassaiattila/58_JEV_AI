@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.16.0",
+  "version": "1.16.1",
   "changelog": [
+   {
+    "version": "1.16.1",
+    "date": "2026-11-01",
+    "note": "Each processing recipe names the version whose saved settings it carries unchanged in meaning (`carries_from`: processing 3, multi-format-processing 2, where only the engine setting was named `jev`): `processing-migrate --write` saves those again under the engine's name on the current version; a setting saved on an older version keeps its \"recipe changed\" warning and is read as it is. No value changes."
+   },
    {
     "version": "1.16.0",
     "date": "2026-11-01",
@@ -95,6 +100,12 @@
    "id": "processing",
    "version": 4,
    "status": "active",
+   "carries_from": [
+    {
+     "version": 3,
+     "hash": "a0b6883b8ec79744"
+    }
+   ],
    "title": "Feldolgozás",
    "description": "A csomag minden tételét a fajtája szerint dolgozza fel: a PDF-iraton felismeri a típust, majd a felismert típus mezőit nyeri ki kódos ellenőrzéssel; a levélen felismeri a szándékot, a PDF-csatolmányait iratként dolgozza fel, és kérésre feladatot javasol. Ami bizonytalan vagy nem dönthető el, teendő lesz.",
    "steps": [
@@ -276,6 +287,12 @@
    "id": "multi-format-processing",
    "version": 3,
    "status": "active",
+   "carries_from": [
+    {
+     "version": 2,
+     "hash": "2df7f2a2af215289"
+    }
+   ],
    "title": "Multi-format processing",
    "description": "Read PDF, Word, Excel, UTF-8 text and CSV documents in one package. Preserve original source structure and review extracted facts before approval.",
    "steps": ["Read the frozen source", "Extract source-bound facts", "Review values and sources", "Approve and export"],

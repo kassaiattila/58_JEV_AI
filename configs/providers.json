@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "providers",
-    "version": "1.0.0",
-    "description": "Every paid service the system calls, one description each (jav/core/providers.py). `key`: the key it needs, read from the environment (`typesafe`: TypeSafeJAV_API_KEY or TYPESAFE_API_KEY; `openai`: OPENAI_API_KEY; `azure_di`: AZURE_DI_ENDPOINT and AZURE_DI_KEY). `budget`: the provider whose budget its calls reserve from; the call log keeps the provider's own name. `enabled`: whether an installation may call it at all; an installation overrides it with JAV_PROVIDERS_ON / JAV_PROVIDERS_OFF (comma-separated provider names), and `off_note` says why it is off by default. `label`: its name on screen and in reports. (Glossary: Provider registry.)",
+    "version": "1.1.0",
+    "description": "Every paid service the system calls, one description each (jav/core/providers.py). `key`: the key it needs, read from the environment (`typesafe`: TypeSafeJAV_API_KEY or TYPESAFE_API_KEY; `openai`: OPENAI_API_KEY; `azure_di`: AZURE_DI_ENDPOINT and AZURE_DI_KEY). `budget`: the provider whose budget its calls reserve from; the call log keeps the provider's own name. `enabled`: whether an installation may call it at all; an installation overrides it with JAV_PROVIDERS_ON / JAV_PROVIDERS_OFF (comma-separated provider names), and `off_note` says why it is off by default. `key_fallback`: how it is still reached without its own key, so a missing key is not reported as a refusal (Azure DI through the legacy sidecar). `label`: its name on screen and in reports. (Glossary: Provider registry.)",
     "changelog": [
+      {
+        "version": "1.1.0",
+        "date": "2026-11-01",
+        "note": "Azure DI's `key_fallback`: without its own key it is reached through the legacy sidecar (for the PDFs under the legacy data folder), so a measurement does not say that every Azure call would be refused; no other value changes."
+      },
       {
         "version": "1.0.0",
         "date": "2026-11-01",
@@ -35,7 +40,8 @@
       "label": "Azure DI",
       "key": "azure_di",
       "budget": "azure_di",
-      "enabled": true
+      "enabled": true,
+      "key_fallback": "the legacy sidecar, for the PDFs under the legacy data folder"
     }
   }
 }

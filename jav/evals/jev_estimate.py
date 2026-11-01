@@ -289,7 +289,7 @@ def main(argv: list[str] | None = None) -> int:
                                              "email-golden | verifier-probe:<type> | extract-cases:<file>")
     ap.add_argument("--out", help="output folder (default: runs/<timestamp>_jev_estimate)")
     ap.add_argument("--decisions", action="store_true",
-                    help="265: also translate every request for OpenAI Decisions (never sent): limits, state, cost")
+                    help="also translate every request for OpenAI Decisions (never sent): limits, state, cost")
     ap.add_argument("--cache-dir", help="the JEV answer cache to read (default: this checkout's runs/cache)")
     args = ap.parse_args(argv)
     out = Path(args.out) if args.out else RUNS_DIR / f"{datetime.now():%Y%m%d_%H%M%S}_jev_estimate"

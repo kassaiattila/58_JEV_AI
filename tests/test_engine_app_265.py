@@ -37,14 +37,15 @@ def _assign(wp_id: str, params: dict, revision: int = 0) -> dict:
     return work_recipes.assign_recipe(wp_id, "processing", params=params, expected_revision=revision, actor="tester")
 
 
-def _assign_raw(wp_id: str, params: dict) -> None:
-    """An assignment as an installation before 265 saved it: the current recipe, its settings with the JEV switch."""
+def _assign_raw(wp_id: str, params: dict, *, version: int | None = None, digest: str | None = None) -> None:
+    """An assignment as an installation before 265 saved it: the recipe (by default its current version), its settings
+    with the JEV switch."""
     r = work_recipes.recipe("processing")
     with store.connect() as c:
         c.execute("INSERT INTO recipe_assignments(workpackage_id, revision, recipe_id, recipe_version, recipe_hash, params,"
                   " actor, note, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
-                  (wp_id, 1, "processing", r["version"], work_recipes.recipe_hash(r), json.dumps(params), "old", None,
-                   "2026-10-30T10:00:00"))
+                  (wp_id, 1, "processing", version or r["version"], digest or work_recipes.recipe_hash(r), json.dumps(params),
+                   "old", None, "2026-10-30T10:00:00"))
 
 
 # --- the setting ---------------------------------------------------------------------------------------------------
@@ -152,6 +153,32 @@ def test_a_batch_whose_engine_cannot_run_here_does_not_start(db):
     assert "engine_unavailable" not in {b["code"] for b in work_readiness.readiness(wp)["blockers"]}
 
 
+def test_a_run_of_the_pending_items_stops_on_an_engine_that_cannot_run_here(db, monkeypatch):
+    """274: the offer to run only the pending items carries the engine's stop too; a batch that ran while OpenAI
+    Decisions was switched on cannot go on with it once it is off again."""
+    folder = db / "in"
+    folder.mkdir()
+    write_text_pdf(folder / "a.pdf", INVOICE_LINES)
+    write_text_pdf(folder / "b.pdf", [*INVOICE_LINES, "Extra line 2"])
+    wp = work.create_from_folder(folder, name="Pending")["id"]
+    _assign(wp, {"engine": "decisions"})
+    monkeypatch.setenv(providers.ON_ENV, "openai_decisions")
+    ready = work_readiness.readiness(wp)
+    run_id = work_runs.start_run(wp, mode="shadow", expected_assignment_revision=ready["assignment_revision"],
+                                 input_hash=ready["input_hash"], actor="tester")["run_id"]
+    first = work.get(wp)["items"][0]["item_id"]
+    work_runs.record_item_result(run_id, first, status="done", final_status="done")
+    with store.connect() as c:
+        c.execute("UPDATE runs SET status='done' WHERE run_id=?", (run_id,))
+    monkeypatch.delenv(providers.ON_ENV)
+    ready = work_readiness.readiness(wp)
+    offer = ready["supplement"]["shadow"]
+    assert offer["ready"] is False and "engine_unavailable" in {b["code"] for b in offer["blockers"]}
+    with pytest.raises(work.NotReady):
+        work_runs.start_run(wp, mode="shadow", expected_assignment_revision=ready["assignment_revision"],
+                            input_hash=offer["input_hash"], actor="tester", scope="pending")
+
+
 def test_a_switched_on_engine_can_start(db, monkeypatch):
     monkeypatch.setenv(providers.ON_ENV, "openai_decisions")
     wp = _package(db / "in")
@@ -197,3 +224,20 @@ def test_the_migration_saves_an_old_switch_again_under_its_engine(db):
     assert done["note"] == a["note"] and a["actor"] == work_recipes.MIGRATION_ACTOR
     assert work_recipes.migrate_assignments(write=True) == []  # repeatable
     assert "recipe_changed" not in {w["code"] for w in work_readiness.readiness(old)["warnings"]}
+
+
+def test_the_migration_takes_only_the_version_the_recipe_carries(db):
+    """274: a setting saved on the version just before the engine setting was renamed (`carries_from`) is saved again
+    on the current version; one saved on an older version keeps its "recipe changed" warning and its settings."""
+    [carried] = work_recipes.recipe("processing")["carries_from"]
+    before, older = _package(db / "before"), _package(db / "older")
+    _assign_raw(before, {"arm": "auto", "jev": "on"}, version=carried["version"], digest=carried["hash"])
+    _assign_raw(older, {"arm": "auto", "jev": "on"}, version=1, digest="0" * 16)
+    [done] = work_recipes.migrate_assignments(write=True)
+    assert (done["workpackage_id"], done["to"]) == (before, "processing")
+    assert work_recipes.current_assignment(before)["params"]["engine"] == "jev"
+    assert "recipe_changed" not in {w["code"] for w in work_readiness.readiness(before)["warnings"]}
+    kept = work_recipes.current_assignment(older)
+    assert kept["revision"] == 1 and kept["params"]["engine"] == "jev"  # unchanged, read as its engine
+    assert "recipe_changed" in {w["code"] for w in work_readiness.readiness(older)["warnings"]}
+    assert work_readiness.readiness(older)["plan"]["engine"] == "jev"  # the old switch reads as its engine

@@ -270,7 +270,7 @@ def recheck(run_id: str, *, document_ref: str | None = None, jev_budget: Decimal
     check on the pages the run read. `document_ref` names a newer version of the same document (its clauses read again
     from the same file) the rules cite from now on. With a JEV budget, JEV judges the proposals that code no longer
     blocks and that it has not judged (265: the application engine's judgement service, JEV or OpenAI Decisions, from
-    the same cap; GPT only: none is asked)."""
+    the same cap; 274: with GPT only, JEV, as before 265, since the budget asks for a judgement)."""
     with store.connect() as c:
         row = c.execute("SELECT * FROM rule_proposal_runs WHERE run_id=?", (run_id,)).fetchone()
     if row is None:
@@ -286,6 +286,8 @@ def recheck(run_id: str, *, document_ref: str | None = None, jev_budget: Decimal
     updates = []
     scope = f"rule-proposal-recheck-{run_id}"
     engine = engines.get(app_settings.engine_default())
+    if not engine.judged:
+        engine = engines.get(engines.default_id())  # 274: the registry's default (JEV) judges, as it did before 265
     judging = bool(jev_budget) and engine.judged
     with calls.outside_run(scope, {str(engine.judge_provider): jev_budget} if judging else {}) as scope:
         for p in rows:
