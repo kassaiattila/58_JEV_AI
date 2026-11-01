@@ -7,7 +7,7 @@
       {
         "version": "1.1.0",
         "date": "2026-11-01",
-        "note": "265 (plan L, L4a): decisions_unavailable:*, the to-do of an OpenAI Decisions question that could not be answered (each judgement service raises its own, configs/engines.json `judges`); jev_unavailable:* unchanged."
+        "note": "The to-do `decisions_unavailable:*` of an OpenAI Decisions question that could not be answered (each judgement service raises its own, configs/engines.json `judges`); `jev_unavailable:*` unchanged."
       },
       {
         "version": "1.0.10",

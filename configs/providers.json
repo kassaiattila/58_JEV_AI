@@ -2,12 +2,12 @@
   "meta": {
     "name": "providers",
     "version": "1.0.0",
-    "description": "265 (plan L; glossary: Provider registry): every paid service the system calls, one description each (jav/core/providers.py). `key`: the key it needs, read from the environment (`typesafe`: TypeSafeJAV_API_KEY or TYPESAFE_API_KEY; `openai`: OPENAI_API_KEY; `azure_di`: AZURE_DI_ENDPOINT and AZURE_DI_KEY). `budget`: the provider whose budget its calls reserve from; the call log keeps the provider's own name. `enabled`: whether an installation may call it at all; an installation overrides it with JAV_PROVIDERS_ON / JAV_PROVIDERS_OFF (comma-separated provider names), and `off_note` says why it is off by default. `label`: its name on screen and in reports.",
+    "description": "Every paid service the system calls, one description each (jav/core/providers.py). `key`: the key it needs, read from the environment (`typesafe`: TypeSafeJAV_API_KEY or TYPESAFE_API_KEY; `openai`: OPENAI_API_KEY; `azure_di`: AZURE_DI_ENDPOINT and AZURE_DI_KEY). `budget`: the provider whose budget its calls reserve from; the call log keeps the provider's own name. `enabled`: whether an installation may call it at all; an installation overrides it with JAV_PROVIDERS_ON / JAV_PROVIDERS_OFF (comma-separated provider names), and `off_note` says why it is off by default. `label`: its name on screen and in reports. (Glossary: Provider registry.)",
     "changelog": [
       {
         "version": "1.0.0",
         "date": "2026-11-01",
-        "note": "265 (plan L, L1): first version: JEV, OpenAI, OpenAI Decisions (OpenAI's judgement service; it spends from the OpenAI budget, the owner's decision of 2026-11-01, and is off until its measurement and the owner's decision) and Azure DI."
+        "note": "First version: JEV, OpenAI, OpenAI Decisions (OpenAI's judgement service; it spends from the OpenAI budget, the owner's decision of 2026-11-01, and is off until its measurement and the owner's decision) and Azure DI."
       }
     ]
   },

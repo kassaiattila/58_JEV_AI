@@ -7,12 +7,12 @@
       {
         "version": "1.0.22",
         "date": "2026-11-01",
-        "note": "265 (plan L, L4a): the detection and email measurements no longer ask JEV's adapter themselves (their determinism keeps the engine's judgement service's answers untouched through jav/ai/engine.py), so they are no routing modules"
+        "note": "The detection and email measurements no longer ask JEV's adapter themselves (their determinism keeps the engine's judgement service's answers untouched through jav/ai/engine.py), so they are no routing modules"
       },
       {
         "version": "1.0.21",
         "date": "2026-11-01",
-        "note": "265 (plan L, L2): OpenAI Decisions' adapter and its translation, two routing modules: they answer the same questions behind the adapter's ask(), so every listed site keeps its counterpart without a judgement service"
+        "note": "OpenAI Decisions' adapter and its translation, two routing modules: they answer the same questions behind the adapter's ask(), so every listed site keeps its counterpart without a judgement service"
       },
       {
         "version": "1.0.20",

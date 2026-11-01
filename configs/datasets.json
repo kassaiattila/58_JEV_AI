@@ -6,7 +6,7 @@
    {
     "version": "1.44.0",
     "date": "2026-11-01",
-    "note": "265 (plan L, L4a): the final state of a flow whose OpenAI Decisions question could not be asked (decisions_unavailable), as JEV's."
+    "note": "The final state of a flow whose OpenAI Decisions question could not be asked (decisions_unavailable), as JEV's."
    },
    {
     "version": "1.43.0",

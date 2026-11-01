@@ -6,7 +6,7 @@
       {
         "version": "1.15.0",
         "date": "2026-11-01",
-        "note": "265 (plan L, L4b): the help of the recipes' engine setting under its new name (`engine`; its options by engine: jev, gpt; until then `jev`: on, off), its texts unchanged; OpenAI Decisions' text comes with its screen (L6)."
+        "note": "The help of the recipes' engine setting under its new name (`engine`; its options by engine: jev, gpt; until then `jev`: on, off), its texts unchanged; OpenAI Decisions' text comes with its screen."
       },
       {
         "version": "1.14.0",

@@ -6,7 +6,7 @@
    {
     "version": "1.16.0",
     "date": "2026-11-01",
-    "note": "265 (plan L, L4b; the owner's decision of 2026-11-01: the engine as data, not a JEV switch): processing (4) and multi-format-processing (3) name the AI engine (`engine`, any engine of configs/engines.json; a setting saved before names it with `jev: on | off`, read as jev | gpt). A judgement service's item amount counts only for the engine whose service it is (jav/app/work_readiness.py), so the `jev` drop of GPT only is gone; GPT only keeps its OpenAI extra. OpenAI Decisions' amounts are provisional: 2.5 times JEV's, the ratio of the free pre-estimate on 595 golden-set requests (1.10 against 0.44 USD); its provider is off until it is measured and the owner decides."
+    "note": "The engine as data, not a JEV switch (the owner's decision of 2026-11-01): processing (4) and multi-format-processing (3) name the AI engine (`engine`, any engine of configs/engines.json; a setting saved before names it with `jev: on | off`, read as jev | gpt). A judgement service's item amount counts only for the engine whose service it is (jav/app/work_readiness.py), so the `jev` drop of GPT only is gone; GPT only keeps its OpenAI extra. OpenAI Decisions' amounts are provisional: 2.5 times JEV's, the ratio of the free pre-estimate on 595 golden-set requests (1.10 against 0.44 USD); its provider is off until it is measured and the owner decides."
    },
    {
     "version": "1.15.0",

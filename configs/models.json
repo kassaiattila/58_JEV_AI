@@ -41,7 +41,7 @@
    {
     "version": "1.6.0",
     "date": "2026-11-01",
-    "note": "265 (plan L, L2): the decisions section, OpenAI Decisions as a judgement service (jav/ai/decisions.py): its one model gpt-6-luna, its prices per token kind (uncached, read from and written to its prompt cache; above 272 000 input tokens twice), no SDK retry (as openai's), its prompt cache off by default (a cache write costs 1.25 times an uncached token and our requests rarely share a prefix), the shared input as an input_json part; the cache key is the translated request itself, so a change of the translation is a new question."
+    "note": "The decisions section, OpenAI Decisions as a judgement service (jav/ai/decisions.py): its one model gpt-6-luna, its prices per token kind (uncached, read from and written to its prompt cache; above 272 000 input tokens twice), no SDK retry (as openai's), its prompt cache off by default (a cache write costs 1.25 times an uncached token and our requests rarely share a prefix), the shared input as an input_json part; the cache key is the translated request itself, so a change of the translation is a new question."
    }
   ]
  },
@@ -65,7 +65,7 @@
  },
  "decisions": {
   "model": "gpt-6-luna",
-  "note": "265 (plan L): OpenAI's judgement service (developers.openai.com/api/docs/guides/decisions, read 2026-11-01): POST /v1/decisions, gpt-6-luna its only model, no dated snapshot listed; the answer's model field goes to the ledger and the cache key. Called with the OpenAI key; its calls spend from the OpenAI budget (configs/providers.json openai_decisions).",
+  "note": "OpenAI's judgement service (developers.openai.com/api/docs/guides/decisions, read 2026-11-01): POST /v1/decisions, gpt-6-luna its only model, no dated snapshot listed; the answer's model field goes to the ledger and the cache key. Called with the OpenAI key; its calls spend from the OpenAI budget (configs/providers.json openai_decisions).",
   "timeout_s": 60.0,
   "sdk_max_retries": 0,
   "usd_per_mtok": {
