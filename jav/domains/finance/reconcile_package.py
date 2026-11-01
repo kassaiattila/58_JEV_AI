@@ -1129,6 +1129,21 @@ def _converted_groups(ctx: dict[str, Any], pairs: list[dict[str, Any]]) -> tuple
 
 
 @store.one_connection
+def _excluded_invoice(reason: str | None) -> PackageError:
+    """272 (K3, the rest of DOM-11): the refusal of an invoice the pairing left out names why (`reconcile.prepare`)."""
+    if reason == "duplicate_undecided":
+        return explained(PackageError, "the invoice is excluded from the pairing: it is an undecided duplicate; decide the duplicate first")
+    if reason == "duplicate_copy":
+        return explained(PackageError, "the invoice is excluded from the pairing: it is a confirmed duplicate copy")
+    if reason == "missing_issue_date":
+        return explained(PackageError, "the invoice is excluded from the pairing: it has no issue date")
+    if reason == "unsupported_currency":
+        return explained(PackageError, "the invoice is excluded from the pairing: its currency is not handled here")
+    if reason in ("missing_amount", "non_positive_amount", "invalid_amount"):
+        return explained(PackageError, "the invoice is excluded from the pairing: it has no positive, readable amount")
+    return explained(PackageError, "the invoice is excluded from the pairing; the excluded invoices' list says why")
+
+
 def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor: identity.Who,
              expected_state: int | None = None) -> list[dict[str, Any]]:
     """Allocations of lines to invoices in one step (all or none). A pair without an amount takes what both sides have
@@ -1154,7 +1169,8 @@ def allocate(wp_id: str, pairs: list[dict[str, Any]], *, note: str | None, actor
         if iid in ctx["left_out"]:  # 169
             raise explained(PackageError, "the invoice is left out of this reconciliation; restore it first")
         if iid not in ctx["prepared"]["invoices"]:  # 265 (code review DOM-11): an undecided duplicate is never paid twice
-            raise explained(PackageError, "the invoice is excluded from the pairing; the excluded invoices' list says why")
+            raise _excluded_invoice(next((e["reason"] for e in ctx["prepared"]["excluded"]
+                                          if e["kind"] == "invoice" and e["id"] == iid), None))
         line = _scope_line(ctx, lid)
         if not reconcile.pays(line, inv):  # 151: the engine's side rule (148), not a ban on the outgoing type
             raise explained(PackageError, "the line is not on the invoice's side: incoming money pays an outgoing invoice, a payment an incoming one")
