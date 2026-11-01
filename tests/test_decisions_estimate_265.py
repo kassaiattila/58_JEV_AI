@@ -43,3 +43,18 @@ def test_without_the_switch_nothing_is_translated(tmp_path, monkeypatch):
     assert est.requests[0].decisions_chars is None
     result = summary(est.requests)
     assert "decisions_chars" not in result["total"] and "Decisions" not in report(result)
+
+
+def test_run_on_its_own_it_loads_the_registrations(tmp_path, monkeypatch):
+    """The steps' checks are registered by the application (229): `python -m jav.evals.jev_estimate` loads them as the
+    command line does, or the first S path step stops with `RegistrationsMissing`."""
+    import pytest
+
+    from jav.app import registrations
+    from jav.evals import jev_estimate
+
+    loaded = []
+    monkeypatch.setattr(registrations, "load_all", lambda: loaded.append(True))
+    with pytest.raises(ValueError, match="unknown step"):
+        jev_estimate.main(["no-such-step", "--out", str(tmp_path / "out")])
+    assert loaded == [True]

@@ -281,6 +281,9 @@ def estimate(steps: list[str], out: Path, *, decisions: bool = False, cache_dir:
 
 
 def main(argv: list[str] | None = None) -> int:
+    from jav.app import registrations
+
+    registrations.load_all()  # 265: run on its own, the steps' checks need the application's registrations (229)
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("steps", nargs="+", help="golden:<type> | synthetic:<type> | detect-golden | detect-cases:<file> | "
                                              "email-golden | verifier-probe:<type> | extract-cases:<file>")
