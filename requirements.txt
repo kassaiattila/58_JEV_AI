@@ -1,19 +1,19 @@
-# TypeSafe (JAV) Python SDK - Jev ítéletek (nyers SDK: dinamikus jelöltlistákhoz)
+# TypeSafe (JAV) Python SDK: JEV judgements (the raw SDK, for dynamic candidate lists)
 typesafe-sdk
 
-# .env betöltése
+# Loading the .env file
 python-dotenv
 
-# Generatív kivonatolás (G-kar): Pydantic AI + OpenAI; a typesafe extra későbbi kísérletekhez
+# Generative extraction (the G arm): Pydantic AI + OpenAI; the typesafe extra for later experiments
 pydantic-ai-slim[openai,typesafe]>=2.53.0  # 157: PYSEC-2026-4285 and PYSEC-2026-4290
 
-# Állapotgép + lokális tracker UI (a [start] extra streamlit/pandas-t húzna, nem kell)
+# State machine + the local tracker UI (the [start] extra would pull in streamlit and pandas, not needed)
 apache-burr[tracking-client,tracking-server]
 
-# Golden eval keret
+# The golden evaluation framework
 pydantic-evals
 
-# PDF szövegréteg
+# The PDF text layer
 pdfplumber
 # 188: published advisories (pillow: eight CVE-2026-112xxx; certifi: PYSEC-2026-4320)
 pillow>=13.0.0
@@ -21,22 +21,22 @@ certifi>=2026.10.19
 # 224: a published advisory (opentelemetry-api, brought in by pydantic-ai-slim: CVE-2026-114603)
 opentelemetry-api>=1.45.1
 
-# Offline tesztek
+# Offline tests
 pytest
-# Véletlenszerű bemenetes (tulajdonság-alapú) tesztek és lefedettség-mérés (067)
+# Property-based tests with random inputs, and coverage
 hypothesis
 pytest-cov
 # 189: the full check runs the tests in several processes (jav/devtools/preflight.py)
 pytest-xdist
 
-# A `burr` tracker-UI CLI importálja, de a tracking extrák nem húzzák be
+# The `burr` tracker UI's command line imports it, but the tracking extras do not pull it in
 loguru
 
-# Helyi szolgáltatás a felülethez (040 K2); a Burr tracking-server extrája is behúzza, itt közvetlen függőség
+# The local service behind the interface; the Burr tracking-server extra pulls it in too, here a direct dependency
 fastapi
 uvicorn
 
-# Riportok: XLSX-export (054 K4, döntés 2026-09-28; a régi projekt tabular.py-ja is ezt használta)
+# Reports: the XLSX export (the legacy project's tabular.py used it too)
 openpyxl
 
 # Native document readers: measured versions used by the shared application.
