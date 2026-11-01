@@ -89,11 +89,21 @@ class Catalogue(_Model):
         return self
 
 
+_CATALOGUES: dict[str, tuple[Any, Catalogue]] = {}
+
+
 def catalogue(catalogue_id: str) -> Catalogue:
-    """The fact catalogue `catalogue_id` (`configs/facts_<id>.json`, read as the case at hand keeps it)."""
+    """The fact catalogue `catalogue_id` (`configs/facts_<id>.json`, read as the case at hand keeps it). 265 (code review
+    APPR-12): built once per config read, as `cfg.derived` does (again only when the config read for this context is
+    another object: a case's kept copy, a reload); a catalogue model is frozen."""
     data = cfg.load(f"facts_{catalogue_id}")
-    return Catalogue(id=catalogue_id, version=str(data["meta"]["version"]), levels=tuple(data["levels"]),
-                     facts=data["facts"], outcomes=data.get("outcomes") or {}, labels=data.get("labels") or {})
+    hit = _CATALOGUES.get(catalogue_id)
+    if hit is not None and hit[0] is data:
+        return hit[1]
+    out = Catalogue(id=catalogue_id, version=str(data["meta"]["version"]), levels=tuple(data["levels"]),
+                    facts=data["facts"], outcomes=data.get("outcomes") or {}, labels=data.get("labels") or {})
+    _CATALOGUES[catalogue_id] = (data, out)
+    return out
 
 
 def _exact(name: str, value: Any) -> Decimal:

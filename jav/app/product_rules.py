@@ -299,7 +299,12 @@ def latest(kind: str, ident: str) -> dict[str, Any] | None:
 def resolve(kind: str, reference: str) -> dict[str, Any]:
     """The version a reference names (`<id>@<n>`, whatever its state now; `<id>`: the active one)."""
     with store.connect() as c:
-        row = _VERSIONS[_kind(kind)].at(c, reference)
+        return resolve_in(c, kind, reference)
+
+
+def resolve_in(c: Any, kind: str, reference: str) -> dict[str, Any]:
+    """265 (code review APPR-12): `resolve` over the caller's connection."""
+    row = _VERSIONS[_kind(kind)].at(c, reference)
     if row is None:
         raise versions.VersionNotFound(f"{kind} {reference}: no active version")
     return _view(row)
@@ -575,11 +580,15 @@ class ProductAt:
 
 
 def product_at(reference: str) -> ProductAt:
-    found = resolve("product", reference)
-    product = Product.model_validate(found["content"])
-    return ProductAt(found["ref"], product,
-                     tuple(Resolved(r, ConditionDocument.model_validate(resolve("document", r)["content"])) for r in product.documents),
-                     tuple(Resolved(r, Rule.model_validate(resolve("rule", r)["content"])) for r in product.rules))
+    """The product a reference names with its condition documents and rules; 265 (code review APPR-12): over one
+    connection (a rule's own connection each before: about a hundred on one page view)."""
+    with store.connect() as c:
+        found = resolve_in(c, "product", reference)
+        product = Product.model_validate(found["content"])
+        documents = tuple(Resolved(r, ConditionDocument.model_validate(resolve_in(c, "document", r)["content"]))
+                          for r in product.documents)
+        rules = tuple(Resolved(r, Rule.model_validate(resolve_in(c, "rule", r)["content"])) for r in product.rules)
+    return ProductAt(found["ref"], product, documents, rules)
 
 
 def kept(value: str, kind: str = "product") -> str:
