@@ -13,7 +13,7 @@ describe("066 Á22: the download's file name", () => {
 
   it("it gives the ASCII name from the old header, the fallback name without a header", () => {
     expect(filenameFromDisposition("attachment; filename=\"futas.xlsx\"")).toBe("futas.xlsx");
-    expect(filenameFromDisposition("")).toBe("letoltes");
+    expect(filenameFromDisposition("")).toBe("download");
   });
 });
 

@@ -73,8 +73,8 @@ export function ProcessStage({ view, adding = false, onChanged }: { view: Workpa
     try {
       const params: Record<string, string> = {};
       for (const [k, spec] of Object.entries(r.params)) params[k] = a.params[k] ?? spec.default ?? "";
-      // the note is data (in the assignment's log), not a label
-      await api.saveWorkflow(wp.id, { recipe_id: r.id, params, expected_revision: a.revision, note: "frissítés a feldolgozás mostani változatára" }); // i18n-ignore
+      // the note is data (in the assignment's log), written in the person's language
+      await api.saveWorkflow(wp.id, { recipe_id: r.id, params, expected_revision: a.revision, note: t("update to the current version of the processing") });
       setMsg({ error: false, text: t("The settings now use the current version of the processing.") });
     } catch (e) {
       setMsg({ error: true, text: (e as ApiError).message });

@@ -34,7 +34,7 @@ export function filenameFromDisposition(disp: string): string {
   if (exact) {
     try { return decodeURIComponent(exact); } catch { /* invalid encoding: the fallback name */ }
   }
-  return /filename="([^"]+)"/.exec(disp)?.[1] ?? "letoltes";
+  return /filename="([^"]+)"/.exec(disp)?.[1] ?? "download";
 }
 
 /** Download by request → file (the legacy project's `downloadExport` pattern): the request can be a POST with a body,
