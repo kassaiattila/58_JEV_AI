@@ -36,7 +36,8 @@ _NUM = re.compile(r"^(\d{3})-\d{4}-\d{2}-\d{2}-handoff\.md$")
 
 PREFLIGHT_RUNS = PROJECT_ROOT / "runs" / "preflight"
 KEEP_LOGS = 20
-_LOG_DIR = re.compile(r"^\d{8}_\d{6}$")
+# 272 (K5): a full test run's folders carry the process too (`<time>_<pid>`, 265 TOOL-06), and are pruned as well
+_LOG_DIR = re.compile(r"^\d{8}_\d{6}(_\d+)?$")
 # 189: pytest-xdist runs the tests in this many processes at most (the full suite took 30 min in one, under 5 in six)
 MAX_TEST_WORKERS = 6
 GB_PER_TEST_WORKER = 1.5  # 265 (code review TOOL-05): what one pytest process may take at its peak

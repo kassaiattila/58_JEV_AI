@@ -108,3 +108,16 @@ def test_only_the_latest_logs_are_kept(tmp_path, monkeypatch):
     logs = sorted(p.name for p in root.iterdir() if p.name != "notes")
     assert len(logs) == preflight.KEEP_LOGS and (root / "notes").is_dir()
     assert "20260101_000000" not in logs  # the oldest went
+
+
+def test_a_full_runs_logs_are_kept_to_the_latest_too(tmp_path):
+    """272 (K5; the check of TOOL-06): a full test run's log folders are named with the process too
+    (`<time>_<pid>`, `jav/devtools/test_worktree.py`), which the pruning's name pattern no longer matched: they piled up
+    under runs/test-worktree."""
+    root = tmp_path / "test-worktree"
+    for n in range(preflight.KEEP_LOGS + 3):
+        (root / f"20260101_0000{n:02d}_{1000 + n}").mkdir(parents=True)
+    (root / "notes").mkdir()
+    preflight._prune_logs(root)
+    kept = sorted(p.name for p in root.iterdir() if p.name != "notes")
+    assert len(kept) == preflight.KEEP_LOGS and "20260101_000000_1000" not in kept and (root / "notes").is_dir()
