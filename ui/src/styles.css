@@ -405,7 +405,9 @@ body.dragging { cursor: col-resize; user-select: none; }
 /* the tick goes before the label, on one line; as a CSS escape so that the file encoding cannot corrupt it
    (061: „ásm” stood in its place) */
 .picker-opt[aria-selected="true"] > span:first-child::before { content: "\2713\00a0"; color: var(--ink); }
-.picker-opt[aria-disabled="true"] { opacity: .5; cursor: default; }
+.picker-opt[aria-disabled="true"] { cursor: default; color: var(--faint); }
+/* 274: why a choice cannot be made stays readable beside it (the owner's decision of 2026-11-01) */
+.picker-opt[aria-disabled="true"] .picker-detail { color: var(--ink-2); }
 .picker-group { padding: var(--sp-2) 10px var(--sp-1); font-size: var(--fs-xs); font-weight: 600; color: var(--muted); } /* 157: no uppercase micro-label */
 .picker-empty { padding: 8px 9px; color: var(--muted); font-size: 12px; }
 .viewer-pick { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 14px; }
