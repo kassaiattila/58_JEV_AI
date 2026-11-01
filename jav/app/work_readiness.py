@@ -230,9 +230,11 @@ def _readiness(wp_id: str, *, verify: bool) -> dict[str, Any]:
     r = work_recipes.recipe(a["recipe_id"]) if a else work_recipes.default_recipe()
     params = a["params"] if a else work_recipes.default_params(r)  # 160-D: with the application's engine
     if a is not None and work_recipes.recipe_status(r) == "retired":
-        warnings.append({"code": "recipe_retired", "message": "The package uses a retired processing; switch it to the current processing settings."})
+        warnings.append({"code": "recipe_retired", "message": display.text(
+            "The batch uses a retired version of the processing; switch it to the current processing.")})
     elif a is not None and work_recipes.recipe_hash(r) != a["recipe_hash"]:
-        warnings.append({"code": "recipe_changed", "message": "The processing changed since the settings were saved; save them again."})
+        warnings.append({"code": "recipe_changed", "message": display.text(
+            "The processing changed since the settings were saved; save the settings again.")})
     checks = _item_checks(r, params, wp["items"], verify=verify)
     snapshot = _input_snapshot(wp)
     arms = _item_arms(r, params, wp["items"])
@@ -256,18 +258,24 @@ def _item_checks(r: dict[str, Any], params: dict[str, Any], items: list[dict[str
         p = Path(i["source_path"])
         found: list[tuple[str, dict[str, str]]] = []
         if i["kind"] not in r["input_kinds"] or p.suffix.lower() not in r.get("file_suffixes", [p.suffix.lower()]):
-            found.append(("blocker", {"code": "unsupported_item", "message": f"The processing does not handle: {p.name}"}))
+            found.append(("blocker", {"code": "unsupported_item",
+                                      "message": display.text("The processing does not handle: {{name}}", name=p.name)}))
         elif p.suffix.lower() in NATIVE_SUFFIXES and not native_flow(r, i):
-            found.append(("blocker", {"code": "native_recipe_required", "message": f"Choose multi-format processing for: {p.name}"}))
+            found.append(("blocker", {"code": "native_recipe_required",
+                                      "message": display.text("Choose multi-format processing for: {{name}}", name=p.name)}))
         if native_flow(r, i) and params.get("arm") == "S":
-            found.append(("blocker", {"code": "native_s_unsupported", "message": "Native documents require GPT extraction; the JEV-only path has no predefined field contract."}))
+            found.append(("blocker", {"code": "native_s_unsupported", "message": display.text(
+                "Native documents require GPT extraction; the JEV-only path has no predefined field contract.")}))
         if i.get("instance"):
             if not work._instance_ok(i, verify=verify):
-                found.append(("blocker", {"code": "instance_damaged", "message": f"The copy kept when it was added is missing or damaged: {p.name}"}))
+                found.append(("blocker", {"code": "instance_damaged", "message": display.text(
+                    "The copy kept when it was added is missing or damaged: {{name}}", name=p.name)}))
             elif (state := work.original_state(i)) != "same":
-                found.append(("warning", {"code": f"original_{state}", "message": (
-                    f"The original file has {'changed' if state == 'changed' else 'disappeared'} since it was added; "
-                    f"the copy kept then is processed: {p.name}")}))
+                found.append(("warning", {"code": f"original_{state}", "message": display.text(
+                    "The original file has changed since it was added; the copy kept then is processed: {{name}}"
+                    if state == "changed" else
+                    "The original file has disappeared since it was added; the copy kept then is processed: {{name}}",
+                    name=p.name)}))
         elif not p.exists():
             found.append(("blocker", {"code": "source_missing", "message": display.text("Missing source: {{name}}", name=p.name)}))
         elif work.fingerprint(p, verify=verify) != i["sha256"]:

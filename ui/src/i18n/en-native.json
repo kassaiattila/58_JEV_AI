@@ -3881,6 +3881,8 @@
   "Task proposal failed ({{why}})": "Task proposal failed ({{why}})",
   "The processing changed since the settings were saved; save the settings again.": "The processing changed since the settings were saved; save the settings again.",
   "The processing does not handle: {{name}}": "The processing does not handle: {{name}}",
+  "Choose multi-format processing for: {{name}}": "Choose multi-format processing for: {{name}}",
+  "Native documents require GPT extraction; the JEV-only path has no predefined field contract.": "Native documents require GPT extraction; the JEV-only path has no predefined field contract.",
   "The worker is started by {{cmd}}; closing the page does not stop the runs.": "The worker is started by {{cmd}}; closing the page does not stop the runs.",
   "The copy kept when it was added is missing or damaged: {{name}}": "The copy kept when it was added is missing or damaged: {{name}}",
   "Interface language": "Interface language",

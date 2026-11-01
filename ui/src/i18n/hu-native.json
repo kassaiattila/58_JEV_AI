@@ -3920,6 +3920,8 @@
   "Task proposal failed ({{why}})": "A feladatjavaslat nem sikerült ({{why}})",
   "The processing changed since the settings were saved; save the settings again.": "A feldolgozás a beállítások mentése óta változott; mentsd el újra a beállításokat.",
   "The processing does not handle: {{name}}": "A feldolgozás nem kezeli: {{name}}",
+  "Choose multi-format processing for: {{name}}": "Válassz többformátumú feldolgozást ehhez: {{name}}",
+  "Native documents require GPT extraction; the JEV-only path has no predefined field contract.": "A natív dokumentumokhoz GPT-adatkinyerés kell; a csak JEV-es útnak nincs előre megadott mezőkészlete.",
   "The worker is started by {{cmd}}; closing the page does not stop the runs.": "A feldolgozót a {{cmd}} indítja; a lap bezárása nem állítja le a futásokat.",
   "The copy kept when it was added is missing or damaged: {{name}}": "A felvételkori példány hiányzik vagy sérült: {{name}}",
   "Interface language": "A felület nyelve",
