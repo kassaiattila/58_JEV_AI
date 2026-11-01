@@ -27,11 +27,13 @@ from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from jav.ai import output_cap, token_confidence
+from jav.ai.gpt_answer import NoBudget
 from jav.core import cfg, store
 from jav.core import calls
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, load_prompt, openai_chat_model, openai_cost, openai_price
 from jav.ai.typepack import TypePack, get as get_pack
 from jav.core import observability  # 231 (E4): the calls are timed through one helper
+from jav.core.user_messages import explained
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
@@ -167,9 +169,13 @@ def extract_scored(text: str, *, pack: TypePack, run_id: str = "adhoc") -> Score
     answer on a repeat, and no automatic new paid request after an earlier attempt with an uncertain outcome.
     """
     factory = _agent_factory.get()
+    ctx = calls.current()
+    # 272 (K2): outside a run or a budgeted measurement only a stand-in answers (a test's, a free demonstration's);
+    # the real agent would spend without a budget or the call log, as the JEV adapter and Azure already refuse
+    if ctx is None and factory is None:
+        raise explained(NoBudget, "GPT is asked only under a budget")
     agent = factory(pack) if factory is not None else get_agent(pack.key)
     prompt = source_prefix(pack) + text
-    ctx = calls.current()
     if ctx is None:
         output, token_p = decode_answer(_physical(agent, prompt, run_id=run_id, pack=pack, limited=False).response)
         return ScoredExtraction(output=output, token_p=token_p)

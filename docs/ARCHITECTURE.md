@@ -323,8 +323,9 @@ flowchart LR
 **Limits.** The call log and the budget apply in a worker run (`calls.use_run`) and in a command that names the owner's
 sub-budget (`calls.measurement`, through `under_budget`: `--jev-budget-usd`, `--budget-usd`). Outside both, only earlier
 answers count: the JEV adapter refuses a live call of the client it makes from the environment's key
-(`jev_unavailable:no_budget`) and the Azure recognition is never called (`ocr:escalation_blocked:no_budget`); a client
-a test or a tool hands over stays the caller's. As many workers run as `configs/service.json` `workers` allows (one by default),
+(`jev_unavailable:no_budget`), the Azure recognition is never called (`ocr:escalation_blocked:no_budget`), and every
+GPT question (the extraction, the structured choice, the email tasks, GPT's paragraph and answer) refuses with
+`NoBudget`, the item's to-do; a client or a stand-in agent a test or a tool hands over stays the caller's. As many workers run as `configs/service.json` `workers` allows (one by default),
 each in a slot guarded by a lock (section 7; several workers). The email process is part of the same processing (the `processing` recipe chooses the flow per item kind, section 11), and it includes the attachments.
 
 ## 7. Local service
