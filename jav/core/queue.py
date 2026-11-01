@@ -183,30 +183,6 @@ def fail(job_id: int, error: str, *, max_attempts: int, backoff_s: float) -> str
         return status
 
 
-def release(job_id: int, *, delay_s: float) -> str:
-    """Back to the queue without using up an attempt (e.g. exhausted budget, temporary limit). 082: a job with a stop
-    request is cancelled instead (see `fail`)."""
-    with store.connect() as c:
-        row = c.execute("SELECT cancel_requested_at FROM jobs WHERE id=?", (job_id,)).fetchone()
-    if row is not None and row["cancel_requested_at"]:
-        return finish_cancelled(job_id)
-    return _transition(job_id, "UPDATE jobs SET status='queued', claimed_by=NULL, claimed_at=NULL, available_at=? WHERE id=?",
-                       (_ts(delay_s), job_id), "queued")
-
-
-def cancel(job_id: int) -> str:
-    """A queued job is cancelled at once; a running one gets a cancellation request (the worker stops at the next
-    step boundary)."""
-    with store.connect() as c:
-        row = c.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone()
-    if row["status"] == "queued":
-        return _transition(job_id, "UPDATE jobs SET status='cancelled', finished_at=? WHERE id=?", (_ts(), job_id), "cancelled")
-    if row["status"] == "claimed":
-        _transition(job_id, "UPDATE jobs SET cancel_requested_at=? WHERE id=?", (_ts(), job_id), "claimed")
-        return "cancel_requested"
-    return row["status"]
-
-
 def cancel_run_jobs(run_id: str) -> dict[str, int]:
     """082: stops a run's jobs in one transaction: the queued ones are cancelled, the running ones get a stop request
     (the worker stops them at the next step boundary). One step, so a worker that notices the request at once already

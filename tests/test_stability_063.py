@@ -53,7 +53,7 @@ def _start(wp_id: str, mode: str = "shadow") -> str:
 def test_orphan_with_cancel_request_is_cancelled_on_restart(db):
     job = queue.enqueue("run_item", run_id="r1", payload={}, dedup_key="a")
     queue.claim("halott")
-    assert queue.cancel(job.id) == "cancel_requested"  # cancel was requested while the worker was shutting down
+    assert queue.cancel_run_jobs("r1") == {"cancel_requested": 1}  # cancel was requested while the worker was shutting down
     rec = queue.recover_orphans()
     assert [j.id for j in rec.cancelled] == [job.id] and rec.requeued == 0
     assert queue.get(job.id).status == "cancelled" and queue.claim("w2") is None
