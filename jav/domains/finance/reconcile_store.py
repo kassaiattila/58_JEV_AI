@@ -307,6 +307,16 @@ def statements() -> list[dict[str, Any]]:
     return [_statement(d) for d in _counted(list(type_roles.types("statement")))]
 
 
+def live_statements() -> list[dict[str, Any]]:
+    """265 (code review DOM-07): the valid statements as `snapshot` gives them (one per account, currency and day, a
+    replaced one left out, `statement_months`), without the invoices, decisions and exchange rates a line's page does
+    not need (the whole snapshot was read for every page image)."""
+    from jav.domains.finance import statement_months
+
+    found = statements()
+    return statement_months.resolve(found, statement_months.choices()).live(found)
+
+
 def run_statements(run_id: str) -> list[dict[str, Any]]:
     """174 (plan 170 L2): the statements of one run's finished items, by that run's own results and corrections, whatever
     counts now (the statement package's rule after an approval reads the approved run)."""
