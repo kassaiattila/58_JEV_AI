@@ -106,9 +106,9 @@ def _no_real_jev_cache(tmp_path_factory, monkeypatch):
         monkeypatch.setattr(module, "CACHE_DIR", folder)
     # 272 (K5, the rest of X-28): the kept default adapter read its folder when the first test made it; each test gets
     # its own (its folder is this test's), and none outlives the test
-    jev.get_adapter.cache_clear()
+    jev._default_adapter.cache_clear()  # the kept function itself: a test may stand in for `get_adapter`
     yield
-    jev.get_adapter.cache_clear()
+    jev._default_adapter.cache_clear()
 
 
 @pytest.fixture(autouse=True)
