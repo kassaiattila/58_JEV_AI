@@ -81,6 +81,9 @@ CREATE TABLE IF NOT EXISTS partner_versions (
     PRIMARY KEY (partner_id, version)
 );
 CREATE INDEX IF NOT EXISTS ix_partner_versions_state ON partner_versions(state);
+-- 265 (code review APPR-13): the same-partner check by a tax number or a name
+CREATE INDEX IF NOT EXISTS ix_partner_versions_tax ON partner_versions(state, tax_key);
+CREATE INDEX IF NOT EXISTS ix_partner_versions_name ON partner_versions(state, name_key);
 -- 264 (G1): a proposal a person said is no partner (by its key: the tax number's party key, or "name:" and the name's)
 CREATE TABLE IF NOT EXISTS partner_suggestion_dismissals (
     key             TEXT PRIMARY KEY,
@@ -153,14 +156,17 @@ def _clean(values: PartnerIn) -> dict[str, Any]:
 def _same(c: Any, out: dict[str, Any], partner_id: str | None) -> str | None:
     """Another active partner with the same tax number, or (without a tax number on either) the same name."""
     tax, name = parties.tax_key(out["tax_number"]), parties.name_key(out["name"])
-    for row in c.execute("SELECT partner_id, tax_key, name_key FROM partner_versions WHERE state=?", (versions.ACTIVE,)):
-        if row["partner_id"] == partner_id:
-            continue
-        if tax and row["tax_key"] == tax:
-            return str(row["partner_id"])
-        if name and row["name_key"] == name and not (tax and row["tax_key"]):
-            return str(row["partner_id"])
-    return None
+    if not tax and not name:
+        return None
+    # 265 (code review APPR-13): an indexed query, the first match in the table's order as the loop over every active
+    # partner found it; a name counts only when not both sides have a tax number
+    row = c.execute(
+        "SELECT partner_id FROM partner_versions WHERE state=? AND partner_id IS NOT ?"
+        " AND ((? IS NOT NULL AND tax_key = ?) OR (? IS NOT NULL AND name_key = ? AND NOT (? IS NOT NULL AND"
+        " COALESCE(tax_key, '') != '')))"
+        " ORDER BY rowid LIMIT 1",
+        (versions.ACTIVE, partner_id, tax or None, tax, name or None, name, tax or None)).fetchone()
+    return str(row["partner_id"]) if row else None
 
 
 def match(name: str | None, tax_number: str | None = None) -> dict[str, Any] | None:

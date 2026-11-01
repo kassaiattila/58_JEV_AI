@@ -76,6 +76,12 @@ def compact(value: Any) -> str:
 def name_key(value: Any) -> str | None:
     """A line's counterparty name without its reference numbers and single letters, so the monthly lines of one merchant
     share it: "EXAMPLETEL*12345 BUDAPEST" -> "exampletel budapest" (131); None when nothing is left."""
+    return _name_key(str(value or ""))
+
+
+@lru_cache(maxsize=65536)
+def _name_key(value: str) -> str | None:
+    """265 (code review DOM-06): memoised; a pairing asked it once per line and invoice pair."""
     words = [w for w in normalize(value).split() if len(w) > 1 and not any(ch.isdigit() for ch in w)]
     return " ".join(words) or None
 
@@ -83,14 +89,21 @@ def name_key(value: Any) -> str | None:
 def supplier_keys(invoice: dict[str, Any]) -> set[str]:
     """The keys a learnt name is tied to: the supplier's tax number and its name without legal forms and numbers, so an
     invoice that lacks one of them still finds the name (131)."""
+    return set(_supplier_keys(str(invoice.get("supplier_tax_id") or ""), str(invoice.get("supplier_name") or ""),
+                              _ignore_tokens()))
+
+
+@lru_cache(maxsize=16384)
+def _supplier_keys(tax_id: str, name: str, ignore: frozenset[str]) -> frozenset[str]:
+    """265 (code review DOM-06): memoised; a pairing built an invoice's keys again for every line. The ignored words are
+    an argument, so a case's own list is never answered from another's (as `_name_words`)."""
     keys = set()
-    if tax := fact_checks.tax_party_key(invoice.get("supplier_tax_id")):
+    if tax := fact_checks.tax_party_key(tax_id or None):
         keys.add("tax:" + tax)
-    words = [w for w in normalize(invoice.get("supplier_name")).split()
-             if w not in _ignore_tokens() and not any(ch.isdigit() for ch in w)]
+    words = [w for w in normalize(name).split() if w not in ignore and not any(ch.isdigit() for ch in w)]
     if words:
         keys.add(" ".join(words))
-    return keys
+    return frozenset(keys)
 
 
 def name_words(name: Any) -> list[str]:
@@ -107,10 +120,13 @@ def _name_words(name: str, ignore: frozenset[str]) -> tuple[str, ...]:
                  if w not in ignore and not any(ch.isdigit() for ch in w))
 
 
-def supplier_words(name: Any) -> list[str]:
-    """134: the words of a supplier's name a fuzzy match may use: `name_words` of `fuzzy_name.min_chars` letters."""
-    least = int(reconcile_rules._conf()["signals"]["fuzzy_name"]["min_chars"])
-    return [w for w in name_words(name) if len(w) >= least]
+def supplier_words(name: Any, *, least: int | None = None, ignore: frozenset[str] | None = None) -> list[str]:
+    """134: the words of a supplier's name a fuzzy match may use: `name_words` of `fuzzy_name.min_chars` letters. 265
+    (code review DOM-06): `least` and `ignore` given by a caller that read the rules once."""
+    if least is None:
+        least = int(reconcile_rules._conf()["signals"]["fuzzy_name"]["min_chars"])
+    words = _name_words(str(name or ""), ignore) if ignore is not None else name_words(name)
+    return [w for w in words if len(w) >= least]
 
 
 def line_words(payment: dict[str, Any]) -> list[str]:
@@ -158,9 +174,10 @@ def _fuzzy_word(word: str, other: str, rule: tuple[int, float, float]) -> bool:
             and SequenceMatcher(None, word, other).ratio() >= ratio)
 
 
-def _number_in(value: Any, text: str) -> bool:
-    """A document number in a line's text: as whole words, or without separators when long enough (128)."""
-    s = reconcile_rules._conf()["signals"]
+def _number_in(value: Any, text: str, s: dict[str, Any] | None = None) -> bool:
+    """A document number in a line's text: as whole words, or without separators when long enough (128). 265 (DOM-06):
+    `s`, the signal rules a caller read once."""
+    s = s if s is not None else reconcile_rules._conf()["signals"]
     number, number_c = normalize(value), compact(value)
     return len(number_c) >= int(s["min_number_chars"]) and bool(
         _whole_word(number).search(normalize(text))
@@ -248,32 +265,47 @@ def through_app(payment: dict[str, Any]) -> bool:
     return any(re.search(ch["line_text"], text) for ch in reconcile_rules._conf()["payment_channels"])
 
 
-def _channel(invoice: dict[str, Any], payment: dict[str, Any]) -> bool:
-    """The invoice's payment method fits a channel and the line names that channel's payment app (131)."""
-    method, text = normalize(invoice.get("payment_method")), _line_text(payment)
-    return bool(method) and any(re.search(ch["invoice_method"], method) and re.search(ch["line_text"], text)
-                                for ch in reconcile_rules._conf()["payment_channels"])
+def _channel(invoice: dict[str, Any], payment: dict[str, Any], channels: list[dict[str, Any]] | None = None) -> bool:
+    """The invoice's payment method fits a channel and the line names that channel's payment app (131). 265 (DOM-06):
+    the line's text is built only for an invoice with a payment method; `channels` a caller read once."""
+    method = normalize(invoice.get("payment_method"))
+    if not method:
+        return False
+    text = _line_text(payment)
+    channels = channels if channels is not None else reconcile_rules._conf()["payment_channels"]
+    return any(re.search(ch["invoice_method"], method) and re.search(ch["line_text"], text) for ch in channels)
 
 
-def named(invoice: dict[str, Any], payment: dict[str, Any]) -> list[str]:
-    """The signals of a line's text naming the invoice (`NAMED_SIGNALS`): its number, a reference of it."""
+def named(invoice: dict[str, Any], payment: dict[str, Any], s: dict[str, Any] | None = None) -> list[str]:
+    """The signals of a line's text naming the invoice (`NAMED_SIGNALS`): its number, a reference of it. 265 (DOM-06):
+    `s`, the signal rules a caller read once."""
+    s = s if s is not None else reconcile_rules._conf()["signals"]
     text = f"{payment.get('memo') or ''} {payment.get('description') or ''}"
-    found = ["invoice_number"] if _number_in(invoice.get("number"), text) else []
-    if any(_number_in(ref, text) for ref in invoice.get("references") or []):
+    found = ["invoice_number"] if _number_in(invoice.get("number"), text, s) else []
+    if any(_number_in(ref, text, s) for ref in invoice.get("references") or []):
         found.append("reference")
     return found
 
 
+def signal_rules() -> tuple[dict[str, Any], frozenset[str]]:
+    """265 (code review DOM-06): the rules `signals` reads (the engine's rules, the ignored name words), for a caller that
+    asks about many pairs at once and reads them once."""
+    return reconcile_rules._conf(), _ignore_tokens()
+
+
 def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple[str, str]] | None = None,
-            common: frozenset[str] | None = None) -> list[str]:
+            common: frozenset[str] | None = None, rules: tuple[dict[str, Any], frozenset[str]] | None = None) -> list[str]:
     """The facts that tie a line to an invoice; the amount is never one of them. `learned`: the (name key, supplier key)
-    pairs of a person's confirmations; `common`: the words too common to tie a name (both from `signal_context`)."""
-    s = reconcile_rules._conf()["signals"]
-    found = named(invoice, payment)
+    pairs of a person's confirmations; `common`: the words too common to tie a name (both from `signal_context`). 265
+    (code review DOM-06): `rules` (`signal_rules`), read once by a caller asking about many pairs."""
+    conf, ignore = rules if rules is not None else signal_rules()
+    s = conf["signals"]
+    found = named(invoice, payment, s)
     account = account_key(invoice.get("payment_account"))
     if account and account == account_key(payment.get("counterparty_account")):
         found.append("supplier_account")
-    supplier = set(name_words(invoice.get("supplier_name")))  # 134: without a printed address after the legal form
+    # 134: without a printed address after the legal form
+    supplier = set(_name_words(str(invoice.get("supplier_name") or ""), ignore))
     counterparty = set(normalize(payment.get("counterparty_name") or payment.get("description")).split())
     if supplier and len(supplier & counterparty) / len(supplier) >= float(s["min_name_share"]):
         found.append("supplier_name")
@@ -281,16 +313,19 @@ def signals(invoice: dict[str, Any], payment: dict[str, Any], learned: set[tuple
         # a glued or misread word; a whole word only when it leads the supplier's name (its brand), else the share rule
         # above decides, so two suppliers sharing a trade word ("... Waterworks") are not tied by it
         common = common or frozenset()
-        words = supplier_words(invoice.get("supplier_name"))
+        f = s["fuzzy_name"]
+        rule = int(f["min_chars"]), float(f["min_prefix_share"]), float(f["min_ratio"])  # as `_fuzzy_rule`
+        words = supplier_words(invoice.get("supplier_name"), least=rule[0], ignore=ignore)
         mine = [w for w in words if w not in common]
         theirs = [w for w in line_words(payment) if w not in common]
-        rule = _fuzzy_rule()
         if any((w != o and _fuzzy_word(w, o, rule)) or (w == o and w == words[0]) for w in mine for o in theirs):
             found.append("supplier_name_fuzzy")
-    if _channel(invoice, payment):
+    if _channel(invoice, payment, conf["payment_channels"]):
         found.append("payment_channel")
     key = name_key(payment.get("counterparty_name"))
-    if learned and key and any((key, sk) in learned for sk in supplier_keys(invoice)):
+    if learned and key and any((key, sk) in learned for sk in _supplier_keys(str(invoice.get("supplier_tax_id") or ""),
+                                                                               str(invoice.get("supplier_name") or ""),
+                                                                               ignore)):
         found.append("learned_name")
     return found
 

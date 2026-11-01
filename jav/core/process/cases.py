@@ -59,7 +59,7 @@ __all__ = [  # 229 (SZ1b): what code outside the process core may use; the rest 
     "OPEN", "CLOSED", "WAITING", "READY", "RUNNING", "DONE", "FAILED", "STALE", "STATES", "MIGRATION", "PENDING",
     "IGNORED", "UnknownCase", "CaseConflict", "UnknownEvent", "CaseClosed", "StepStateError", "AdoptionError",
     "Event", "Adopted", "on_leave", "transaction", "definition_of", "find_case_in", "case_row", "find_step_in",
-    "step_rows", "step_row", "without_case_in", "all_in", "all_step_states_in", "steps_in_phase_in", "get", "marks", "pending_events", "view", "record",
+    "step_rows", "step_row", "without_case_in", "all_in", "all_step_states_in", "steps_in_phase_in", "get", "marks", "case_marks", "pending_events", "view", "record",
     "start", "send_event", "cancel", "override_order", "retry", "reopen", "start_in", "send_event_in",
     "override_order_in", "retry_in", "reopen_in", "adopt", "adopt_phases_in", "set_phase", "set_result", "end_wait",
     "fail", "close", "hold", "resume", "open_ids_in", "holding_in", "history_in", "person_actions_sql",
@@ -111,6 +111,8 @@ CREATE TABLE IF NOT EXISTS process_history (
     at      REAL NOT NULL                      -- epoch seconds
 );
 CREATE INDEX IF NOT EXISTS ix_process_history_case ON process_history(case_id, id);
+-- 265 (code review X-14): a day's history (My work today) by its time
+CREATE INDEX IF NOT EXISTS ix_process_history_at ON process_history(at);
 CREATE TABLE IF NOT EXISTS process_inbox (
     event_id    TEXT PRIMARY KEY,
     case_id     TEXT NOT NULL,
@@ -336,6 +338,15 @@ def marks() -> list[Any]:
                 tuple(c.execute("SELECT COUNT(*), MAX(updated_at) FROM process_cases").fetchone()),
                 tuple(c.execute("SELECT COUNT(*), MAX(updated_at) FROM process_steps").fetchone()),
                 tuple(c.execute("SELECT SUM(status='open'), MAX(opened_at), MAX(closed_at) FROM process_tasks").fetchone())]
+
+
+def case_marks() -> list[Any]:
+    """265 (code review APPW-10): `marks` without the human tasks: a mark that changes whenever a case or a step
+    changes, for a list that reads no task (the case list; a run's to-do, a task, changed it before)."""
+    with store.connect() as c:
+        return [c.execute("SELECT MAX(id) FROM process_history").fetchone()[0],
+                tuple(c.execute("SELECT COUNT(*), MAX(updated_at) FROM process_cases").fetchone()),
+                tuple(c.execute("SELECT COUNT(*), MAX(updated_at) FROM process_steps").fetchone())]
 
 
 def pending_events(case_id: str) -> list[Event]:

@@ -1068,8 +1068,8 @@ def _context(wp_id: str) -> dict[str, Any]:
     state = _decision_state()
     _refuse_approved(wp_id)
     snap, sc = scoped_snapshot(wp_id)
-    result = reconcile.propose(snap)
     prepared = reconcile.prepare(snap)
+    result = reconcile.settled_view(snap, prepared)  # 265 (code review DOM-05): not the whole proposal
     return {"state": state, "snap": snap, "scope": sc, "result": result, "prepared": prepared,
             "scope_ids": set(snap["scope_statements"]), "invoices": {i["id"]: i for i in snap["invoices"]},
             "left_out": set(snap["left_out"]),
@@ -1552,11 +1552,11 @@ def _scope_statement(wp_id: str, line_id: str) -> dict[str, Any]:
     """The statement of a line in the scope (KeyError: no such line; `PackageError`: out of the scope). 144: without the
     proposals (`_context`), which a document view does not need (it took most of the time)."""
     _package(wp_id)
-    snap, _sc = scoped_snapshot(wp_id)
-    statement = next((st for st in snap["statements"] if any(ln["id"] == line_id for ln in st["lines"])), None)
+    # 265 (code review DOM-07): the valid statements only, and the scope as `scoped_snapshot` makes it
+    statement = next((st for st in reconcile_store.live_statements() if any(ln["id"] == line_id for ln in st["lines"])), None)
     if statement is None:
         raise KeyError(line_id)
-    if statement["id"] not in set(snap["scope_statements"]):
+    if not _in_scope(statement, scope(wp_id)) or statement["id"] in left_out(wp_id):
         raise explained(PackageError, "the line is not in the package's scope")
     return statement
 

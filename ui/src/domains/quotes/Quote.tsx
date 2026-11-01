@@ -5,7 +5,7 @@
 // request and the approval are in QuoteEditor.tsx (192). 231 (A3d): a case of the IT quote's process pack shows them
 // (QuoteElements.tsx); the quote package's own page is gone, and (C3c) the new work wizard's general form starts a
 // case (its record chooser, `ui/src/elements/ProcessStart.tsx`).
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../../api";
 import type { QuoteBlockerCode, QuoteMatchAnswer, QuoteProposal, QuoteView } from "./api";
 import { BlockerList } from "../../components/BlockerList";
@@ -43,11 +43,15 @@ export function ProposalPanel({ wpId, view, onChanged, askStep }: {
   const [error, setError] = useState<string | null>(null);
   const p = view.proposal;
   const active = p?.state === "queued" || p?.state === "running";
+  // 265 (code review UI-11): the latest `onChanged` read from a ref, so a new function on every render of the page does
+  // not restart the two-second timer (it asked again at every render)
+  const changedRef = useRef(onChanged);
+  changedRef.current = onChanged;
   useEffect(() => {
     if (!active) return undefined;
-    const timer = window.setInterval(onChanged, 2000);
+    const timer = window.setInterval(() => changedRef.current(), 2000);
     return () => window.clearInterval(timer);
-  }, [active, onChanged]);
+  }, [active]);
   const cap = capOf(view.proposal_cap.usd);
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);

@@ -162,8 +162,10 @@ def _step_view(case_id: str, step: process_packs.Step, row: dict[str, Any],
         {"reasons": reasons} if reasons and row.get("state") == cases.FAILED else {}) | ({"waits_on": waits_on} if waits_on else {})
 
 
+@store.one_connection
 def view(case_id: str) -> dict[str, Any]:
-    """The case's page: the case, its steps and its tabs, each element with its data."""
+    """The case's page: the case, its steps and its tabs, each element with its data. 265 (R4 timing): in one
+    connection; a mailbox routing case's page opened 630 of them (0.8 s of its 1.4 s)."""
     pack = process_runtime.pack_for(case_id)  # A7a: the version the case started on, its screens too
     if pack is None:
         raise KeyError(case_id)
@@ -334,10 +336,13 @@ def _cost(case_id: str, _step: str | None, shared: dict[str, Any]) -> dict[str, 
     an earlier one (free); a call without a known cost is held apart at its reserved maximum. Money as text."""
     pack = process_runtime.pack_for(case_id)
     lines, total = [], Decimal("0")
-    for step in pack.steps if pack else ():
+    steps = list(pack.steps) if pack else []
+    scopes = {step.id: list(capabilities.step_scopes(case_id, step.id, step.uses)) for step in steps}
+    journal = calls.scope_costs(sorted({s for found in scopes.values() for s in found}))  # 265 (APPW-08): one query
+    for step in steps:
         by: dict[str, dict[str, Any]] = {}
-        for scope in capabilities.step_scopes(case_id, step.id, step.uses):
-            for call in calls.scope_journal(scope):
+        for scope in scopes[step.id]:
+            for call in journal.get(scope, []):
                 line = by.setdefault(call["provider"], {"calls": 0, "reused": 0, "cost": Decimal("0"),
                                                         "open": Decimal("0")})
                 if calls.is_reused(call.get("note")):  # 265 (APPW-11): the run's cost view counts it alike

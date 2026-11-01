@@ -354,7 +354,8 @@ def _lines(wp_id: str) -> tuple[list[dict[str, Any]], list[Item], dict[str, Any]
     (`preselect.line_states`) each with its preselected invoices, and the exchange rates of the snapshot. 158: also the
     lines code left out for a reason in `preselect.excluded_reasons` (incoming money without an outgoing invoice), with
     no invoices: only their kind is asked."""
-    ws = reconcile_package.workspace(wp_id)
+    # 265 (code review DOM-08): the kept workspace read as it is (nothing here changes it), not a deep copy of it
+    ws = reconcile_package.kept_workspace(wp_id)
     rates = reconcile_package.scoped_snapshot(wp_id)[0].get("fx_rates") or {}
     p = _site()["preselect"]
     states, reasons = set(p["line_states"]), set(p.get("excluded_reasons") or [])

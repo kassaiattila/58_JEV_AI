@@ -38,8 +38,10 @@ class _Packages:
     """What the rows of one list read about the packages: their names and, per package, its items by the subject of
     their to-dos with their titles (each package read once)."""
 
-    def __init__(self, c: sqlite3.Connection) -> None:
+    def __init__(self, c: sqlite3.Connection, *, live_only: bool = False) -> None:
         self.c = c
+        # 265 (code review APPW-07): a list of live work only builds no title for a trial's or a measurement's to-do
+        self.live_only = live_only
         self.rows = {r["id"]: dict(r) for r in c.execute("SELECT id, name, source_kind, source_ref FROM workpackages")}
         self._items: dict[str, dict[tuple[str, str], tuple[str, str]]] = {}
 
@@ -69,6 +71,8 @@ def _review(packages: _Packages, task: tasks.Task) -> Row:
         doc = c.execute("SELECT source_path FROM documents WHERE doc_id=?", (q["subject_id"],)).fetchone()
         return {**row, "what": Path(doc["source_path"]).name if doc else q["subject_id"]}
     row.update(origin=LIVE if run["mode"] == "apply" else TRIAL, _wp=run["workpackage_id"], _stage="review")
+    if packages.live_only and row["origin"] != LIVE:
+        return row  # left out by the caller: its item's title (the package's items read, an email file opened) is not built
     found = packages.item(run["workpackage_id"], (q["subject_kind"], q["subject_id"]))
     if found is not None:
         row.update(what=found[1], _stage=f"review/{found[0]}")
@@ -125,7 +129,7 @@ def rows(actor: str, *, every_origin: bool = False) -> list[Row]:
     me = actors.person(actor).id
     out: list[Row] = []
     with store.connect() as c:
-        packages = _Packages(c)
+        packages = _Packages(c, live_only=not every_origin)
         for task in tasks.open_for_in(c, me):
             row = _ROWS[task.kind](packages, task) if task.kind in _ROWS else _case_task(packages, task) or {
                 "what": task.subject, "origin": LIVE, "_wp": None, "_stage": None}

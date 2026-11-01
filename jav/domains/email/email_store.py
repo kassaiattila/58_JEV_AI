@@ -203,8 +203,8 @@ def task_rows(run_id: str, items: list[str], c: sqlite3.Connection) -> list[Any]
     version's part (`jav/core/activity_kinds.py`; until 209 in `jav/app/corrections.py`)."""
     prefix = f"{run_id}:"
     return [[d["run_id"], d["task_index"], d["decision"]] for d in c.execute(
-        "SELECT run_id, task_index, decision FROM email_task_decisions WHERE substr(run_id, 1, ?) = ?"
-        " ORDER BY run_id, task_index", (len(prefix), prefix))]
+        "SELECT run_id, task_index, decision FROM email_task_decisions WHERE run_id >= ? AND run_id < ?"  # 265 (X-05)
+        " ORDER BY run_id, task_index", (prefix, f"{run_id};"))]
 
 
 def task_fingerprint(run_id: str, c: sqlite3.Connection) -> list[Any]:

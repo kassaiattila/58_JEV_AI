@@ -304,8 +304,12 @@ trace.register(trace.Point(
 
 def resolve_prefix(prefix: str) -> str | None:
     """The full id of the document a to-do names by its prefix (None if unknown or ambiguous)."""
+    if not prefix:
+        return None
+    # 265 (code review DOM-09): a range on the key ("<prefix>" up to the next prefix), which the primary key reads
+    upper = prefix[:-1] + chr(ord(prefix[-1]) + 1)
     with store.connect() as c:
-        rows = c.execute("SELECT doc_id FROM documents WHERE substr(doc_id, 1, ?) = ? LIMIT 2", (len(prefix), prefix)).fetchall()
+        rows = c.execute("SELECT doc_id FROM documents WHERE doc_id >= ? AND doc_id < ? LIMIT 2", (prefix, upper)).fetchall()
     return rows[0]["doc_id"] if len(rows) == 1 else None
 
 

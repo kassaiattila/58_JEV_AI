@@ -80,6 +80,8 @@ CREATE TABLE IF NOT EXISTS invocations (
 CREATE INDEX IF NOT EXISTS ix_invocations_step ON invocations(run_id, step_id);
 CREATE INDEX IF NOT EXISTS ix_invocations_scope ON invocations(budget_scope, provider);
 CREATE INDEX IF NOT EXISTS ix_invocations_provider_at ON invocations(provider, created_at);
+-- 265 (code review CORE-05): an earlier answer to the same question, looked up under the write lock
+CREATE INDEX IF NOT EXISTS ix_invocations_answer ON invocations(provider, request_hash, status);
 -- 204 (R1i): the reservation's look for an overrun in its budget (`_reserve`) is one lookup, not a read of its every call
 CREATE INDEX IF NOT EXISTS ix_invocations_scope_note ON invocations(budget_scope, provider, note);
 CREATE TABLE IF NOT EXISTS budgets (
@@ -728,6 +730,20 @@ def scopes_under(prefix: str) -> list[str]:
         return [r["budget_scope"] for r in c.execute(
             "SELECT budget_scope, MIN(id) AS first FROM invocations WHERE budget_scope LIKE ? ESCAPE '!'"
             " GROUP BY budget_scope ORDER BY first", (escaped + "%",))]
+
+
+def scope_costs(scopes: list[str]) -> dict[str, list[dict[str, Any]]]:
+    """265 (code review APPW-08): the calls of several budgets with only what a cost view adds up (provider, note,
+    cost, reserved maximum), in one query; `scope_journal` read every column of each budget separately."""
+    if not scopes:
+        return {}
+    with store.connect() as c:
+        rows = c.execute("SELECT budget_scope, provider, note, cost_usd, max_cost_usd FROM invocations WHERE budget_scope IN"
+                         f" ({','.join('?' * len(scopes))}) ORDER BY id", tuple(scopes)).fetchall()
+    out: dict[str, list[dict[str, Any]]] = {s: [] for s in scopes}
+    for r in rows:
+        out[r["budget_scope"]].append(dict(r))
+    return out
 
 
 def scope_journal(scope: str) -> list[dict[str, Any]]:

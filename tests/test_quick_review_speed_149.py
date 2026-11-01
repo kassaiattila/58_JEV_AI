@@ -45,7 +45,9 @@ def _old_proposed_pairs(wp_id: str) -> list[dict[str, str]]:
     ctx = rp._context(wp_id)
     sc = ctx["scope"]
     who = rp._Parties(sc, ctx["invoices"])
-    return [{"invoice_doc_id": c["invoice_id"], "line_id": c["line_id"]} for c in ctx["result"]["candidates"]
+    # 265 (code review DOM-05): a decision's context reads only what is settled, so the whole pairing is run here
+    candidates = reconcile.propose(ctx["snap"])["candidates"]
+    return [{"invoice_doc_id": c["invoice_id"], "line_id": c["line_id"]} for c in candidates
             if c["proposed"] and not c["multiple_candidates"] and not c["source_review_required"] and who.own(c["invoice_id"])
             and c["line_id"] not in ctx["locked"]
             and sc["period_start"] <= str(ctx["prepared"]["lines"][c["line_id"]].get("booking_date") or "")[:10] <= sc["period_end"]]

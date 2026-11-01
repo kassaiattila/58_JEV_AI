@@ -261,6 +261,7 @@ def test_pre_push_blocks_forbidden_history_and_scans_new_commits(repo, guard):
 # --- the real repository and the installation ----------------------------------------------------------------------
 
 
+@pytest.mark.slow  # 265 (code review TOOL-07): the start-up check scans the tree as well
 def test_tracked_files_have_no_blocking_findings():
     """The done criterion (070 plan 5.): 0 blocking findings outside the allow list in the files that go to GitHub."""
     found = data_guard.blocking(data_guard.scan_tracked(ROOT, data_guard.load_guard(ROOT)))

@@ -326,7 +326,8 @@ def _readiness(row: Any) -> str:
     return "ready"
 
 
-def _proposal_view(c: Any, row: Any) -> dict[str, Any]:
+def _proposal_view(c: Any, row: Any, state: int | None = None) -> dict[str, Any]:
+    """A proposal's view; 265 (code review APPR-14): `state`, its decision state read at once for a list."""
     record = json.loads(row["record"])
     return {"id": row["id"], "run_id": row["run_id"], "n": row["n"], "pages": json.loads(row["pages"]), "record": record,
             "title": record["title"], "kind": record["kind"], "page": record["page"], "clause": record["clause"],
@@ -334,20 +335,26 @@ def _proposal_view(c: Any, row: Any) -> dict[str, Any]:
             "numbers": _loads(row["numbers"]) or [], "support": _loads(row["support"]), "readiness": _readiness(row),
             "state": row["state"], "correction": _loads(row["correction"]), "confirmed": _loads(row["confirmed"]) or [],
             "reason": row["reason"], "rule_ref": row["rule_ref"], "decided_by": row["decided_by"],
-            "decided_at": row["decided_at"], "decision_state": decisions.state(c, KIND, str(row["id"]))}
+            "decided_at": row["decided_at"],
+            "decision_state": state if state is not None else decisions.state(c, KIND, str(row["id"]))}
 
 
-def _run_view(c: Any, row: Any, *, proposals: bool) -> dict[str, Any]:
+def _run_view(c: Any, row: Any, *, proposals: bool, counts: dict[str, dict[str, int]] | None = None) -> dict[str, Any]:
+    """A run's view; 265 (code review APPR-14): `counts`, every run's proposals by state read at once for a list."""
     out = {k: row[k] for k in ("run_id", "document_ref", "file_sha256", "catalogue", "product", "proposer", "state",
                                "page_count", "text_source", "error", "requested_by", "requested_at", "finished_at")}
     out |= {"file": Path(row["path"]).name, "verify": bool(row["verify"]), "stand_in": row["proposer"] != GPT,
             "limits": _loads(row["limits"]) or {}, "usage": _loads(row["usage"]),
             "skipped": {int(k): v for k, v in (_loads(row["skipped"]) or {}).items()}, "ocr_pages": _loads(row["ocr_pages"]) or []}
-    counts = c.execute("SELECT state, COUNT(*) n FROM rule_proposals WHERE run_id=? GROUP BY state", (row["run_id"],)).fetchall()
-    out["counts"] = {r["state"]: r["n"] for r in counts}
+    if counts is None:
+        found = c.execute("SELECT state, COUNT(*) n FROM rule_proposals WHERE run_id=? GROUP BY state", (row["run_id"],))
+        out["counts"] = {r["state"]: r["n"] for r in found.fetchall()}
+    else:
+        out["counts"] = counts.get(row["run_id"], {})
     if proposals:
         rows = c.execute("SELECT * FROM rule_proposals WHERE run_id=? ORDER BY n", (row["run_id"],)).fetchall()
-        out["proposals"] = [_proposal_view(c, r) for r in rows]
+        states = decisions.states(c, KIND, [str(r["id"]) for r in rows])
+        out["proposals"] = [_proposal_view(c, r, states[str(r["id"])]) for r in rows]
     return out
 
 
@@ -356,7 +363,10 @@ def runs(document_ref: str | None = None) -> list[dict[str, Any]]:
     with store.connect() as c:
         rows = c.execute("SELECT * FROM rule_proposal_runs WHERE ? IS NULL OR document_ref=? ORDER BY requested_at DESC, run_id",
                          (document_ref, document_ref)).fetchall()
-        return [_run_view(c, r, proposals=False) for r in rows]
+        counts: dict[str, dict[str, int]] = {}
+        for r in c.execute("SELECT run_id, state, COUNT(*) n FROM rule_proposals GROUP BY run_id, state"):
+            counts.setdefault(r["run_id"], {})[r["state"]] = r["n"]
+        return [_run_view(c, r, proposals=False, counts=counts) for r in rows]
 
 
 def naming(documents: set[str], products: set[str]) -> list[str]:
