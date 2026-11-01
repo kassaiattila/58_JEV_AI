@@ -272,7 +272,7 @@ function StepWork({ main, item, sub, of, batch, otherwise, onChanged }: {
   const view = page.data;
   const changed = () => { page.reload(); onChanged(); };
   const props = (e: CaseElement): ElementProps => ({ caseId: subId, element: e, page: view, onChanged: changed,
-    onView: (fresh) => { page.replace(fresh); onChanged(); } });
+    onView: (fresh) => { page.replace(fresh); onChanged(); }, polling: poll });
   const { items, log } = caseTrack(view);
   const href = (id: string) => routeHash({ view: "cases", caseId: main.caseId, tab: item.id, sub: id, ...(earlier ? { of: earlier } : {}) });
   const logShown = Boolean(log && sub === log.id);
@@ -369,7 +369,8 @@ export function CasePage({ caseId, tab, sub, of, batch }: { caseId: string; tab?
   }
   if (!page.data || parent) return <p className="muted">{t("Loading…")}</p>;
   const view = page.data;
-  const props = (element: CaseElement): ElementProps => ({ caseId, element, page: view, onChanged: changed, onView: answered });
+  const props = (element: CaseElement): ElementProps => ({ caseId, element, page: view, onChanged: changed, onView: answered,
+    polling: poll });
   const all = view.tabs.flatMap((x) => x.elements);
   const summary: ReactNode = all.map((e) => elementOf(e.type)?.summary?.(props(e))).find(Boolean) ?? t(view.case.title);
   const statusOf = (x: TrackItem) => x.kind === "step" ? stepLine(view, x.elements[0])

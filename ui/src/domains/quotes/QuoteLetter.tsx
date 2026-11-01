@@ -22,8 +22,10 @@ const PROBLEM: Record<string, string> = {
   marker: "it holds a marker", empty: "it is empty", too_long: "it is too long",
 };
 
-export function QuoteLetterCard({ wpId, letter, archived, onChanged, askLetter }: {
+export function QuoteLetterCard({ wpId, letter, archived, onChanged, askLetter, pageAsks = false }: {
   wpId: string; letter: QuoteLetterView; archived: boolean; onChanged: () => void; askLetter?: () => Promise<unknown>;
+  /** 272 (K3, UI-11): the page around asks again by itself now, so the card does not ask too */
+  pageAsks?: boolean;
 }) {
   useLocale();
   const { busy, error, notice, run } = useAction();
@@ -37,10 +39,10 @@ export function QuoteLetterCard({ wpId, letter, archived, onChanged, askLetter }
   const changedRef = useRef(onChanged);
   changedRef.current = onChanged;
   useEffect(() => {
-    if (!active) return undefined;
+    if (!active || pageAsks) return undefined;
     const timer = window.setInterval(() => changedRef.current(), 2000);
     return () => window.clearInterval(timer);
-  }, [active]);
+  }, [active, pageAsks]);
   if (letter.version === null) return null;
   const cap = Object.values(letter.cap).reduce((s, v) => s + (Number(v) || 0), 0);
   const unused = letter.state === "done" && letter.problems.length > 0;
