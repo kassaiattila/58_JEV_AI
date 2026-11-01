@@ -146,7 +146,9 @@ def test_the_parallel_checks_run_once_each_and_a_failed_one_holds_only_the_asses
 
 
 def test_the_reminder_repeats_while_the_document_is_awaited_and_the_document_ends_both_timers() -> None:
-    cases.start("k2", CLAIM, claim(), ME)
+    # 265 (R4-b): the deadline is not under test here; on a loaded machine the test outlasted a minute and the deadline
+    # closed the claim before its document came
+    cases.start("k2", CLAIM, claim(deadline_s=3600), ME)
     turns()
     for _ in range(3):  # the reminder fires again and again; the wait goes on
         time.sleep(REMIND_S * 2)

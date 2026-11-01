@@ -289,7 +289,9 @@ FULL_RUN_LOCK = Path(tempfile.gettempdir()) / "jav-full-test-run.lock"
 def full_run_lock():
     """265 (code review TOOL-06): one full test run at a time on this machine (the start-up check's and the test
     worktree's, from any folder): two at once ran out of memory, and one wiped the other's shared test worktree. A lock
-    file in the system's temporary folder (`FULL_RUN_LOCK`); `lock.AlreadyRunning` when another run holds it."""
+    file in the system's temporary folder (`FULL_RUN_LOCK`); `lock.AlreadyRunning` when another run holds it. 265 (R4-b):
+    a before/after snapshot or replay holds it too: beside a full test run it slowed the isolated readers and the timers
+    of six tests into failures."""
     from jav.core import lock
 
     return lock.single_instance(FULL_RUN_LOCK)

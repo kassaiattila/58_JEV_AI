@@ -162,14 +162,24 @@ def cmd_deps_audit(args: argparse.Namespace) -> int:
     return 0 if ok and current is not None and not current["errors"] else 1
 
 
+_HEAVY_RUN = ("a full test run or another comparison is going on this machine; run them one after the other (side by "
+              "side they slowed each other into test failures)")
+
+
 def cmd_before_after_snapshot(args: argparse.Namespace) -> int:
     """171 (plan 170, E0): the service's read views on a fresh copy of a backed-up store, written to a JSON-lines file
     (free: no AI call, no network). The file holds personal data: keep it outside git."""
+    from jav.core import lock
+    from jav.devtools import preflight
     from jav.evals import before_after
 
     try:
-        counts = before_after.static_snapshot(Path(args.baseline), Path(args.work), Path(args.out),
-                                              items=not args.no_items, matches=args.matches)
+        with preflight.full_run_lock():  # 265 (R4-b): never beside a full test run
+            counts = before_after.static_snapshot(Path(args.baseline), Path(args.work), Path(args.out),
+                                                  items=not args.no_items, matches=args.matches)
+    except lock.AlreadyRunning:
+        print(f"no snapshot: {_HEAVY_RUN}")
+        return 2
     except before_after.SnapshotError as exc:
         print(f"no snapshot: {exc}")
         return 2
@@ -181,11 +191,17 @@ def cmd_before_after_snapshot(args: argparse.Namespace) -> int:
 def cmd_before_after_replay(args: argparse.Namespace) -> int:
     """173 (plan 170, E0b): a sample of the backed-up store's items processed again on a fresh copy, from earlier
     answers only (free: placeholder keys, closed network, no budget); exit code 3 if a replayed run made a live call."""
+    from jav.core import lock
+    from jav.devtools import preflight
     from jav.evals import before_after, before_after_replay
 
     try:
-        result = before_after_replay.running_snapshot(Path(args.baseline), Path(args.work), Path(args.out),
-                                                      size=args.size, jev_cache=Path(args.jev_cache) if args.jev_cache else None)
+        with preflight.full_run_lock():  # 265 (R4-b): never beside a full test run
+            result = before_after_replay.running_snapshot(Path(args.baseline), Path(args.work), Path(args.out), size=args.size,
+                                                          jev_cache=Path(args.jev_cache) if args.jev_cache else None)
+    except lock.AlreadyRunning:
+        print(f"no replay: {_HEAVY_RUN}")
+        return 2
     except before_after.SnapshotError as exc:
         print(f"no replay: {exc}")
         return 2
