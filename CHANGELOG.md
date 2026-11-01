@@ -941,7 +941,7 @@ number in both is written by code.
   and is uploaded, checked, versioned, previewed and chosen beside the download the same way. The check refuses
   macros, embedded objects, links to other files and fields that compute or import; page numbers, dates and web links
   stay. Headers, footers and text boxes are filled too, and the text around a marker keeps its formatting.
-- **The quote as a Word document:** a built-in template in Hungarian and English (A4), the language estimated by code
+- **The quote as a Word document:** a built-in template in Hungarian and English, the language estimated by code
   from the request and changeable with the quote's header. The draft downloads as a Word document marked as a draft;
   the approval stores the version's document, so its download never changes.
 - **The reply letter:** beside the approved quote, a draft letter in the quote's language: the greeting, the totals
@@ -1714,7 +1714,7 @@ Unified names in the item lists, a cost view, and a faster review with a tick an
   show each document under its unified, content-based file name (the one of the File names view) instead of its
   original name. A **Name:** switch above each list chooses Original or Unified (remembered per person in the browser;
   Unified by default). A document gets its unified name once a run has processed it (in the package's list, from its
-  latest run that did); until then the original name stays, with a note. An uncertain name (one whose copy would go
+  latest run that did); formerly the original name stays, with a note. An uncertain name (one whose copy would go
   to the review folder) carries a ⚠ mark with the reason, and the tooltip gives the original name. The service
   delivers the chosen name, so searching, sorting, filtering and downloads follow it; **Unified name**, **Original
   name** and **Unified name status** can be added as columns. Datasets `workpackage_items` and `run_items` take the

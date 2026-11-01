@@ -16,9 +16,9 @@ PDF continues through the existing document graph. Native formats use
 whose recognised type has no fitting type pack (no pack for its category, "none
 of these" for the detailed type, or the unknown type) continues from detection into this graph
 on the G path, when the recipe's `unknown_documents` setting is `facts` (the
-default since 120; `review` keeps the earlier stop). A text PDF is read as it is.
+default; `review` keeps the earlier stop). A text PDF is read as it is.
 A scan whose detection text came from an Azure recognition takes that recognition
-over (124): detection names the kept original (`ocr_recognition`), the worker
+over: detection names the kept original (`ocr_recognition`), the worker
 hands it on (`native_recognition`), and the reading, identified by the recognition's
 digest, can be complete. For any other scan the native step asks Azure itself
 before reading (`native_processing.azure_recognition`), but only in a run whose
@@ -109,7 +109,7 @@ The review summary groups reading issues by code with a count and keeps the raw 
 a technical section; backend reasons and fact warnings are translated in the interface, with an error class left
 as it is. The native facts table adds a readable `source` column (quote and short place, `export._source_text`)
 and labels the machine states (`native_state` in `configs/datasets.json`); the citation JSON stays available as
-a hidden column and in the exports (120).
+a hidden column and in the exports.
 
 Explicit reuse allows the existing request-key receipt/cache mechanisms. Live
 mode disables cross-run GPT reuse and JEV cache reads/writes, while same-step
@@ -117,7 +117,7 @@ crash recovery still replays a completed receipt. The text sent to a model
 holds only the source elements and the reading gaps. The source bundle
 fingerprint, which includes the reader implementation, is kept out of it and
 stays in the saved Interpretation, so a reader change alone does not turn an
-unchanged document into a new paid question (124). The native JEV cache is scoped
+unchanged document into a new paid question. The native JEV cache is scoped
 to the selected store. A cache-only answer is preserved as a private artifact;
 it does not invent an invocation or the original answer's unknown paid cost.
 
@@ -151,7 +151,7 @@ opens a `native:fact:<n>:unsupported:<p>` to-do; the uncertain range does not,
 as on the PDF path. When JEV does not answer (no key, no budget left, a
 provider error), the GPT facts are published without support and the item gets
 a `jev_unavailable:<reason>` to-do, as in the other flows; the reason is kept
-with the saved outcome (160). These checks preserve the original proposal and literal
+with the saved outcome. These checks preserve the original proposal and literal
 match; they do not establish general semantic correctness or introduce a new
 threshold. Older saved interpretation hashes remain unchanged on reload, and
 earlier results are not re-checked automatically.

@@ -185,7 +185,7 @@ CONTRACT = {
         "needs_review": {"kind": "terminal", "note": "Published evidence and explicit gaps or provider outcomes remain available for review."},
     },
     "terminals": sorted(TERMINALS),
-    "doc_note": "Immutable source readings, terminal interpretation outcomes and publications remain separate. Resume uses saved identities, without copying source text into Burr state. A text PDF whose recognised type has no fitting type pack can continue here from document detection (120, recipe setting unknown_documents).",
+    "doc_note": "Immutable source readings, terminal interpretation outcomes and publications remain separate. Resume uses saved identities, without copying source text into Burr state. A text PDF whose recognised type has no fitting type pack can continue here from document detection (recipe setting unknown_documents).",
 }
 
 

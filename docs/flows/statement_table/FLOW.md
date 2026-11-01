@@ -9,7 +9,7 @@
 - **load_table** _(det)_ — Verify the account's statement file against the run's frozen fingerprint and load the statement the reader built from the export (jav/domains/finance/statement_table.py).
 
 ### check
-- **check_table** _(det)_ — The type pack's checks (running balance, closing balance, totals, period dates); a failed check, a missing required field and a line the reader could not read are to-dos; 137: a ledger export without its PDF statement has one to-do for its balances, and a line on one side only is a to-do.
+- **check_table** _(det)_ — The type pack's checks (running balance, closing balance, totals, period dates); a failed check, a missing required field and a line the reader could not read are to-dos; a ledger export without its PDF statement has one to-do for its balances, and a line on one side only is a to-do.
 
 ### save
 - **save_table** _(store)_ — Save the statement as the item's document and data points, so the reconciliation reads it like an extracted statement; the to-dos go into the review queue.
@@ -20,7 +20,7 @@
 
 Terminal steps: done, needs_review
 
-> No model is called. The statement file is derived from a bank's tabular export when a person adds the accounts they chose to a work package (DECISIONS 132, 136).
+> No model is called. The statement file is derived from a bank's tabular export when a person adds the accounts they chose to a work package.
 
 ## Graph (Mermaid)
 
