@@ -1032,14 +1032,15 @@ MEDIA = {"csv": "text/csv; charset=utf-8", "json": "application/json",
 def export_rows(name: str, scope: dict[str, str] | None, q: Query, rows_mode: str,
                 columns: list[str] | None = None) -> tuple[list[Column], list[dict[str, Any]]]:
     """The columns and rows to download. `rows_mode`: `all` (every row, the sort order is kept), `filtered` (by the
-    search and the filters), `selected` (only the selected `keys`). Paging does not apply to downloads."""
+    search and the filters), `selected` (only the selected `keys`). Paging does not apply to downloads. 272 (K3, the
+    rest of UI-08): every mode keeps the list's grouping, as the list shows it."""
     cols, all_rows = rows(name, scope)
     if rows_mode == "all":
-        q = Query(sort=q.sort)
+        q = Query(sort=q.sort, group=q.group)
     elif rows_mode == "selected":
         if not q.keys:
             raise ValueError("selected export needs keys")
-        q = Query(sort=q.sort, keys=q.keys)
+        q = Query(sort=q.sort, keys=q.keys, group=q.group)
     elif rows_mode != "filtered":
         raise ValueError(f"unknown rows mode: {rows_mode}")
     by_key = {c.key: c for c in cols}

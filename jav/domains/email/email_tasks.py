@@ -34,11 +34,13 @@ from pydantic_ai.models.openai import OpenAIChatModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from jav.ai import output_cap
+from jav.ai.gpt_answer import NoBudget
 from jav.ai.output_cap import StopOnTruncation
 from jav.core import activity_kinds, cfg, store
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, PROMPTS_DIR, load_prompt, openai_chat_model, openai_cost, openai_price
 from jav.core import calls
 from jav.core import observability  # 231 (E4): the calls are timed through one helper
+from jav.core.user_messages import explained
 
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")
 
@@ -291,11 +293,11 @@ def _physical(agent, prompt: str, *, run_id: str, limited: bool) -> calls.Outcom
 def extract(snap: dict[str, Any], *, intent_hint: dict[str, Any] | None, run_id: str) -> dict[str, Any]:
     """The raw GPT proposal (before the gate). In a worker run with an up-front budget reservation and the call log;
     on a repeat the saved response is returned (no second paid request)."""
+    ctx = calls.current()
+    if ctx is None:  # 272 (K2): no paid call outside a run or a budgeted measurement, as every other GPT question
+        raise explained(NoBudget, "GPT is asked only under a budget")
     prompt = json.dumps(request_payload(snap, intent_hint), ensure_ascii=False, sort_keys=True)
     agent = get_agent()
-    ctx = calls.current()
-    if ctx is None:
-        return _physical(agent, prompt, run_id=run_id, limited=False).response
     price = openai_price(OPENAI_MODEL)  # 066 Á38: no budgeted call without a price (the reservation would be zero)
     schema = json.dumps(TaskOutput.model_json_schema(), ensure_ascii=False)  # sent as the output tool's schema
     max_cost = calls.estimate_max_cost(

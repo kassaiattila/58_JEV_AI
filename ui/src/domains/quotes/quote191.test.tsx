@@ -69,10 +69,10 @@ function view(quote: QuoteView): WorkpackageView {
 }
 
 /** 231 (A3d): the quote's stages as a case's page shows them, through its elements (the quote package's page is gone). */
-function QuoteStages({ view, stage, onChanged }: { view: WorkpackageView; stage: string; onChanged: () => void }) {
+function QuoteStages({ view, stage, onChanged, polling }: { view: WorkpackageView; stage: string; onChanged: () => void; polling?: boolean }) {
   const { workpackage, quote } = view as unknown as { workpackage: { id: string; status?: string }; quote: QuoteView };
   const page = { case: { status: workpackage.status ?? "open" }, steps: {}, tabs: [], next: null } as unknown as CaseView;
-  const props = (type: string) => ({ caseId: workpackage.id, element: { type, step: null, data: { quote } }, page, onChanged });
+  const props = (type: string) => ({ caseId: workpackage.id, element: { type, step: null, data: { quote } }, page, onChanged, polling });
   if (stage === "process") return <RecordView {...props("record_view")} />;
   if (stage === "review") return <><MatchProposal {...props("match_proposal")} /><LineEditor {...props("line_editor")} /></>;
   return <Approval {...props("approval")} />;
@@ -160,6 +160,20 @@ describe("the quote package (191)", () => {
       cleanup();
       render(<QuoteStages view={view(QUOTE)} stage="review" onChanged={changed} />);
       expect(screen.getByRole("button", { name: "Ask for the proposal" })).toHaveProperty("disabled", true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // 272 (K3, the rest of UI-11): the case's page asks again by itself while its step works; the panel asked too
+  it("does not ask again on its own while the case's page asks", () => {
+    vi.useFakeTimers();
+    try {
+      const changed = vi.fn();
+      render(<QuoteStages view={view({ ...READY, proposal: { ...PROPOSAL, state: "running", lines: [] } })} stage="review"
+        onChanged={changed} polling />);
+      vi.advanceTimersByTime(4100);
+      expect(changed).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

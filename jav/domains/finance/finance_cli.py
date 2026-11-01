@@ -211,7 +211,7 @@ def register(sub) -> None:
                         " needs the sub-budget of each engine, stores nothing")
     p.set_defaults(fn=cmd_reconcile_ai)
     p = sub.add_parser("statement-table", help="A tabular bank statement export read by code (free): the accounts found and their checks;"
-                                               " 141: also a statement printed as text (a CIB PDF or text export), a camt.053 XML statement or a folder of them")
+                                               " also a statement printed as text (a CIB PDF or text export), a camt.053 XML statement or a folder of them")
     p.add_argument("file", help="the workbook (.xlsx), CSV, Excel 2003 XML, PDF or text file, or a folder")
     p.set_defaults(fn=cmd_statement_table)
     p = sub.add_parser("reconcile-versions-backfill", help="the stored file of every approved reconciliation statement"

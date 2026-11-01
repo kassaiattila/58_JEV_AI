@@ -60,3 +60,22 @@ def test_the_scoped_packages_are_read_in_one_connection(db, monkeypatch) -> None
     opened = _opened(monkeypatch)
     assert package_scope.scoped_packages() == before
     assert len(opened) == 1
+
+
+def test_a_case_page_reads_the_case_s_state_once(tmp_path, monkeypatch) -> None:
+    """272 (K4, the rest of APPW-08): the page read the case's state again for its blockers element (and its partner
+    link), and built every step's view twice; now once, and the page answers as before. A monthly reconciliation, whose
+    page has the blockers element."""
+    from jav.core.process import engine
+    from tests import test_case_ui_unification_261 as u
+
+    u.pdf_lines_as_text(monkeypatch)
+    with store.use_store(tmp_path / "state.sqlite"):
+        case = u._monthly(tmp_path)
+        before = case_views.view(case)
+        assert any(e["type"] == "blockers" for tab in before["tabs"] for e in tab["elements"])
+        reads: list[str] = []
+        real = engine.state
+        monkeypatch.setattr(engine, "state", lambda case_id, *a, **k: reads.append(case_id) or real(case_id, *a, **k))
+        assert case_views.view(case) == before
+    assert reads.count(case) == 1  # (a sub-case element reads its own case)

@@ -21,7 +21,11 @@ export interface DsColumn {
 }
 export interface DsFilter { col: string; op: FilterOp; value?: string | string[] | null }
 export interface DsSort { col: string; desc?: boolean }
-export interface DsQuery { q?: string; filters?: DsFilter[]; sort?: DsSort[]; offset?: number; limit?: number; keys?: string[]; group?: string }
+export interface DsQuery {
+  q?: string; filters?: DsFilter[]; sort?: DsSort[]; offset?: number; limit?: number; keys?: string[]; group?: string;
+  /** 272 (K3, UI-10): the only columns the page carries (the rows keep their own `_` keys) */
+  fields?: string[];
+}
 export type DsRow = Record<string, unknown> & { _key: string; _run?: string | null; _wp?: string | null };
 export interface DatasetSpec {
   name: string; label: string; scope: string[]; optional_scope: string[];

@@ -41,7 +41,7 @@ def engine_args(p: argparse.ArgumentParser, *, measurement: bool) -> None:
     does; a measurement measures JEV and GPT unless told otherwise, so that its run file says what it measured."""
     default = "the application's AI engine" if not measurement else "jev (a measurement does not follow the application)"
     p.add_argument("--engine", choices=["jev", "gpt"], default="jev" if measurement else None,
-                   help=f"160-D: jev = JEV and GPT, gpt = GPT only, without JEV (paid OpenAI calls); default: {default}")
+                   help=f"jev = JEV and GPT, gpt = GPT only, without JEV (paid OpenAI calls); default: {default}")
     p.add_argument("--no-jev", dest="engine", action="store_const", const="gpt", help="the same as --engine gpt")
 
 

@@ -24,7 +24,7 @@ export function MatchProposal(p: ElementProps) {
   if (!q) return loading;
   if (composing(q)) return null;
   const step = p.element.step;
-  return <ProposalPanel wpId={p.caseId} view={q} onChanged={p.onChanged}
+  return <ProposalPanel wpId={p.caseId} view={q} onChanged={p.onChanged} pageAsks={p.polling}
     askStep={step ? () => api.startCaseStep(p.caseId, step) : undefined} />;
 }
 
@@ -39,5 +39,5 @@ export function Approval(p: ElementProps) {
   if (!q) return loading;
   const letter = typeof p.element.letter_step === "string" ? p.element.letter_step : null;
   return <QuoteApprovalStage wpId={p.caseId} view={q} archived={p.page.case.status === "archived"} onChanged={p.onChanged}
-    askLetter={letter ? () => api.startCaseStep(p.caseId, letter) : undefined} />;
+    askLetter={letter ? () => api.startCaseStep(p.caseId, letter) : undefined} pageAsks={p.polling} />;
 }

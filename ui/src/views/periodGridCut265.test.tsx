@@ -32,4 +32,15 @@ describe("265 the period grid", () => {
     expect(within(grid).getByRole("link", { name: "1/3" }).getAttribute("href")).toBe("#/cases/wp-00000000b031");
     expect(within(grid).getByRole("link", { name: "2/3" })).toBeTruthy();
   });
+
+  // 272 (K3, the rest of UI-10): the grid asks only for what its cells show
+  it("asks every 30 seconds only for the columns its cells show", async () => {
+    vi.spyOn(api, "caseViews").mockResolvedValue(COUNTS);
+    const query = vi.spyOn(api, "datasetQuery").mockImplementation(async (name) =>
+      (name === "handovers" ? page([], 0) : page([row("03", 1)], 1)));
+    render(<CaseList process="monthly_reconciliation" />);
+    await screen.findByRole("region", { name: "Period grid" });
+    const asked = query.mock.calls.find(([name, , q]) => name === "cases" && q.limit === 1000);  // the grid's, not the list's
+    expect(asked?.[2]).toEqual({ limit: 1000, fields: ["party", "period", "status", "waits_for", "name", "steps"] });
+  });
 });

@@ -48,6 +48,7 @@ import logging
 import os
 import re
 import shutil
+import time
 import sqlite3
 import zipfile
 from contextlib import closing
@@ -68,6 +69,7 @@ ENV_TEMPLATE = ".env.example"  # tracked, holds no value: not part of the local 
 SOURCES_DIR = "sources"
 NATIVE_ARCHIVE = "native-artifacts.zip"
 _STAMP = re.compile(r"^\d{8}-\d{6}(-\d+)?$")
+PART_STALE_S = 3600  # 272 (K5): a `.part` copy older than this was left by a stopped run
 log = logging.getLogger("jav.runtime.backup")
 
 
@@ -445,6 +447,12 @@ def _prune(root: Path, keep: int, kind: str = "manual") -> list[str]:
     for old in dirs[:-keep]:
         shutil.rmtree(old)
         removed.append(old.name)
+    # 272 (K5, the rest of CORE-03): a copy a stopped run left half way (no clean-up ran); an hour old, so not one that
+    # may still be running
+    for part in sorted(p for p in root.iterdir() if p.is_dir() and p.name.endswith(".part") and _STAMP.match(p.name[:-5])):
+        if time.time() - part.stat().st_mtime > PART_STALE_S:
+            shutil.rmtree(part, ignore_errors=True)
+            removed.append(part.name)
     return removed
 
 

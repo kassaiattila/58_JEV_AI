@@ -37,6 +37,16 @@ FORBIDDEN = {
         r"|(?:^|\| |^- |[;.] )(?:1\d\d|2\d\d)(?:-[A-Z])?:"
         r"|(?<=[;,] )(?:1\d\d|2\d\d)(?:-[A-Z])?[);]"),
     "plan code": re.compile(r"\b(?:[Pp]lan )?[Ss]tage [A-Z]\d?\b|\b(?:[A-D]\d[a-z]\d?|D-[a-z]\d\w*|U-A\d+|D0-[a-z])\b"),
+    # 272 (K6): the forms the 265 pass left: a decision's or a review's number, a round heading or list label, a round
+    # with its stage code, "before" a round, a plan letter, a numbered rule
+    "decision or review number": re.compile(r"\((?:decisions?|review) [12]?\d{2,3}\b"),
+    "round label": re.compile(r"(?<![\w.,/-])(?:1\d\d|2\d\d)(?:-[A-Z])? \((?:review|decisions?)\b|\*\*(?:1\d\d|2\d\d)[: (]"
+                              r"|(?<=, )(?:1\d\d|2\d\d): "),
+    "round with its code": re.compile(r"(?<![\w.,/-])(?:1\d\d|2\d\d) [A-Z]\d{1,2}[a-z]?\b"),
+    "before a round": re.compile(r"\bbefore (?:1\d\d|2\d\d)\b(?! ?(?:ms|seconds?|minutes?|hours?|days?|%|\d))"),
+    "plan letter": re.compile(r"\(plan [A-Z]\d?[a-z]?\b|\bplan [A-Z]\d[a-z]\b"),
+    "review finding id": re.compile(r"\b(?:SEC|CORE|AI|APPW|APPR|DOM|UI|DOC|TOOL)-\d{2}\b"),
+    "numbered rule": re.compile(r"\(rule (?:1\d\d|2\d\d)\)|\brule of (?:1\d\d|2\d\d)\b"),
     "stage code": re.compile(r"(?<![\w-])(?:K[0-5](?:\.\d)?|T[1-3](?:\.\d)?|U1|H-0\d\d|R-0\d\d)(?![\w-])"),
     # the owner's infrastructure and real use
     # a path into someone's user folder or the development root, or a network share (plain examples such as
@@ -91,6 +101,18 @@ def test_public_doc_has_no_internal_information(doc):
         "the process pack (plan stage C, C2b)",
         "the product's facts (D-c6)",
         "Stage D0: the shared capability that fills an output",
+        "does not change a released result (decision 160 D1); the run view",
+        "agree (decision 163) and the preselection",
+        "the documents only 174 (review 160): the sure pairs",
+        "**141 (the sports club's trial; engine 1.9.0):** a line",
+        "**137: a ledger export and its PDF companion.**",
+        "`activity`, 216: `waiting`",
+        "**New case** (*Uj ugy*, 231 U0) on the Cases page",
+        "a version released before 178: the built-in template",
+        "the logic pack's (plan A3, A4)",
+        "approved again (rule 218), as it reopened",
+        "the workflows' rule of 146 for a case's step",
+        "Code review SEC-03, SEC-04, TOOL-10: push rules",
     ],
 )
 def test_patterns_catch_internal_information(line):
@@ -111,6 +133,8 @@ def test_patterns_catch_internal_information(line):
         "Character 100 of the part is character 8100 of the document; up to 200 M Ft",
         "the candidates are capped at 250; a page of 120 lines",
         "a meter reading of \"882 kWh\", \"(143,00 m3)\"",
+        "at most 255 per Choice; above a total of 200 000 000 HUF; within 120 seconds before 100 ms",
+        "the review (Settings > Rules), a decision's rule file, plan the release; 15 → 7",
     ],
 )
 def test_patterns_leave_ordinary_text_alone(line):

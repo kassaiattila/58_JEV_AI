@@ -33,10 +33,12 @@ const capOf = (usd: Record<string, string>) => Object.values(usd).reduce((s, v) 
 
 /** The proposal: each requested item with the price list item proposed for it, asked by a person and made by the
  *  worker; while it is queued or being made the page asks again every two seconds. */
-export function ProposalPanel({ wpId, view, onChanged, askStep }: {
+export function ProposalPanel({ wpId, view, onChanged, askStep, pageAsks = false }: {
   wpId: string; view: QuoteView; onChanged: () => void;
   /** 231 (A6): on a case's page, asking starts the case's step, which asks for the proposal */
   askStep?: () => Promise<unknown>;
+  /** 272 (K3, UI-11): the page around asks again by itself now, so the panel does not ask too */
+  pageAsks?: boolean;
 }) {
   useLocale();
   const [busy, setBusy] = useState(false);
@@ -48,10 +50,10 @@ export function ProposalPanel({ wpId, view, onChanged, askStep }: {
   const changedRef = useRef(onChanged);
   changedRef.current = onChanged;
   useEffect(() => {
-    if (!active) return undefined;
+    if (!active || pageAsks) return undefined;
     const timer = window.setInterval(() => changedRef.current(), 2000);
     return () => window.clearInterval(timer);
-  }, [active]);
+  }, [active, pageAsks]);
   const cap = capOf(view.proposal_cap.usd);
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);

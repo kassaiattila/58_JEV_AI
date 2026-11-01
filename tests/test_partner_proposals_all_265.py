@@ -31,3 +31,23 @@ def test_restoring_names_only_what_was_dismissed(db, monkeypatch) -> None:
     monkeypatch.setattr(partners, "suggestions", lambda limit=50: [{"key": "k1", "name": "A", "tax_number": None, "roles": []}])
     partners.dismiss_suggestions(["k1"], "anna")
     assert partners.restore_suggestions(["k1", "never-dismissed"], "anna") == {"restored": ["k1"]}
+
+
+def test_recording_every_proposal_is_one_transaction(db, monkeypatch) -> None:
+    """272 (K4, the rest of APPR-13 and SEC-07): each proposal was recorded in a transaction of its own, so a stop half
+    way left part of the list recorded. Now one transaction, each proposal in a savepoint of its own: a bad one is
+    rolled back to its savepoint and skipped, the others are recorded together; two proposals of one tax number are
+    one partner, as before."""
+    shown = [{"key": "a", "name": "Example Kft", "tax_number": "12345676-2-41", "roles": ["supplier"]},
+             {"key": "bad", "name": "", "tax_number": "1" * 300, "roles": ["supplier"]},
+             {"key": "b", "name": "Other Kft", "tax_number": None, "roles": ["customer"]},
+             {"key": "a2", "name": "Example Kft.", "tax_number": "12345676-2-41", "roles": ["supplier"]}]
+    monkeypatch.setattr(partners, "suggestions", lambda limit=50: shown)
+    assert partners.listing() == []  # the store opened (its first opening runs its own migrations)
+    began: list[int] = []
+    real = store.begin_immediate
+    monkeypatch.setattr(store, "begin_immediate", lambda c: began.append(1) or real(c))
+    out = partners.accept_suggestions(None, "anna")
+    assert len(began) == 1
+    assert len(out["created"]) == 2 and out["skipped"] == 2
+    assert sorted(p["name"] for p in partners.listing()) == ["Example Kft", "Other Kft"]

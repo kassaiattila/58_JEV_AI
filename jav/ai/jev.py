@@ -129,6 +129,17 @@ def request_hash(model: str, state: object, questions: dict[str, Question]) -> s
 _REPLAYED: ContextVar[bool] = ContextVar("jev_replayed", default=False)
 
 
+def call_max_cost(state: object, questions: dict[str, Question]) -> Decimal:
+    """272 (K2): the most one JEV request may cost, its SDK's own retries included: the bound `_live` reserves."""
+    from jav.core import calls  # deferred: the runtime builds on the store, the adapter is the lowest layer
+
+    body = json.dumps({"state": state, "questions": {k: q.model_dump(mode="json") for k, q in questions.items()}},
+                      ensure_ascii=False, default=str, sort_keys=True)
+    return calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
+                                   usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)),
+                                   repeats=1 + int(JEV_RETRY.get("max_retries", 0)))
+
+
 class JevAdapter:
     def __init__(self, client: TypeSafeClient | None = None, cache_dir: Path | None = None, model: str = JEV_MODEL) -> None:
         self._client = client
@@ -157,6 +168,14 @@ class JevAdapter:
 
     def _cache_path(self, key: str) -> Path:
         return self.cache_dir / f"{key}.json"
+
+    def unanswered_cost(self, parts: list[tuple[object, dict[str, Question]]] | tuple, *, use_cache: bool) -> Decimal:
+        """272 (K2, the rest of AI-01): what asking every (state, questions) part would reserve at most; a part
+        answered in the cache costs nothing when the cache is read."""
+        concrete = self.resolve_model(self.model)
+        return sum((call_max_cost(state, questions) for state, questions in parts
+                    if not (use_cache and self._cache_path(request_hash(concrete, state, questions)).exists())),
+                   Decimal(0))
 
     @contextmanager
     def no_cache_write(self):
@@ -290,12 +309,9 @@ class JevAdapter:
                 raise JevUnavailableError("no_budget")
             return self._sdk_live(request_id, state, questions, model=model, run_id=run_id, config_hash=config_hash)
         self.client  # 085: a missing key fails here, before anything is reserved (no request can leave)
-        body = json.dumps({"state": state, "questions": {k: q.model_dump(mode="json") for k, q in questions.items()}},
-                          ensure_ascii=False, default=str, sort_keys=True)
         key = request_hash(model, state, questions)
         attempts = 1 + int(JEV_RETRY.get("max_retries", 0))  # the SDK's own retries are physical requests too
-        max_cost = calls.estimate_max_cost(input_bytes=calls.utf8_bytes(body), max_output_tokens=0,
-                                           usd_per_mtok=(Decimal(str(JEV_USD_PER_MTOK)), Decimal(0)), repeats=attempts)
+        max_cost = call_max_cost(state, questions)
         seconds_box: list[float] = []
 
         def physical() -> calls.Outcome:
@@ -313,7 +329,8 @@ class JevAdapter:
 
         try:
             result = calls.invoke(run_id=run_id, step_id=f"jev:{request_id}:{key[:16]}", provider="jev", model=model,
-                                  max_cost_usd=max_cost, fn=physical, budget_scope=ctx.budget_scope, request_hash=key)
+                                  max_cost_usd=max_cost, fn=physical, budget_scope=ctx.budget_scope, request_hash=key,
+                                  retried_inside=attempts > 1)  # 272 (K2): the SDK repeats a failure by itself
         except calls.BudgetExceeded as exc:
             raise JevUnavailableError("budget_exceeded") from exc
         except calls.UncertainAttempt as exc:

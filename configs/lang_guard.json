@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.171",
+    "version": "1.0.172",
     "description": "Language guard (jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.172",
+        "date": "2026-11-01",
+        "note": "baseline: 5634 -> 5630 Hungarian lines in 461 files"
+      },
       {
         "version": "1.0.171",
         "date": "2026-11-01",
@@ -1034,7 +1039,7 @@
     "jav/ai/typepack.py": 3,
     "jav/ai/validators.py": 1,
     "jav/app/activity.py": 2,
-    "jav/app/app_settings.py": 5,
+    "jav/app/app_settings.py": 4,
     "jav/app/condition_import.py": 10,
     "jav/app/corrections.py": 1,
     "jav/app/datasets.py": 2,
@@ -1062,7 +1067,7 @@
     "jav/domains/email/email_tasks.py": 4,
     "jav/domains/email/emails.py": 4,
     "jav/domains/email/flow_email.py": 1,
-    "jav/domains/email/ingest_server.py": 8,
+    "jav/domains/email/ingest_server.py": 5,
     "jav/domains/email/intent.py": 5,
     "jav/domains/email/mailbox.py": 4,
     "jav/domains/email/mailbox_bridge.py": 2,

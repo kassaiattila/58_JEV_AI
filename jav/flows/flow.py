@@ -163,7 +163,7 @@ def jev_select(state: FlowState) -> FlowState:
         picks, calls = {}, []
         policy.require_review(state, f"jev_unavailable:{exc.reason}")
     state.picks = picks
-    state.jev_calls = state.jev_calls + calls
+    state.jev_calls = list(calls)  # 272 (K5): the step's own calls (it does not read the field, so nothing came before)
     return state
 
 
@@ -212,7 +212,7 @@ def jev_verify(state: FlowState) -> FlowState:
         policy.require_review(state, f"jev_unavailable:{exc.reason}")
         return state
     state.verdicts = verdicts
-    state.jev_calls = state.jev_calls + [call]
+    state.jev_calls = [call]  # 272 (K5): the step's own call (it does not read the field, so nothing came before)
     return state
 
 

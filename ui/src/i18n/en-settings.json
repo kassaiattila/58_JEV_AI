@@ -75,7 +75,6 @@
   "Nem indítható: {{reason}}.": "Cannot start: {{reason}}.",
   "A letöltés sorba került; a feldolgozó futtatja. Az új levelekből munkacsomag lesz, a listában megjelenik (a letöltési napló a Beállítások › Postafiókok alatt).": "The download is queued; the worker runs it. New emails become a document batch that appears in the list (the download log is under Settings › Mailboxes).",
   "Ütemezés mentve ({{interval}}). Az első letöltés a feldolgozó következő körében indul.": "Schedule saved ({{interval}}). The first download starts in the worker's next round.",
-  "A régi Outlook-szkript nem található a régi projektben; a letöltés nem működik.": "The legacy Outlook script was not found in the old project; downloading does not work.",
   "Mit olvassunk": "What to read",
   "Postafiók címe": "Mailbox address",
   "(több is, vesszővel)": "(several, comma-separated)",

@@ -356,7 +356,7 @@ def _lines(wp_id: str) -> tuple[list[dict[str, Any]], list[Item], dict[str, Any]
     no invoices: only their kind is asked."""
     # 265 (code review DOM-08): the kept workspace read as it is (nothing here changes it), not a deep copy of it
     ws = reconcile_package.kept_workspace(wp_id)
-    rates = reconcile_package.scoped_snapshot(wp_id)[0].get("fx_rates") or {}
+    rates = reconcile_package.signal_rates()  # 272 (K4): the kept rates, not a second snapshot of the store
     p = _site()["preselect"]
     states, reasons = set(p["line_states"]), set(p.get("excluded_reasons") or [])
     items: list[Item] = []

@@ -68,9 +68,21 @@ _VALUE_KINDS = frozenset({"hu_tax_id", "eu_vat", "iban", "bank_account", "email"
                           "env_secret", "deny_term"})
 _PATH_KINDS = frozenset({"internal_doc", "blocked_path", "blocked_file", "binary_file"})
 _TOKEN = re.compile(r"\w+")
-# 265 (code review TOOL-07): a wider, cheaper pattern a whole file is searched with first (a superset of the real one)
-_WIDER = {"card_number": re.compile(r"\d{4}[ .-]?\d{4}")}
+# 265 (code review TOOL-07): a wider, cheaper pattern a whole file is searched with first (a superset of the real one);
+# 272 (K4): with the card numbers' own separators
+_WIDER = {"card_number": re.compile(r"\d{4}[" + "".join(re.escape(s) for s in card_numbers.SEPARATORS) + r"]?\d{4}")}
+_GLOBAL_FLAGS = re.compile(r"\(\?[aiLmsux]+\)")
 _HUNK = re.compile(r"^@@ -\d+(?:,(?P<old>\d+))? \+(?P<start>\d+)(?:,(?P<new>\d+))? @@")
+
+
+def _overlapping(pat: re.Pattern[str]) -> re.Pattern[str]:
+    """272 (K4, the rest of TOOL-07): the pattern found at every position of a text, overlapping (a lookahead), with
+    its leading global flags kept as flags: a match that crosses a line break cannot swallow the start of a match on
+    the next line, so a whole text's search finds every line the line-by-line scan reports."""
+    text = pat.pattern
+    if lead := _GLOBAL_FLAGS.match(text):
+        text = text[lead.end():]
+    return re.compile(f"(?=(?:{text}))", pat.flags)
 
 
 class DataGuardError(RuntimeError):
@@ -192,6 +204,9 @@ class Guard:
         self.patterns = {k: re.compile(v) for k, v in conf["patterns"].items()}
         self.patterns["card_number"] = card_numbers.CARD  # 167 (review S-3): the masking's own pattern, not a copy
         self.key_patterns = [re.compile(p) for p in conf["api_key_patterns"]]
+        # 272 (K4): the same patterns searched overlapping, for the whole-text pre-filter (`lines_to_scan`)
+        self._ahead = {k: _overlapping(p) for k, p in self.patterns.items()}
+        self._key_ahead = [_overlapping(p) for p in self.key_patterns]
         self.allow = {k: {normalize(k, v) for v in vals} for k, vals in conf.get("allow", {}).items()}
         self.email_domains = {d.lower() for d in conf.get("email_domains_ok", [])}
         self.email_tlds = {t.lower() for t in conf.get("email_reserved_tlds", [])}
@@ -266,11 +281,11 @@ class Guard:
             offsets.append(at)
             at += len(line)
         starts: set[int] = set()
-        for kind, pat in self.patterns.items():
+        for kind, pat in self._ahead.items():
             wider = _WIDER.get(kind)
             if wider is None or wider.search(text):
                 starts.update(m.start() for m in pat.finditer(text))
-        for pat in self.key_patterns:
+        for pat in self._key_ahead:
             starts.update(m.start() for m in pat.finditer(text))
         for secret in self.env_secrets.values():
             found = text.find(secret) if secret else -1
@@ -484,6 +499,13 @@ def check_push(root: Path, guard: Guard, ref_lines: Iterable[str], remote: str =
             roots.append(proc.stdout.decode().strip())
     lines = [parts for parts in (line.split() for line in ref_lines) if len(parts) == 4]
     found: list[Finding] = _push_refs(guard, lines)
+    # 272 (K2, SEC-03; CLAUDE.md 2.3): what goes is built on the repository's current root commit (`push.root`)
+    base = str((guard.conf.get("push") or {}).get("root") or "")
+    if base and any(parts[1] != ZERO_SHA for parts in lines) and _git(
+            root, "rev-parse", "-q", "--verify", f"{base}^{{commit}}", check=False).returncode != 0:
+        found.append(Finding("push.root", 0, "push_root",
+                             "the repository's root commit (push.root in configs/data_guard.json) is not in this clone"))
+        base = ""
     for parts in lines:
         if parts[1] == ZERO_SHA:
             continue
@@ -491,6 +513,10 @@ def check_push(root: Path, guard: Guard, ref_lines: Iterable[str], remote: str =
         if any(_git(root, "merge-base", "--is-ancestor", r, local_sha, check=False).returncode == 0 for r in roots):
             found.append(Finding(local_ref, 0, "forbidden_history",
                                  "built on a history listed under forbidden_history in configs/data_guard.json"))
+            continue
+        if base and _git(root, "merge-base", "--is-ancestor", base, local_sha, check=False).returncode != 0:
+            found.append(Finding(_remote_ref, 0, "push_root",
+                                 "not built on the repository's root commit (push.root in configs/data_guard.json)"))
             continue
         revs = [local_sha, "--not", f"--remotes={remote}"] + ([] if remote_sha == ZERO_SHA else [remote_sha])
         commits = _git(root, "rev-list", *revs).stdout.decode().split()

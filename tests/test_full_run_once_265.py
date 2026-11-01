@@ -46,9 +46,14 @@ def test_a_second_full_run_is_refused_while_one_goes(monkeypatch, tmp_path) -> N
 
 def test_the_test_processes_fit_the_free_memory(monkeypatch) -> None:
     """265 (code review TOOL-05): the Python processes by the free memory too, the UI's in two."""
+    monkeypatch.setattr(preflight.importlib.util, "find_spec", lambda name: object())  # 272: as if xdist is there
     monkeypatch.setattr(preflight, "available_memory_gb", lambda: 4.0)
     monkeypatch.setattr(preflight.os, "cpu_count", lambda: 16)
-    assert preflight.parallel_workers() in (0, 2)  # 4 GB holds two (0 without pytest-xdist)
+    assert preflight.parallel_workers() == 2  # 4 GB holds two
+    monkeypatch.setattr(preflight, "available_memory_gb", lambda: 20.0)
+    assert preflight.parallel_workers() == preflight.MAX_TEST_WORKERS  # the cores and the cap, not the memory
+    monkeypatch.setattr(preflight, "available_memory_gb", lambda: None)
+    assert preflight.parallel_workers() == preflight.MAX_TEST_WORKERS  # unknown memory: the cores alone
     monkeypatch.setattr(preflight, "available_memory_gb", lambda: 2.0)
     assert preflight.parallel_workers() == 0
     assert preflight.UI_TEST_WORKERS == 2

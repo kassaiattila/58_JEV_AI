@@ -14,7 +14,7 @@ vi.mock("./components/DataTable", async () => {
     const [value, setValue] = React.useState("");
     React.useEffect(() => {
       void api.datasetQuery(dataset, scope, {}).then((r) => { setValue(String(r.rows[0].value)); onPage?.(r); });
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- the probe runs once, when it mounts
     return <div data-testid="displayed-result">{value}</div>;
   } };
 });

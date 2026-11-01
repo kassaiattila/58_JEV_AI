@@ -4,8 +4,7 @@ Invariants kept from V4:
 - The job table itself is the durable receipt of acceptance: `dedup_key` UNIQUE is the atomic duplicate guard; a
   repeated enqueue returns the EXISTING job (`deduped=True`), and the payload is not replaced.
 - Claiming happens in a short `BEGIN IMMEDIATE` transaction; the work then runs without a lock.
-- The attempt count survives a restart; beyond the limit the job is `dead`. Releasing (`release`) does not burn an
-  attempt.
+- The attempt count survives a restart; beyond the limit the job is `dead`.
 - Orphaned claims (`recover_orphans`): until 231 they were reset only at start-up, as there was one worker and every
   `claimed` row was provably dead then. 231 (stage E, E1; the owner's decisions of 2026-10-29: several workers): a
   worker's claim records its process's holder (`calls.holder`, a

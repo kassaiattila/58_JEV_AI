@@ -249,5 +249,5 @@ def test_a_lookup_sends_no_more_kinds_of_data_than_its_connector_says() -> None:
     ok = {"connector": "invented_company_register", "from_step": "read", "asks": {"tax_number": "tax_number"},
           "answers": {"status": "company_status"}}
     assert lookups.Lookup.model_validate(ok)
-    with pytest.raises(ValidationError, match="says it sends 1"):
+    with pytest.raises(ValidationError, match="company_name, which its connector"):  # 272: by the fact, not the count
         lookups.Lookup.model_validate({**ok, "asks_if_known": {"name": "company_name"}})

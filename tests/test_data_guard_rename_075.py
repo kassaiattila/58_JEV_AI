@@ -41,6 +41,7 @@ def guard():
     conf["deny"] = [entry]
     conf["known"] = [{"sha256": entry["sha256"], "paths": ["original.py"]}]
     conf["allowed_binary"] = ["assets/*.bin"]
+    conf["push"] = {**conf["push"], "root": None}  # 272: a throwaway repository; the root rule has its own test
     return data_guard.Guard(conf, env_secrets={})
 
 

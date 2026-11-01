@@ -19,7 +19,7 @@
   admin [--write]             control screen: configs, models, lint, store, golden, review; --write -> docs/STATE.md
   preflight [--skip-pytest]   session-start check: pytest + lint + configs + handoff freshness + STATE.md
   test-worktree [--no-ui]     the full test suite in a separate git worktree (the main tree stays free)
-  recipes | wp-* | run-* | worker   work package → run (040 K1; details: jav/cli/work_cli.py)
+  recipes | wp-* | run-* | worker   work package → run (details: jav/cli/work_cli.py)
 """
 
 from __future__ import annotations

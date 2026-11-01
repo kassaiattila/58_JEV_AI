@@ -24,6 +24,12 @@ def _conf() -> dict[str, Any]:
     return cfg.load("reconcile")
 
 
+def line_currency() -> str:
+    """272 (K5, the rest of DOM-03): the currency of a statement's lines (`reconcile.json` `fx.line_currency`, the
+    forint), for a reader outside the engine."""
+    return str(_conf()["fx"]["line_currency"])
+
+
 def _bands() -> dict[str, Any]:
     """224: the reconciliation's bands, in the finance domain's own rule file: outside `reconcile.json`, whose
     fingerprint a statement prints, so moving them changed no approved statement."""

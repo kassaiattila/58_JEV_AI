@@ -33,9 +33,11 @@ from jav.core import store
 from jav.core.config import OPENAI_MODEL, OPENAI_SETTINGS, openai_chat_model, openai_cost, openai_price
 from jav.ai import output_cap
 from jav.ai.models import JevCall
+from jav.ai.gpt_answer import NoBudget
 from jav.ai.output_cap import StopOnTruncation
 from jav.core import calls
 from jav.core import observability  # 231 (E4): the calls are timed through one helper
+from jav.core.user_messages import explained
 
 OTHER_BRANCHES = "(other)"  # probability of alternative branches that do not lead to a single option
 
@@ -199,11 +201,15 @@ def max_cost_usd(request_id: str, instructions: str, prompt: str, fields: dict[s
 def ask(request_id: str, instructions: str, prompt: str, fields: dict[str, list[str]], *, run_id: str, limits: Limits) -> GptAnswer:
     """One structured GPT question. In a worker run it goes through the call log and the OpenAI budget (reservation for
     the worst case; a repeated step returns the saved answer); without a budget nothing is sent (`BudgetExceeded`)."""
+    ctx = calls.current()
+    # 272 (K2): outside a run or a budgeted measurement only a stand-in answers (a test's, a free demonstration's);
+    # the real agent would spend without a budget or the call log, as the JEV adapter and Azure already refuse
+    if ctx is None and _agent_factory.get() is None:
+        raise explained(NoBudget, "GPT is asked only under a budget")
     output_model = _output_model(f"{request_id}_answer", fields)
     agent = _agent(output_model, instructions, limits)
     step = f"{request_id}_gpt"
     t0 = observability.start()
-    ctx = calls.current()
     if ctx is None:
         saved = _physical(agent, prompt, run_id=run_id, step=step, limits=limits, limited=False).response
     else:

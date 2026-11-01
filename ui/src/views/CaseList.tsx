@@ -106,12 +106,14 @@ export function CaseList({ shown, process }: { shown?: CaseListView; process?: s
 }
 
 const GRID_LIMIT = 1000;
+// 272 (K3, the rest of UI-10): what a grid cell shows, the only columns asked for every 30 seconds
+const GRID_FIELDS = ["party", "period", "status", "waits_for", "name", "steps"];
 
 /** 263 (F3): a process repeated by period - a party's row, a month's column (the months its cases cover), the case's
  *  state in the cell, linked to it. */
 function PeriodGrid({ pack }: { pack: string }) {
   useLocale();
-  const data = useLoad(`case-grid:${pack}`, () => api.datasetQuery("cases", { pack, include_closed: "1" }, { limit: GRID_LIMIT }), 30000);
+  const data = useLoad(`case-grid:${pack}`, () => api.datasetQuery("cases", { pack, include_closed: "1" }, { limit: GRID_LIMIT, fields: GRID_FIELDS }), 30000);
   // 265 (code review UI-10): the cases grouped by party and month once, not filtered again for every cell
   const { months, parties, byCell } = useMemo(() => {
     const rows = data.data?.rows ?? [];

@@ -22,7 +22,7 @@ def _fake(seen):
 def test_the_raw_output_and_a_junit_file_are_kept(tmp_path, monkeypatch):
     seen: list = []
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
-    monkeypatch.setattr(preflight.subprocess, "run", _fake(seen))
+    monkeypatch.setattr(preflight, "_bounded", _fake(seen))
     ok, summary = preflight.run_pytest()
     [folder] = list((tmp_path / "preflight").iterdir())
     assert not ok and summary.startswith("1 failed, 3 passed in 1.00s; FAILED tests/test_a.py::test_x")
@@ -72,7 +72,7 @@ def test_149_the_ui_test_output_is_kept_and_a_failure_is_named(tmp_path, monkeyp
     monkeypatch.setattr(preflight, "UI_DIR", tmp_path / "ui")
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
     monkeypatch.setattr(preflight.shutil, "which", lambda name: name)
-    monkeypatch.setattr(preflight.subprocess, "run", _fake_ui(seen))
+    monkeypatch.setattr(preflight, "_bounded", _fake_ui(seen))
     folder = preflight.log_folder()
     ok, summary = preflight.run_ui_checks(folder)
     assert not ok
@@ -92,7 +92,7 @@ def test_149_a_green_ui_run_reports_the_count_only(tmp_path, monkeypatch):
     monkeypatch.setattr(preflight, "UI_DIR", tmp_path / "ui")
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
     monkeypatch.setattr(preflight.shutil, "which", lambda name: name)
-    monkeypatch.setattr(preflight.subprocess, "run", run)
+    monkeypatch.setattr(preflight, "_bounded", run)
     ok, summary = preflight.run_ui_checks(preflight.log_folder())
     assert ok and summary.endswith("Tests 3 passed (3)") and "log:" not in summary
 
@@ -103,8 +103,21 @@ def test_only_the_latest_logs_are_kept(tmp_path, monkeypatch):
         (root / f"20260101_0000{n:02d}").mkdir(parents=True)
     (root / "notes").mkdir()  # not a log folder: left alone
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", root)
-    monkeypatch.setattr(preflight.subprocess, "run", _fake([]))
+    monkeypatch.setattr(preflight, "_bounded", _fake([]))
     preflight.run_pytest()
     logs = sorted(p.name for p in root.iterdir() if p.name != "notes")
     assert len(logs) == preflight.KEEP_LOGS and (root / "notes").is_dir()
     assert "20260101_000000" not in logs  # the oldest went
+
+
+def test_a_full_runs_logs_are_kept_to_the_latest_too(tmp_path):
+    """272 (K5; the check of TOOL-06): a full test run's log folders are named with the process too
+    (`<time>_<pid>`, `jav/devtools/test_worktree.py`), which the pruning's name pattern no longer matched: they piled up
+    under runs/test-worktree."""
+    root = tmp_path / "test-worktree"
+    for n in range(preflight.KEEP_LOGS + 3):
+        (root / f"20260101_0000{n:02d}_{1000 + n}").mkdir(parents=True)
+    (root / "notes").mkdir()
+    preflight._prune_logs(root)
+    kept = sorted(p.name for p in root.iterdir() if p.name != "notes")
+    assert len(kept) == preflight.KEEP_LOGS and "20260101_000000_1000" not in kept and (root / "notes").is_dir()

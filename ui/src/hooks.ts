@@ -185,7 +185,7 @@ export function useDataset(name: string | null, scope: DsScope, query: DsQuery, 
         if (pending.current === my) pending.current = 0;
         if (my === seq.current) setLoading(false);
       });
-  }, [key, tick]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [key, tick]); // eslint-disable-line react-hooks/exhaustive-deps -- a load runs for a new key or a reload, not for a new loader function
 
   const refresh = useCallback(() => {
     if (!gone.current && !pending.current && !document.hidden) setTick((n) => n + 1);

@@ -173,7 +173,8 @@ def _compute(tariff: Tariff, tariff_ref: str, cat: facts.Catalogue, product: str
             blockers.append(said("the module {{module}} prices no unit, so its minimum is not charged", module=code))
         lines += module_lines
         summed = sum((line.amount for line in module_lines), Money(amount="0", currency=tariff.currency))
-        applied = module.minimum is not None and summed < module.minimum
+        # 272 (K3, the rest of APPR-01): a module that prices no unit is not said to have its minimum applied either
+        applied = bool(module_lines) and module.minimum is not None and summed < module.minimum
         totals[code] = {"lines": summed, "minimum_applied": applied, "total": module.minimum if applied else summed}
     subtotal = total = None
     total_steps: list[Step] = []

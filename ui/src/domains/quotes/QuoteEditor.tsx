@@ -201,7 +201,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
   // a newer state from the package's page (another person's change, a reopening) replaces the shown one
   useEffect(() => {
     if (!saving && view.draft.state >= answered.current.state) adopt(view.draft);
-  }, [view.draft]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [view.draft]); // eslint-disable-line react-hooks/exhaustive-deps -- the working copy follows the stored draft only
 
   const draft = dv.draft!;
   const currency = dv.currency;
@@ -258,7 +258,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
   useEffect(() => {
     // what the refused save sent is in the version saved now already (an earlier try went through): nothing to keep
     if (settled) update((x) => (x.failed ? rebased({ ...x, failed: null, edits: leftEdits(x.edits, x.failed.edits), header: leftHeader(x.header, x.failed.header) }, dv) : x));
-  }, [settled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settled]); // eslint-disable-line react-hooks/exhaustive-deps -- runs once a save has settled
   // D-a: a newer version met while typing (another person's save, the editor opened again): where they changed what the
   // person changed, the person compares; elsewhere the typing goes on over the newer version
   useEffect(() => {
@@ -269,7 +269,7 @@ function DraftEditor({ wpId, view, onChanged, onHover }: {
     if (compare(w.base.draft, mine, now).some((c) => c.both)) {
       update((x) => ({ ...x, failed: { kind: "conflict", state: w.base!.state, base: w.base!.draft, mine, edits: w.edits, header: w.header } }));
     } else update((x) => rebased(x, dv));
-  }, [dv.state, work.base?.state, failed, saving]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dv.state, work.base?.state, failed, saving]); // eslint-disable-line react-hooks/exhaustive-deps -- reacts to the draft's and the save's states only
   /** My changes over the version saved now (or, when it is not known whether mine went through, over the one shown). */
   const keepMine = () => {
     const f = workOf<QuoteWork>(key)?.failed;
@@ -613,10 +613,12 @@ function preview(dv: QuoteDraftView): QuoteApproved | null {
 }
 
 /** The Approval stage: the shared approval element, the quote it records, the earlier versions. */
-export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter }: {
+export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter, pageAsks = false }: {
   wpId: string; view: QuoteView; archived: boolean; onChanged: () => void;
   /** 231 (A6): on a case's page, asking for the letter starts the case's step */
   askLetter?: () => Promise<unknown>;
+  /** 272 (K3, UI-11): the page around asks again by itself now (the letter card need not) */
+  pageAsks?: boolean;
 }) {
   useLocale();
   const [dv, setDv] = useState<QuoteDraftView>(view.draft);
@@ -688,7 +690,8 @@ export function QuoteApprovalStage({ wpId, view, archived, onChanged, askLetter 
         </section>
       ) : null}
       {/* 196: the approved version's reply letter */}
-      {dv.approval.active && view.letter ? <QuoteLetterCard wpId={wpId} letter={view.letter} archived={archived} onChanged={onChanged} askLetter={askLetter} /> : null}
+      {dv.approval.active && view.letter ? <QuoteLetterCard wpId={wpId} letter={view.letter} archived={archived} onChanged={onChanged} askLetter={askLetter}
+        pageAsks={pageAsks} /> : null}
       {shown ? (
         <section className="card wide" aria-label={t("Version {{n}}", { n: shown.n })}>
           <div className="card-head">

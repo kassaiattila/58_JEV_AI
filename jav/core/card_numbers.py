@@ -23,6 +23,7 @@ import re
 from typing import Any
 
 _SEPARATORS = (" ", "-", ".")
+SEPARATORS = _SEPARATORS  # 272 (K4): what a grouped card number may be split with (the data guard reads it too)
 
 
 def _grouped(sizes: tuple[int, ...]) -> str:

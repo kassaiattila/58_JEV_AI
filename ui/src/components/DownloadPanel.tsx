@@ -50,7 +50,7 @@ export function DownloadPanel(p: Props) {
     if (!open) return;
     setRows(p.selectedKeys.length ? "selected" : p.filtered ? "filtered" : "all");
     setMsg(null);
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps -- the form starts again only when the panel opens
 
   const count = rows === "selected" ? p.selectedKeys.length : rows === "filtered" ? p.matched : p.total;
   const colCount = cols === "all" ? p.columns.length : p.visibleKeys.length;

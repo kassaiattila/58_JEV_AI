@@ -15,12 +15,13 @@ from jav.devtools import preflight
 def test_a_test_run_past_its_limit_is_stopped_and_failed(tmp_path, monkeypatch) -> None:
     seen: list = []
 
-    def run(cmd, **kw):
+    def run(cmd, **kw):  # 272 (K5): the run's own seam; how a run past its limit is stopped: test_bounded_tree_272
         seen.append((cmd, kw))
-        raise subprocess.TimeoutExpired(cmd, kw["timeout"], output=b"....partial output", stderr=None)
+        return subprocess.CompletedProcess(cmd, preflight.TIMED_OUT, "....partial output",
+                                           f"\nstopped after {kw['timeout'] // 60} minutes without finishing")
 
     monkeypatch.setattr(preflight, "PREFLIGHT_RUNS", tmp_path / "preflight")
-    monkeypatch.setattr(preflight.subprocess, "run", run)
+    monkeypatch.setattr(preflight, "_bounded", run)
     ok, summary = preflight.run_pytest()
     [folder] = list((tmp_path / "preflight").iterdir())
     assert not ok and summary.startswith("pytest stopped after 90 minutes without finishing")

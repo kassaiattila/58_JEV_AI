@@ -44,7 +44,7 @@ export function Picker(p: Props) {
   const enabled = shown.filter((o) => !o.disabled);
   const current = p.options.find((o) => o.value === p.value);
 
-  useEffect(() => setActive(Math.max(0, enabled.findIndex((o) => o.value === p.value))), [open, q, shown.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => setActive(Math.max(0, enabled.findIndex((o) => o.value === p.value))), [open, q, shown.length]); // eslint-disable-line react-hooks/exhaustive-deps -- the active option starts again when the list opens or its search changes
   useEffect(() => {
     if (!open) return;
     listRef.current?.querySelector<HTMLElement>(`[data-idx="${active}"]`)?.scrollIntoView?.({ block: "nearest" });

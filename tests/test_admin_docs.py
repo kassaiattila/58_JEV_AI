@@ -105,7 +105,7 @@ def test_preflight_names_the_failed_tests(monkeypatch, tmp_path):
     out = ("....F.\n=========================== short test summary info ===========================\n"
            "FAILED tests/test_a.py::test_x - AssertionError: boom\nERROR tests/test_b.py::test_y\n"
            "1 failed, 5 passed, 1 error in 3.10s\n")
-    monkeypatch.setattr(preflight.subprocess, "run", lambda *a, **k: SimpleNamespace(stdout=out, stderr="", returncode=1))
+    monkeypatch.setattr(preflight, "_bounded", lambda *a, **k: SimpleNamespace(stdout=out, stderr="", returncode=1))
     ok, summary = preflight.run_pytest()
     assert not ok
     assert summary.startswith("1 failed, 5 passed, 1 error in 3.10s; FAILED tests/test_a.py::test_x, ERROR tests/test_b.py::test_y; log: ")

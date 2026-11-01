@@ -200,17 +200,21 @@ def pair_key(a: str, b: str) -> str:
 # --- the store --------------------------------------------------------------------------------------------------
 
 
-def documents(fields: Iterable[str] | None = None, types: Iterable[str] | None = None) -> list[Document]:
+def documents(fields: Iterable[str] | None = None, types: Iterable[str] | None = None,
+              doc_ids: Iterable[str] | None = None) -> list[Document]:
     """Every invoice-like document's effective values: its counted result (of any type; a document re-read as another
     type drops out), with the latest correction of the run item that produced it. 174 (plan 170 L2): the package's
     current result across every package (`package_result.counted_documents`); before, the store's latest result row.
     157: another check can ask for its own fields and types (the own-tax scan of `jav/app/parties.py`); by default the
-    duplicates' key fields and types."""
+    duplicates' key fields and types. 272 (K4, the rest of DOM-09): `doc_ids`, only these documents (their counted
+    results are the same as in the whole list), for a decision or a review page that shows a few."""
     fields = tuple(key_fields() if fields is None else fields)
     types = tuple(family_types() if types is None else types)
     extracts = ", ".join(f"json_extract(datapoints, '$.' || ?) AS f{i}" for i in range(len(fields)))
+    if doc_ids is not None and not (doc_ids := list(doc_ids)):
+        return []
     with store.connect() as c:
-        counted = package_result.counted_documents(c)
+        counted = package_result.counted_documents(c, doc_ids)
         rows = package_result.result_rows(c, counted, extracts, fields, types=types)
         corrected = package_result.latest_corrections(c)
     out = []
@@ -339,7 +343,7 @@ def decide(run_id: str, item_id: str, other_doc_id: str, *, decision: str, actor
                         run_id=run_id)
     if not any(i["item_id"] == item_id and item_kinds.of(i).record for i in run["input"]["items"]):
         raise KeyError(item_id)
-    docs = {d.doc_id: d for d in documents() if d.doc_id in (item_id, other_doc_id)}
+    docs = {d.doc_id: d for d in documents(doc_ids=[item_id, other_doc_id])}
     if other_doc_id not in store.file_names([other_doc_id]):
         raise KeyError(other_doc_id)
     suggested = (classify(docs[item_id].fields, docs[other_doc_id].fields)[0]
@@ -390,7 +394,7 @@ def item_pairs(item_id: str, reasons: Iterable[dict[str, Any]]) -> list[dict[str
         others.setdefault(other, {"reason_id": None, "suggested": decided[other]["suggested"]})
     if not others:
         return []
-    docs = {d.doc_id: d for d in documents() if d.doc_id == item_id or d.doc_id in others}
+    docs = {d.doc_id: d for d in documents(doc_ids=[item_id, *others])}
     names = store.file_names([*others, item_id])
     runs = sorted({d.run_id for d in docs.values() if d.run_id})
     with store.connect() as c:
@@ -418,7 +422,6 @@ def marks(items: dict[str, list[str]]) -> dict[str, dict[str, Any]]:
     when a person decided so with this document as the repeat, else a suspicion from an open to-do; `different` lists
     the documents a person found not to be the same. A document without any of these has no entry."""
     decisions = decisions_for(items)
-    names = store.file_names([d["other_doc_id"] for d in decisions] + [d["doc_id"] for d in decisions])
     out: dict[str, dict[str, Any]] = {}
     for item_id, reasons in items.items():
         mine = [d for d in decisions if item_id in (d["doc_id"], d["other_doc_id"])]
@@ -427,17 +430,21 @@ def marks(items: dict[str, list[str]]) -> dict[str, dict[str, Any]]:
         mark: dict[str, Any] | None = None
         if confirmed:
             d = confirmed[0]
-            mark = {"status": d["decision"], "other_doc_id": d["other_doc_id"], "other_file": names.get(d["other_doc_id"])}
+            mark = {"status": d["decision"], "other_doc_id": d["other_doc_id"], "other_file": None}
         else:
             for code in reasons:
                 parsed = parse_reason(code)
                 full = resolve_prefix(parsed[1]) if parsed else None
                 if parsed and full:
-                    mark = {"status": "suspected", "kind": parsed[0], "other_doc_id": full,
-                            "other_file": store.file_names([full]).get(full)}
+                    mark = {"status": "suspected", "kind": parsed[0], "other_doc_id": full, "other_file": None}
                     break
         if mark is not None or different:
             out[item_id] = {**(mark or {}), "different": different}
+    # 272 (K4, the rest of DOM-09): the other documents' file names at once, not one look-up per suspicion
+    names = store.file_names(sorted({m["other_doc_id"] for m in out.values() if "other_doc_id" in m}))
+    for m in out.values():
+        if "other_doc_id" in m:
+            m["other_file"] = names.get(m["other_doc_id"])  # in its place: the mark's keys keep their order
     return out
 
 

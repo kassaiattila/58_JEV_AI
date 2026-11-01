@@ -25,3 +25,23 @@ def test_an_excluded_invoice_is_refused_with_why(db):  # noqa: F811
     line = next(ln for ln in ws["lines"] if ln["memo"] == "INV-0001")
     with pytest.raises(rp.PackageError, match="excluded from the pairing"):
         rp.allocate(wp, [{"invoice_doc_id": undated, "line_id": line["id"]}], note=None, actor="reviewer")
+
+
+def test_the_refusal_names_the_reason_the_pairing_gave(db):  # noqa: F811
+    """272 (K3, the rest of DOM-11): the refusal pointed to the excluded invoices' list; it now says the reason."""
+    p131._stmt("april", p131._line())
+    undated = _save("inv", {"invoice_number": "INV-0001", "supplier_name": "Example Supplier", "gross_total": "100.00",
+                            "currency": "HUF"})
+    wp = p131._package()
+    line = next(ln for ln in rp.workspace(wp)["lines"] if ln["memo"] == "INV-0001")
+    with pytest.raises(rp.PackageError, match="excluded from the pairing: it has no issue date"):
+        rp.allocate(wp, [{"invoice_doc_id": undated, "line_id": line["id"]}], note=None, actor="reviewer")
+
+
+@pytest.mark.parametrize(("reason", "said"), [
+    ("duplicate_undecided", "it is an undecided duplicate; decide the duplicate first"),
+    ("duplicate_copy", "it is a confirmed duplicate copy"), ("unsupported_currency", "its currency is not handled here"),
+    ("non_positive_amount", "it has no positive, readable amount"), ("missing_amount", "it has no positive, readable amount"),
+    ("something_new", "the excluded invoices' list says why")])
+def test_every_reason_has_its_sentence(reason, said):
+    assert said in str(rp._excluded_invoice(reason))

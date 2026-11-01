@@ -9,7 +9,7 @@
         "date": "2026-11-01",
         "note": "The notes and the description without the development process's references; no value changes."
       },
-      {"version": "1.1.0", "date": "2026-10-21", "note": "The rounding of a quote's amounts: in forints to whole forints (the 189 A1 judgement), in any other currency to cents."},
+      {"version": "1.1.0", "date": "2026-10-21", "note": "The rounding of a quote's amounts: in forints to whole forints, in any other currency to cents."},
       {"version": "1.0.0", "date": "2026-10-21", "note": "First version: the five columns (item code, name, unit, net unit price, category), the limits, HUF and 27% as the defaults."}
     ]
   },

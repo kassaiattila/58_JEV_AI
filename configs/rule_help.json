@@ -12,12 +12,12 @@
       {
         "version": "1.10.0",
         "date": "2026-10-31",
-        "note": "Code review X-03: an installation default of the warning signs that always wait for a person keeps the injected instruction, so the injection check cannot be switched off."
+        "note": "An installation default of the warning signs that always wait for a person keeps the injected instruction, so the injection check cannot be switched off."
       },
       {
         "version": "1.9.0",
         "date": "2026-10-31",
-        "note": "Code review APPR-09: an installation default of the verdicts keeps the verdict unknown (an undecided rule gives it)."
+        "note": "An installation default of the verdicts keeps the verdict unknown (an undecided rule gives it)."
       },
       {
         "version": "1.8.0",
