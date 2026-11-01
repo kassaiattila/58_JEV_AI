@@ -205,9 +205,29 @@ def answers_by_name(decision: Mapping[str, Any], questions: Mapping[str, Questio
     return found
 
 
+def _level(p: Mapping[str, Any]) -> str:
+    """A Score probability's level: the label the request gave it (its index, `_score`), else its value."""
+    label = p.get("label")
+    return str(int(label if label is not None else p["value"]))
+
+
+def _answer(q: Question, a: Mapping[str, Any]) -> dict[str, Any]:
+    """One answer in JEV's shape. A value missing, null or of another kind raises `KeyError`, `TypeError` or
+    `ValueError` (the SDK builds its answer object without validating it)."""
+    if isinstance(q, Noul):
+        return {"type": "noul", "noul": float(a["probability"])}
+    if isinstance(q, Choice):
+        return {"type": "choice", "choice": str(a["choice"]), "confidence": float(a["confidence"]),
+                "probabilities": {str(p["value"]): float(p["probability"]) for p in a["probabilities"]}}
+    legend = {str(i): (level if level is not None else "") for i, level in enumerate(q.criteria)}
+    return {"type": "score", "score": float(a["score"]), "confidence": float(a["confidence"]), "legend": legend,
+            "probabilities": {_level(p): float(p["probability"]) for p in a["probabilities"]}}
+
+
 def response(decision: Mapping[str, Any], questions: Mapping[str, Question]) -> dict[str, Any]:
     """JEV's answer shape (`SystemOneResponse` as JSON, with the prompt cache's token counts) of a Decisions answer.
-    `Refused` if any question was declined; `InvalidJevResponse` if an answer is missing or of another kind."""
+    `Refused` if any question was declined; `InvalidJevResponse` if an answer is missing, of another kind, or lacks a
+    value of its kind (so the flow raises its to-do instead of failing the item)."""
     found = answers_by_name(decision, questions)
     refused = [name for name, a in found.items() if a.get("type") == "refusal"]
     if refused:
@@ -217,16 +237,10 @@ def response(decision: Mapping[str, Any], questions: Mapping[str, Question]) -> 
         a = found.get(name)
         if a is None or a.get("type") != _kind(q):
             raise InvalidJevResponse(f"missing or another kind of answer to {name!r}")
-        if isinstance(q, Noul):
-            out[name] = {"type": "noul", "noul": float(a["probability"])}
-        elif isinstance(q, Choice):
-            out[name] = {"type": "choice", "choice": str(a["choice"]), "confidence": float(a["confidence"]),
-                         "probabilities": {str(p["value"]): float(p["probability"]) for p in a["probabilities"]}}
-        else:
-            legend = {str(i): (level if level is not None else "") for i, level in enumerate(q.criteria)}
-            out[name] = {"type": "score", "score": float(a["score"]), "confidence": float(a["confidence"]),
-                         "legend": legend,
-                         "probabilities": {str(int(p["value"])): float(p["probability"]) for p in a["probabilities"]}}
+        try:
+            out[name] = _answer(q, a)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise InvalidJevResponse(f"the answer to {name!r} lacks a value of its kind") from exc
     usage = decision.get("usage") or {}
     details = usage.get("input_tokens_details") or {}
     return {"model": decision.get("model") or "", "answers": out,

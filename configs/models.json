@@ -1,7 +1,7 @@
 {
  "meta": {
   "name": "models",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "changelog": [
    {
     "version": "1.0.0",
@@ -42,6 +42,11 @@
     "version": "1.6.0",
     "date": "2026-11-01",
     "note": "The decisions section, OpenAI Decisions as a judgement service (jav/ai/decisions.py): its one model gpt-6-luna, its prices per token kind (uncached, read from and written to its prompt cache; above 272 000 input tokens twice), no SDK retry (as openai's), its prompt cache off by default (a cache write costs 1.25 times an uncached token and our requests rarely share a prefix), the shared input as an input_json part; the cache key is the translated request itself, so a change of the translation is a new question."
+   },
+   {
+    "version": "1.6.1",
+    "date": "2026-11-01",
+    "note": "decisions.cache_version names the translation in both directions: the cache keeps an answer as translated, so a change of how an answer is read raises it (a change of the request is a new key by itself). A Score level is now read by the label the request gave it (its index), which is its value too, so the answers kept stay valid and the version stays 1. An output price would need max_output_tokens (jav/ai/decisions.py refuses one without it). No value changes."
    }
   ]
  },
@@ -65,7 +70,7 @@
  },
  "decisions": {
   "model": "gpt-6-luna",
-  "note": "OpenAI's judgement service (developers.openai.com/api/docs/guides/decisions, read 2026-11-01): POST /v1/decisions, gpt-6-luna its only model, no dated snapshot listed; the answer's model field goes to the ledger and the cache key. Called with the OpenAI key; its calls spend from the OpenAI budget (configs/providers.json openai_decisions).",
+  "note": "OpenAI's judgement service (developers.openai.com/api/docs/guides/decisions, read 2026-11-01): POST /v1/decisions, gpt-6-luna its only model, no dated snapshot listed; the answer's model field goes to the ledger and the cache key. Called with the OpenAI key; its calls spend from the OpenAI budget (configs/providers.json openai_decisions). cache_version: the version of the translation in both directions (the cache keeps answers as translated).",
   "timeout_s": 60.0,
   "sdk_max_retries": 0,
   "usd_per_mtok": {

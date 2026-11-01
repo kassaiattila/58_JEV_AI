@@ -16,8 +16,9 @@ What is its own:
   uncached token, and our requests rarely share a prefix);
 - **the model**: one name (`gpt-6-luna`) without a dated version; no probe is sent: the answer names its model, and a
   model the answer names other than the one asked is remembered for the cache key, as JEV's moving alias is;
-- **the cache**: `runs/cache/decisions/`, keyed by the translated request itself, so a change of the translation is a
-  new question;
+- **the cache**: `runs/cache/decisions/`, keyed by the translated request itself, so a change of the request's
+  translation is a new question; it keeps the answer as translated, so a change of the answer's translation raises
+  `decisions.cache_version` (274);
 - **its failures**: an error answer, a lost connection, a refused question or an answer that does not fit its
   question become `JevUnavailableError`, and the flow its to-do, as with JEV; an answer over the token limit names
   the shared mark (`max_tokens_exceeded`), so the request-size frame (`jav/ai/jev_budget.py`) works the same way.
@@ -42,8 +43,13 @@ TOO_LARGE_CODES = frozenset({"context_length_exceeded", "max_tokens_exceeded", "
 
 
 def settings() -> dict[str, Any]:
-    """`configs/models.json` `decisions`."""
-    return dict(cfg.load("models")["decisions"])
+    """`configs/models.json` `decisions`. 274: a price per output token needs the most output tokens a request may
+    produce (`max_output_tokens`), else a reservation would not bound the call's cost."""
+    out = dict(cfg.load("models")["decisions"])
+    if Decimal(str(out["usd_per_mtok"]["output"])) > 0 and int(out.get("max_output_tokens", 0)) <= 0:
+        raise ValueError("configs/models.json decisions: an output price needs max_output_tokens, the most a request "
+                         "may produce, so a reservation bounds the call's cost")
+    return out
 
 
 class DecisionsAdapter(JevAdapter):
@@ -119,7 +125,7 @@ class DecisionsAdapter(JevAdapter):
         per_token = prices["input"] if self._settings["prompt_cache"] == "off" else max(prices["input"], prices["cache_write"])
         if input_bytes + calls.TOKEN_OVERHEAD > int(long["above_input_tokens"]):
             per_token *= Decimal(str(long["factor"]))
-        return calls.estimate_max_cost(input_bytes=input_bytes, max_output_tokens=0,
+        return calls.estimate_max_cost(input_bytes=input_bytes, max_output_tokens=int(self._settings.get("max_output_tokens", 0)),
                                        usd_per_mtok=(per_token, prices["output"]), repeats=self._attempts())
 
     def _call_cost(self, response) -> Decimal | None:

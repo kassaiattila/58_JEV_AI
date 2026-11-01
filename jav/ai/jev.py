@@ -376,8 +376,12 @@ class JevAdapter:
         (040 K1): an overrun or an uncertain earlier attempt becomes `JevUnavailableError`, so the process continues
         with reviews. If the call log returned the step's saved answer (replay), `_REPLAYED` tells the calling `ask()`
         (066 Á16); the return shape (answer, seconds) stays because experimental and test adapters override it."""
-        from jav.core import calls  # deferred: the runtime builds on the store, the adapter is the lowest layer
+        from jav.core import calls, providers  # deferred: the runtime builds on the store, the adapter is the lowest layer
 
+        if not providers.enabled(self.provider):
+            # 274: the installation's switch (configs/providers.json `enabled`, JAV_PROVIDERS_ON / _OFF) is the last
+            # word, whatever asks: a run queued while the provider was on, a command naming it; nothing is sent
+            raise JevUnavailableError(providers.SWITCHED_OFF)
         ctx = calls.current()
         if ctx is None:
             if self._own_client:

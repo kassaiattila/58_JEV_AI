@@ -22,7 +22,7 @@ from openai import OpenAI
 from jav.ai import engine as engines
 from jav.ai import jev as jev_mod
 from jav.ai.decisions import DecisionsAdapter
-from jav.core import store
+from jav.core import providers, store
 from jav.domains.email import flow_email
 from jav.domains.email.emails import EmailMessage
 from jav.flows import flow_detect, persistence
@@ -83,7 +83,8 @@ class _NoJev:
 
 
 @pytest.fixture()
-def pdf(tmp_path: Path):
+def pdf(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv(providers.ON_ENV, "openai_decisions")  # off by default; it is never sent anything off (274)
     with store.use_store(tmp_path / "e.sqlite"):
         yield write_text_pdf(tmp_path / "invoice.pdf", INVOICE_LINES)
 

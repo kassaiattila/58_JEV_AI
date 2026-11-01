@@ -72,7 +72,8 @@ class Service:
 
 
 @pytest.fixture
-def work(tmp_path):
+def work(tmp_path, monkeypatch):
+    monkeypatch.setenv("JAV_PROVIDERS_ON", "openai_decisions")  # off by default; these tests call it (offline)
     with store.use_store(tmp_path / "w.sqlite"):
         yield tmp_path
 
@@ -150,6 +151,27 @@ def test_a_refused_or_missing_answer_is_no_answer():
         wire.to_system_one(missing, QUESTIONS)
 
 
+@pytest.mark.parametrize(("index", "broken"), [
+    (2, {"type": "predicate", "name": "swapped"}),  # no probability: the SDK's answer object holds null
+    (2, {"type": "predicate", "name": "swapped", "probability": None}),
+    (0, {"type": "choice", "name": "number", "choice": "c1", "probabilities": []}),  # no confidence
+    (3, {"type": "score", "name": "urgency", "score": 1.0, "confidence": 0.5, "probabilities": [{"value": "high"}]}),
+])
+def test_an_answer_without_its_value_is_no_answer(index, broken):
+    body = _answer()
+    body["answers"][index] = broken
+    with pytest.raises(jev.InvalidJevResponse):
+        wire.to_system_one(body, QUESTIONS)
+
+
+def test_a_score_level_is_read_by_the_label_the_request_gave_it():
+    body = _answer()
+    body["answers"][3]["probabilities"] = [{"value": 1, "label": "0", "probability": 0.1},
+                                           {"value": 2, "label": "1", "probability": 0.7},
+                                           {"value": 3, "label": "2", "probability": 0.2}]
+    assert wire.to_system_one(body, QUESTIONS).scores["urgency"].probabilities == {0: 0.1, 1: 0.7, 2: 0.2}
+
+
 # --- the adapter ----------------------------------------------------------------------------------------------------
 
 def test_a_question_is_asked_once_then_answered_from_the_cache(work):
@@ -223,6 +245,29 @@ def test_an_error_answer_becomes_an_unavailable_judge(work, reply, reason):
     assert caught.value.reason == reason
     with store.connect() as c:
         assert c.execute("SELECT provider, error FROM ledger").fetchone()["provider"] == "openai_decisions"
+
+
+def test_an_answer_without_its_value_becomes_an_unavailable_judge(work):
+    body = _answer()
+    body["answers"][1] = {"type": "predicate", "name": "number__present"}
+    adapter = Service((200, body)).adapter(work)
+    with pytest.raises(jev.JevUnavailableError, match="InvalidJevResponse"):
+        adapter.ask("select", STATE, QUESTIONS, run_id="run-265")
+    with store.connect() as c:
+        row = c.execute("SELECT provider, error FROM ledger").fetchone()
+    assert row["provider"] == "openai_decisions" and row["error"].startswith("InvalidJevResponse")
+
+
+def test_a_provider_switched_off_here_is_never_sent(work, monkeypatch):
+    """The provider registry's switch is the last word (configs/providers.json `enabled`): a run queued while OpenAI
+    Decisions was on, or a command naming it, sends nothing once it is off; the flow raises its to-do."""
+    monkeypatch.delenv("JAV_PROVIDERS_ON")
+    service = Service((200, _answer()))
+    adapter = service.adapter(work)
+    with calls.measurement("measure-265", {"openai": Decimal("0.01")}):
+        with pytest.raises(jev.JevUnavailableError, match="switched_off"):
+            adapter.ask("select", STATE, QUESTIONS, run_id="run-265")
+    assert service.requests == []
 
 
 def test_a_refusal_becomes_an_unavailable_judge(work):
