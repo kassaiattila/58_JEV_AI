@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Callable, Iterator, ParamSpec, TypeVar
+from typing import Any, Callable, Iterable, Iterator, ParamSpec, TypeVar
 
 from jav.core import identity, observability
 from jav.core.config import STORE_PATH
@@ -742,13 +742,34 @@ def _review_item_changed(c: sqlite3.Connection, review_id: int, change: str, act
 _pinned_run_check: Callable[[sqlite3.Connection, str], bool] | None = None
 
 
+def has_table(c: sqlite3.Connection, name: str) -> bool:
+    """Whether the store has the table (an older store, or a module's table not made yet). 265 (code review DOM-12):
+    one check instead of a copy in each module."""
+    return c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
+
+
+def file_names(doc_ids: Iterable[str]) -> dict[str, str]:
+    """The documents' file names by their id (the last part of the source path); an unknown id is left out. 265 (code
+    review DOM-12): the shared reader; it asks in chunks under SQLite's parameter limit."""
+    ids = sorted(set(doc_ids))
+    out: dict[str, str] = {}
+    if not ids:
+        return out
+    with connect() as c:
+        for start in range(0, len(ids), 500):
+            chunk = ids[start:start + 500]
+            for r in c.execute(f"SELECT doc_id, source_path FROM documents WHERE doc_id IN ({','.join('?' * len(chunk))})", chunk):
+                out[r["doc_id"]] = Path(r["source_path"] or "").name
+    return out
+
+
 def table_marks(c: sqlite3.Connection, spec: dict[str, str | None]) -> list[Any]:
     """140: a cheap mark of tables' content for a cache that is kept until its inputs change: per table its row count,
     its largest rowid and the given aggregate (a SELECT expression over the table, for what changes in place: a
     revocation count, the text of a small table's changing columns). A table the store does not have marks as None."""
     out: list[Any] = []
     for table, extra in spec.items():
-        if c.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (table,)).fetchone() is None:
+        if not has_table(c, table):
             out.append(None)
             continue
         row = c.execute(f"SELECT COUNT(*), MAX(rowid){', ' + extra if extra else ''} FROM {table}").fetchone()
