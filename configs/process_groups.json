@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process_groups",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "The groups of the case types (the process packs, configs/processes/), in the order the New case page and the case list show them, each with its processes in their order (jav/app/process_packs.py `groups`). Every process pack stands in exactly one group; a pack another took the place of (`replaces`) shows its old cases under its successor's group. The titles are English; the interface translates them.",
     "changelog": [
+      {
+        "version": "1.0.3",
+        "date": "2026-11-02",
+        "note": "The Allianz corporate property quote, united with the insurance quote, is gone."
+      },
       {
         "version": "1.0.2",
         "date": "2026-11-02",
@@ -52,7 +57,6 @@
       "processes": [
         "it_quote",
         "insurance_offer",
-        "allianz_property_offer",
         "insurance_renewal"
       ]
     }

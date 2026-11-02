@@ -40,7 +40,7 @@ def test_every_resource_of_every_process_is_chosen_from_a_list(db) -> None:
             assert _options(pack.id, key) is not None, f"{pack.id}: {key} has no list to choose from"
 
 
-@pytest.mark.parametrize("pack_id", ["insurance_offer", "insurance_renewal", "allianz_property_offer"])
+@pytest.mark.parametrize("pack_id", ["insurance_offer", "insurance_renewal"])  # 277 (O3h): the Allianz quote is its option
 def test_an_insurance_process_chooses_its_letter_frame_document_send_mode_and_template(db, pack_id) -> None:
     pack = process_packs.load(pack_id)
     assert {"letter_frame", "offer_output", "send_mode", "template:rated_offer"} <= set(pack.resources)

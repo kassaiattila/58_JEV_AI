@@ -26,6 +26,7 @@ from jav.devtools import invented_services
 from jav.evals import property_documents as pd
 
 ANNA, BELA = "Minta Anna", "Minta Bela"
+ALLIANZ = {"product": "allianz"}  # 277 (O3h): the insurance quote on the Allianz product
 DOCS = pd.load("golden_allianz_property_documents")
 SETS = {s.id: s for s in DOCS.sets}
 SET = SETS["az_metalworks"]
@@ -97,8 +98,8 @@ def _decide(case_id: str, step: str, actor: str) -> None:
 
 
 def test_the_metalworks_quote_runs_to_the_offer_with_a_second_person_above_the_plan_value(folder) -> None:
-    case_id = process_runtime.start_case("allianz_property_offer", {"source": {"kind": "folder", "folder": str(folder)}},
-                                         name="Minta Fémmegmunkáló Kft.", actor=ANNA)
+    case_id = process_runtime.start_case("insurance_offer", {"source": {"kind": "folder", "folder": str(folder)}},
+                                         name="Minta Fémmegmunkáló Kft.", actor=ANNA, choices=ALLIANZ)
     _turn(case_id)
     case_views.act(case_id, "documents", "start_run", ANNA)
     wp = document_processing.package_of(case_id, "documents")
@@ -153,8 +154,8 @@ def test_the_cold_store_is_asked_for_the_fact_its_premium_reads_before_the_risk_
     """U-A8 (the walkthrough of 2026-10-28): the cold store's schedule does not say whether the cooling's failure is
     signalled, which only the tariff reads (the frozen stock's factor). The missing facts step asks for it, on the
     frozen stock's asset group, before a person decides on the risk; before, the case stopped at the premium."""
-    case_id = process_runtime.start_case("allianz_property_offer", {"source": {"kind": "folder", "folder": str(folder)}},
-                                         name="Minta Hűtőház Kft.", actor=ANNA)
+    case_id = process_runtime.start_case("insurance_offer", {"source": {"kind": "folder", "folder": str(folder)}},
+                                         name="Minta Hűtőház Kft.", actor=ANNA, choices=ALLIANZ)
     _turn(case_id)
     case_views.act(case_id, "documents", "start_run", ANNA)
     wp = document_processing.package_of(case_id, "documents")

@@ -357,3 +357,35 @@ def test_a_group_that_names_what_is_not_there_is_refused(monkeypatch) -> None:
 def test_a_retired_packs_cases_stand_in_its_successors_group(monkeypatch) -> None:
     monkeypatch.setattr(process_packs, "successor", lambda pack_id: ("monthly_reconciliation", {}) if pack_id == "old_chain" else None)
     assert process_packs.group_of("old_chain") == "reconciliation"
+
+
+# --- 277 (O3h): the insurance quote's product choice ------------------------------------------------------------
+
+
+def test_a_merged_packs_case_keeps_what_its_former_pack_was_known_by_outside_the_store(monkeypatch) -> None:
+    from jav.app import process_runtime, sending, work
+
+    assert process_packs.former("insurance_offer", {"product": "allianz"}) == "allianz_property_offer"
+    assert process_packs.former("insurance_offer", {"product": "invented"}) is None
+    assert process_packs.former("monthly_reconciliation", {"invoices_from": "mailbox"}) == "mailbox_reconciliation"
+    assert process_packs.former("allianz_property_offer", {}) is None  # a pack that is gone
+    monkeypatch.setattr(process_runtime, "pack_of", lambda case_id: ("insurance_offer", "1.10.0"))
+    monkeypatch.setattr(work, "get", lambda case_id: {"name": "Minta Kft."})
+    monkeypatch.setattr(process_runtime, "choices_of", lambda case_id: {"product": "allianz"})
+    assert sending._folder("wp-000000000277")[0] == "allianz_property_offer"  # the offers' folder as before the merge
+    monkeypatch.setattr(process_runtime, "choices_of", lambda case_id: {"product": "invented"})
+    assert sending._folder("wp-000000000277")[0] == "insurance_offer"
+
+
+def test_the_settings_show_a_resource_a_choice_sets_read_only_with_each_options_value(tmp_path) -> None:
+    from jav.app import process_settings
+    from jav.core import store
+
+    with store.use_store(tmp_path / "settings.sqlite"):
+        by = {r["key"]: r for r in process_settings.view("insurance_offer")["resources"]}
+        assert [(a["option"], a["value"]) for a in by["product"]["chosen_at_start"]] == [
+            ("invented", "inv_business_property"), ("allianz", "az_corporate_property")]
+        assert by["product"]["options"] is None and by["tariff"]["derived_from"] == "product"
+        assert "chosen_at_start" not in by["letter_frame"]
+        with pytest.raises(process_settings.SettingError, match="chosen when a case starts"):
+            process_settings.propose("insurance_offer", "product", "az_corporate_property", "anna")

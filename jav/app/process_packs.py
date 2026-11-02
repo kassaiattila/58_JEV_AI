@@ -45,7 +45,7 @@ from jav.core import cfg
 from jav.core.process.definition import NAME, ProcessDef, StepDef
 
 __all__ = ["Adopt", "Choice", "ChoiceRefused", "Element", "ExampleSet", "Examples", "FollowUp", "Intake", "Option", "PackError", "PartnerLink",
-           "ProcessPack", "Replaced", "Step", "Tab", "UnknownPack", "chosen", "definition", "group_of", "group_problems",
+           "ProcessPack", "Replaced", "Step", "Tab", "UnknownPack", "chosen", "definition", "former", "group_of", "group_problems",
            "groups", "load", "packs", "picked", "successor", "variants"]
 
 ELEMENTS = "screen_elements"
@@ -671,6 +671,19 @@ def group_problems() -> list[str]:
                 placed[pack_id] = str(group["id"])
     problems += [f"process {p!r} stands in no group" for p in sorted(known - set(placed))]
     return problems
+
+
+def former(pack_id: str, picks: dict[str, str] | None) -> str | None:
+    """277 (O3): the pack a case of `pack_id` with these choices is what a case was before the merge (the one its
+    `replaces` names with choices the case's include), so what it is known by outside the store (its output folder)
+    stays; None when none is, or for a pack that is gone."""
+    try:
+        pack = load(pack_id)
+    except UnknownPack:
+        return None
+    given = picks or {}
+    return next((old.pack for old in pack.replaces if old.choices and all(given.get(k) == v for k, v in old.choices.items())),
+                None)
 
 
 def successor(pack_id: str) -> tuple[str, dict[str, str]] | None:

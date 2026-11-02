@@ -414,10 +414,18 @@ def view(pack_id: str) -> dict[str, Any]:
     def names(*values: Any) -> dict[str, str]:
         return {str(v): known[str(v)] for v in values if str(v) in known}
 
+    chosen = pack.option_resources()
     for key, file_value in pack.resources.items():
         mine = by_key.get((RESOURCE, key), [])
         value, own = _own(mine)
         label, options = resource_info(pack, key)
+        if key in chosen:  # 277 (O3): a case's choice sets it: read only, with each option's value
+            at_start = [{"choice": c.id, "option": o.id, "title": o.title, "value": o.resources.get(key, file_value)}
+                        for c in pack.choices for o in c.options]
+            resources.append({"key": key, "label": label, "options": None, "file_value": file_value,
+                              "value": file_value, "own": False, "versions": [], "derived_from": pack.derived.get(key),
+                              "chosen_at_start": at_start, "names": names(file_value, *(a["value"] for a in at_start))})
+            continue
         if key in pack.derived:  # U3c: shown as its source brings it, read only
             resources.append({"key": key, "label": label, "options": None, "file_value": file_value,
                               "value": effective[key], "own": False, "versions": [], "derived_from": pack.derived[key],

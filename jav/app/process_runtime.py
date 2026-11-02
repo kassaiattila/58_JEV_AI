@@ -547,6 +547,12 @@ def _pack_of_in(c: Any, case_id: str) -> tuple[str, str] | None:
     return (data["pack"], data["pack_version"]) if "pack" in data else None
 
 
+def choices_of(case_id: str) -> dict[str, str]:
+    """277 (O3): the choices a case started with (none for a case of a pack that asks none)."""
+    with store.connect() as c:
+        return dict(((cases.find_case_in(c, case_id) or {}).get("data") or {}).get(CHOICES) or {})
+
+
 def pack_of(case_id: str) -> tuple[str, str] | None:
     """(the pack id, its version) a case runs on, or None for a case that is no pack's."""
     with store.connect() as c:

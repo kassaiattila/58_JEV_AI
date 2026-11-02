@@ -36,13 +36,13 @@ def test_a_product_and_its_tariff_name_the_processes_that_use_them(db) -> None:
     used = process_settings.used_by("product")
     assert {"insurance_offer", "insurance_renewal"} <= _ids(used[product])
     assert {"insurance_offer", "insurance_renewal"} <= _ids(process_settings.used_by("tariff")[str(tariff)])
-    assert "allianz_property_offer" in _ids(used[process_packs.load("allianz_property_offer").resources["product"]])
+    assert "insurance_offer" in _ids(used["az_corporate_property"])  # 277 (O3h): its Allianz option's product
     assert all(set(e) == {"id", "title"} for entries in used.values() for e in entries)
 
 
 def test_letter_frames_templates_and_partner_roles_name_their_processes(db) -> None:
     frames = process_settings.used_by("letter_frame")
-    assert {"insurance_offer", "allianz_property_offer"} <= _ids(frames["offer_letter"])
+    assert "insurance_offer" in _ids(frames["offer_letter"])
     assert _ids(frames["renewal_letter"]) == {"insurance_renewal"}
     assert "it_quote" in _ids(process_settings.used_by("quote_letter_frame")["letter"])
     assert "it_quote" in _ids(process_settings.used_by("partner_role")["customer"])
