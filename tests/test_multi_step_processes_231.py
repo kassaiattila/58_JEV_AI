@@ -27,8 +27,7 @@ registrations.load_all()
 PERSON = "anna"
 HUMAN = {"X-Actor": PERSON}
 # 277 (O3f): the monthly reconciliation's steps that take documents, every option's (its choice leaves some out)
-CHAINS = {"monthly_reconciliation": [("invoices", "documents"), ("emails", "mailbox"), ("statements", "bank_statements")],
-          "mailbox_routing": [("emails", "mailbox")]}
+CHAINS = {"monthly_reconciliation": [("invoices", "documents"), ("emails", "mailbox"), ("statements", "bank_statements")]}
 
 
 @pytest.fixture
@@ -67,7 +66,8 @@ def test_the_four_chains_are_process_packs_a_person_starts(db) -> None:
         assert process_packs.load(pid).id == pid and listed[pid]["manual"]
         assert "step_sources" in listed[pid]["asks"]
         assert [(s["step"], s["pack"]) for s in listed[pid]["step_sources"]] == steps
-    assert listed["mailbox_routing"]["step_sources"][0]["source_kinds"] == ["mailbox"]
+    # 277 (O3g): the mailbox download routes its own download when chosen; it takes its mailbox as its source
+    assert listed["mailbox"]["source_kinds"] == ["mailbox"] and listed["mailbox"]["step_sources"] == []
     assert listed["documents"]["step_sources"] == []  # a one-step process takes its documents as it did
 
 

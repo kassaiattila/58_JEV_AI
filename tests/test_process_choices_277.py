@@ -263,15 +263,11 @@ def test_a_resource_an_option_sets_is_the_cases_choice_not_the_processs_own_valu
 
 
 def _routed_mailbox() -> dict:
-    """The mailbox download with its routing as a step of its own case (the shape of the merged mailbox process)."""
+    """The mailbox download with its routing as a step of its own case (O3g: the merged mailbox process), without
+    what it replaces."""
     data = copy.deepcopy(cfg.load("process:mailbox"))
-    data["steps"].append({"id": "routing", "uses": "run_case@1", "title": "Routing", "after": ["process"],
-                          "params": {"pack": "mail_routing", "sources_from": ["process"]}})
-    data["screens"]["tabs"].insert(1, {"id": "routing", "label": "Routing",
-                                       "elements": [{"type": "sub_case", "step": "routing"}]})
-    data["choices"] = [{"id": "routing", "title": "Routing", "default": "download_only", "options": [
-        {"id": "download_only", "title": "Download only", "leaves_out": ["routing"]},
-        {"id": "route", "title": "Download and route"}]}]
+    del data["replaces"]
+    assert [s["id"] for s in data["steps"]] == ["process", "routing"]
     return data
 
 

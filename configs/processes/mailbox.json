@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process:mailbox",
-    "version": "1.3.1",
-    "description": "The download of a mailbox's new emails as a process pack (formerly the wizard's mailbox form and the workflows' emails step kind): a case downloads its mailbox's emails into its package (an asynchronous fetch through the Outlook bridge, the worker's download job), a person starts its live run within the package's estimate, and the case is done once a live run is approved. A download no step takes (a scheduled one) wraps its package by a case too (the owner's decision of 2026-10-26).",
+    "version": "1.4.0",
+    "description": "The download of a mailbox's new emails as a process pack (formerly the wizard's mailbox form and the workflows' emails step kind): a case downloads its mailbox's emails into its package (an asynchronous fetch through the Outlook bridge, the worker's download job), a person starts its live run within the package's estimate, and the case is done once a live run is approved. A download no step takes (a scheduled one) wraps its package by a case too (the owner's decision of 2026-10-26). The owner's decision of 2026-11-02: the routing of the downloaded emails may follow in the same case (`routing`, chosen when a case starts; by default the download only, as before).",
     "changelog": [
+      {
+        "version": "1.4.0",
+        "date": "2026-11-02",
+        "note": "The owner's decision of 2026-11-02: one case type in place of two alike: whether the downloaded emails are routed is chosen when a case starts (`routing`: the download only, the default and the case as before; download and route, as \"From the mailbox to the packages\" was: once the download's run is approved, a sub-case of the email routing reads it). That pack is gone; its cases run on, and their next ones are cases of this one (`replaces`)."
+      },
       {
         "version": "1.3.1",
         "date": "2026-11-01",
@@ -33,7 +38,7 @@
   },
   "id": "mailbox",
   "title": "Emails from a mailbox",
-  "summary": "A mailbox's new emails downloaded and read with their attachments: each email's intent and each attachment's type.",
+  "summary": "A mailbox's new emails downloaded and read with their attachments: each email's intent and each attachment's type; if chosen, then routed: where each invoice and statement belongs.",
   "examples": {
     "note": "Try it on the invented consultancy's mailbox, iroda@minta-tanacsado.example: its Inbox and Sent Items from 1 March to 31 October 2026 hold four invented emails (two invoices it sent, a payment notice, a quote request), read without Outlook."
   },
@@ -55,6 +60,50 @@
       "package_part": "source"
     }
   ],
+  "workflow": {
+    "kind": "emails",
+    "step": "process",
+    "package_part": "source"
+  },
+  "choices": [
+    {
+      "id": "routing",
+      "title": "Routing",
+      "default": "download_only",
+      "options": [
+        {
+          "id": "download_only",
+          "title": "Download only",
+          "summary": "The emails downloaded and read; nothing is routed.",
+          "leaves_out": [
+            "routing"
+          ]
+        },
+        {
+          "id": "route",
+          "title": "Download and route",
+          "summary": "Once the download's run is approved, the routing proposes where each invoice and statement belongs.",
+          "examples": {
+            "sets": [
+              {
+                "kind": "own_party",
+                "name": "example_parties"
+              }
+            ],
+            "note": "Download the invented consultancy's mailbox, iroda@minta-tanacsado.example, from 1 March to 31 October 2026; once its run is approved, the routing proposes where its two invoices go."
+          }
+        }
+      ]
+    }
+  ],
+  "replaces": [
+    {
+      "pack": "mailbox_routing",
+      "choices": {
+        "routing": "route"
+      }
+    }
+  ],
   "resources": {},
   "steps": [
     {
@@ -64,13 +113,22 @@
       "params": {
         "maker": "mailbox"
       }
+    },
+    {
+      "id": "routing",
+      "uses": "run_case@1",
+      "title": "Routing",
+      "after": [
+        "process"
+      ],
+      "params": {
+        "pack": "mail_routing",
+        "sources_from": [
+          "process"
+        ]
+      }
     }
   ],
-  "workflow": {
-    "kind": "emails",
-    "step": "process",
-    "package_part": "source"
-  },
   "screens": {
     "tabs": [
       {
@@ -80,6 +138,16 @@
           {
             "type": "package_work",
             "step": "process"
+          }
+        ]
+      },
+      {
+        "id": "routing",
+        "label": "Routing",
+        "elements": [
+          {
+            "type": "sub_case",
+            "step": "routing"
           }
         ]
       },
