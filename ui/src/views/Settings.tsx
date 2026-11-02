@@ -24,6 +24,7 @@ import { AppearancePanel } from "./settings/AppearancePanel";
 import { BackupPanel } from "./settings/BackupPanel";
 import { DepsAuditPanel } from "./settings/DepsAuditPanel";
 import { JevVersionPanel } from "./settings/JevVersionPanel";
+import { AzurePanel } from "./settings/AzurePanel";
 import { EnginePanel } from "./settings/EnginePanel";
 import { FoldersPanel } from "./settings/FoldersPanel";
 import { LetterFramesPanel } from "./settings/LetterFramesPanel";
@@ -211,6 +212,8 @@ function SystemPanel() {
       <BackupPanel />
       <DepsAuditPanel />
       <JevVersionPanel />
+      {/* 279: this machine's Azure Document Intelligence, and the free check of its endpoint and key */}
+      <AzurePanel />
       <UncertainCallsPanel when="none" />
       <section aria-label={t("All runs")}>
         <h3>{t("All runs")}</h3>

@@ -327,3 +327,22 @@ def test_a_config_that_reads_differently_is_still_refused(tmp_path):
     older["dpi"] = 200
     with pytest.raises(ValueError):
         ocr.rekey_cache(older, tmp_path)
+
+
+# --- the local service ------------------------------------------------------------------------------------------------
+
+
+def test_the_service_shows_azure_and_runs_the_free_check(scan, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from jav.service import api
+
+    client = TestClient(api.create_app(store_path=tmp_path / "w.sqlite"), base_url="http://127.0.0.1:8930")
+    body = client.get("/api/system/azure").json()
+    assert body["configured"] is True and body["host"] == HOST and body["last_check"] is None
+    assert "test-key-not-real" not in json.dumps(body)
+    assert client.post("/api/system/azure/check", json={}).status_code in (400, 403, 422)  # a person's name is needed
+    with patch("urllib.request.urlopen", FakeAzure()):
+        checked = client.post("/api/system/azure/check", json={}, headers={"X-Actor": "teszt.elek"}).json()
+    assert checked["ok"] is True
+    assert client.get("/api/system/azure").json()["last_check"]["ok"] is True

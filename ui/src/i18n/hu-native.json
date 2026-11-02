@@ -5471,5 +5471,22 @@
   "The invented example product, its tariff, registers and limit.": "A kitalált mintatermék a díjtáblájával, nyilvántartásaival és határértékével.",
   "Allianz corporate property": "Allianz vállalati vagyonbiztosítás",
   "The Allianz corporate property product (example rates): a large risk's premium is decided by a second person, by the sum insured.": "Az Allianz vállalati vagyonbiztosítási terméke (példa díjtételekkel): nagy kockázat díjáról a biztosítási összeg szerint második személy dönt.",
-  "From a mailbox": "Postafiókból"
+  "From a mailbox": "Postafiókból",
+  "the endpoint and the key are not set on this machine": "ezen a gépen nincs megadva a cím és a kulcs",
+  "the endpoint is not an https address": "a cím nem https-cím",
+  "Azure is switched off on this machine": "az Azure ezen a gépen ki van kapcsolva",
+  "the service refused the key": "a szolgáltatás elutasította a kulcsot",
+  "the endpoint does not belong to a Document Intelligence resource": "a cím nem egy Document Intelligence-erőforrásé",
+  "the service could not be reached": "a szolgáltatás nem érhető el",
+  "the answer did not come from a Document Intelligence resource": "a válasz nem egy Document Intelligence-erőforrástól jött",
+  "the service answered with an error ({{code}})": "a szolgáltatás hibával válaszolt ({{code}})",
+  "Azure recognition is switched off on this machine: weak scans keep their local text.": "Az Azure-felismerés ezen a gépen ki van kapcsolva: a gyenge szkennek a helyi szövegükkel mennek tovább.",
+  "Azure recognition is not set up on this machine: weak scans keep their local text, with a to-do.": "Az Azure-felismerés ezen a gépen nincs beállítva: a gyenge szkennek a helyi szövegükkel mennek tovább, teendővel.",
+  "Azure recognition is set up ({{host}}), but it has not been checked yet.": "Az Azure-felismerés be van állítva ({{host}}), de még nem ellenőriztük.",
+  "Azure recognition is set up and answers ({{host}}, checked {{when}}).": "Az Azure-felismerés be van állítva, és válaszol ({{host}}, ellenőrizve: {{when}}).",
+  "The last check of Azure recognition failed: {{why}} ({{when}}).": "Az Azure-felismerés legutóbbi ellenőrzése nem sikerült: {{why}} ({{when}}).",
+  "The Operations page under Settings says how to set it up.": "A beállítás módját a Beállítások › Üzemeltetés oldal írja le.",
+  "Check now (free)": "Ellenőrzés most (ingyenes)",
+  "Model {{model}} · at most {{pages}} pages per document · about {{price}} per page": "Modell: {{model}} · iratonként legfeljebb {{pages}} oldal · oldalanként kb. {{price}}",
+  "Azure reads weak scans more accurately, for a fee, within each run's Azure budget. Its endpoint and key go into the .env file of this machine (the setup guide, section 3); the free check asks the resource for its details and analyses nothing:": "Az Azure pontosabban, díj ellenében olvassa a gyenge szkenneket, a futások Azure-keretén belül. A címe és a kulcsa ennek a gépnek a .env fájljába kerül (a telepítési útmutató 3. része); az ingyenes ellenőrzés csak az erőforrás adatait kérdezi le, semmit nem elemez:"
 }
