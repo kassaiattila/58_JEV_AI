@@ -42,7 +42,7 @@ def test_the_preview_marks_each_file_and_writes_nothing(env):
     new = _new_pdf(env, "invoice_3.pdf", "MINTA-2026-003")
     copy = new.with_name("invoice_3_copy.pdf")
     copy.write_bytes(new.read_bytes())
-    note = new.with_name("scan.jpg")
+    note = new.with_name("notes.bin")  # 279: an image is a document now
     note.write_bytes(b"not a document")
     paths = [str(p) for p in (new, copy, env["folder"] / "invoice_1.pdf", env["folder"] / "invoice_2.pdf", note)]
     events = len(work.workpackage_events(wp["id"]))
@@ -52,7 +52,7 @@ def test_the_preview_marks_each_file_and_writes_nothing(env):
         "invoice_3.pdf": "new", "invoice_3_copy.pdf": "repeated", "invoice_1.pdf": "removed", "invoice_2.pdf": "already"}
     assert files["invoice_3.pdf"]["item_id"] == files["invoice_3_copy.pdf"]["item_id"]
     assert out["counts"] == {"new": 1, "already": 1, "removed": 1, "repeated": 1, "elsewhere": 0}
-    assert out["others"] == {"count": 1, "names": ["scan.jpg"]}  # not a document: left out, named
+    assert out["others"] == {"count": 1, "names": ["notes.bin"]}  # not a document: left out, named
     assert work.get(wp["id"])["revision"] == wp["revision"] and len(work.workpackage_events(wp["id"])) == events
 
 

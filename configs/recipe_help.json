@@ -1,8 +1,13 @@
 {
   "meta": {
     "name": "recipe_help",
-    "version": "1.15.0",
+    "version": "1.16.0",
     "changelog": [
+      {
+        "version": "1.16.0",
+        "date": "2026-11-02",
+        "note": "The processing recipes' texts name the JPEG, PNG and TIFF images they take (the owner's decision of 2026-11-02): an image is processed like a scan, Azure included."
+      },
       {
         "version": "1.15.0",
         "date": "2026-11-01",
@@ -93,7 +98,7 @@
   "recipes": {
     "multi-format-processing": {
       "title": "Document processing — PDF, Word, Excel, TXT, CSV",
-      "when": "Use this recipe for PDF, DOCX, XLSX, UTF-8 TXT and CSV files. PDF documents follow type-based processing; Word, Excel, text and CSV use GPT to extract facts with source references. JEV can assess those facts. Check reading gaps and the original source before approval.",
+      "when": "Use this recipe for PDF, DOCX, XLSX, UTF-8 TXT and CSV files, and for JPEG, PNG and TIFF images. PDF documents and images follow type-based processing; Word, Excel, text and CSV use GPT to extract facts with source references. JEV can assess those facts. Check reading gaps and the original source before approval.",
       "inputs": [
         { "label": "PDF documents", "description": "The system recognises the document type, extracts its fields and checks the results. Uncertain types and values require review." },
         { "label": "Word, Excel, TXT and CSV", "description": "The reader preserves paragraphs, tables and cell references. GPT proposes facts from the readable content. Images, unsupported structures and missing formula results remain visible gaps; they are not silently treated as read." }
@@ -111,7 +116,7 @@
         "azure_ocr": {
           "help": "Azure text recognition applies only to PDF documents. It does not read images embedded in Word or Excel files.",
           "options": {
-            "on": "A weak PDF scan may use Azure recognition within its budget. Word, Excel, TXT and CSV are unaffected.",
+            "on": "A weak PDF scan or image may use Azure recognition within its budget. Word, Excel, TXT and CSV are unaffected.",
             "off": "Azure recognition is disabled. PDF documents can still use local text recognition; unread images in Word or Excel remain visible gaps."
           }
         }
@@ -119,7 +124,7 @@
     },
     "processing": {
       "title": "PDF and email processing",
-      "when": "Use this recipe for PDF documents and downloaded emails. It recognises document types or email intent, processes supported PDF attachments and can propose email tasks. Choose the document recipe for Word, Excel, TXT or CSV files.",
+      "when": "Use this recipe for PDF documents, JPEG, PNG and TIFF images and downloaded emails. It recognises document types or email intent, processes supported PDF attachments and can propose email tasks. Choose the document recipe for Word, Excel, TXT or CSV files.",
       "inputs": [
         { "label": "PDF documents", "description": "The system recognises the document type, extracts its fields and checks the results. Uncertain types and values require review." },
         { "label": "Emails", "description": "The selected provider recognises email intent. Supported PDF attachments follow document processing; task proposals are optional."

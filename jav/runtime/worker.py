@@ -39,7 +39,7 @@ from burr.integrations.serde import pydantic as burr_pydantic
 
 from jav.ai import engine as engines
 from jav.app import app_settings, capabilities, intake, item_kinds, rule_defaults, work, work_readiness, work_runs, workflows
-from jav.documents import isolated_pdf, pdf
+from jav.documents import image_input, isolated_pdf, pdf
 from jav.core import cfg, store
 from jav.runtime import job_kinds, pdf_status
 from jav import flows
@@ -237,6 +237,15 @@ def unknown_documents(recipe: dict[str, Any], params: dict[str, Any]) -> str:
     return params.get("unknown_documents", default)
 
 
+def reading_path(item: dict[str, Any], src: Path) -> str | None:
+    """The file the flows read for a verified item: its source instance (None: the original path, which the flows read
+    themselves). 279: an image is read through the PDF of its pixels (`jav/documents/image_input.py`), kept once under
+    the image's fingerprint, so its recognition and any Azure call are the same on every run."""
+    if image_input.is_image(item["source_path"]):
+        return str(image_input.pdf_for(src, item["sha256"]))
+    return str(src) if item.get("instance") else None
+
+
 def native_fallback(params: dict[str, Any], item: dict[str, Any], detect_state) -> dict[str, Any] | None:
     """120 (the owner's decisions of 2026-10-06): a PDF whose recognised type has no fitting type pack continues
     into the native source-bound facts on the G path, when `unknown_documents` is `facts`. A text PDF is read as it
@@ -321,7 +330,7 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
             if item.get("instance"):
                 raise InstanceDamaged(f"the copy of {name} kept when it was added is missing or damaged")
             raise SourceChanged(f"{name} differs from the frozen input")
-        read_path = str(src) if item.get("instance") else None
+        read_path = reading_path(item, src)
         attachment_reads = _attachment_reads(run["input"]["items"], item_id) if item_kinds.of(item).attachments else None
         persister = StatePersister(str(persister_path()))
         persister.initialize()
@@ -389,8 +398,9 @@ def process(job: queue.Job, *, after_step: Callable[[str], None] | None = None) 
     except SourceChanged as exc:
         work_runs.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=f"{exc.code}: {applog.redact(str(exc))}")
         result = queue.fail(job.id, f"{exc.code}: {applog.redact(str(exc))}", max_attempts=1, backoff_s=0)
-    except (pdf.DocumentTooLarge, isolated_pdf.PdfReaderLimit) as exc:
-        # 077: a retry would hit the same limit (a timeout would hold the worker for as long again): final at once
+    except (pdf.DocumentTooLarge, isolated_pdf.PdfReaderLimit, image_input.ImageUnreadable) as exc:
+        # 077: a retry would hit the same limit (a timeout would hold the worker for as long again): final at once;
+        # 279: so would an image that cannot be read
         log.warning("item %s of %s is over a document limit: %s", item_id, run_id, exc)
         work_runs.record_item_result(run_id, item_id, status="failed", flow_run_id=app_id, error=error_text(exc, limit=300))
         result = queue.fail(job.id, error_text(exc), max_attempts=1, backoff_s=0)

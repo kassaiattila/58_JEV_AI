@@ -78,7 +78,9 @@ Optional environment variables (in `.env` or in the shell):
 | `JAV_ALLOW_SDK_DEBUG` | `1`: allows the JEV library's detailed log; it also logs personal data, so use it only on made-up data |
 | `JAV_HYPOTHESIS_EXAMPLES` | the number of generated examples per property-based test (default 150), for a deeper search |
 
-## 3. OCR (for PDFs without a text layer)
+## 3. OCR (for PDFs without a text layer and for images)
+
+JPEG, PNG and TIFF images are documents too: each is read through a PDF that holds exactly its pixels (`jav/documents/image_input.py`, kept once under the image's fingerprint beside the source instances, in `store/derived/`), so it takes the same recognition as a scanned PDF.
 
 - **Tesseract 5.x**, installed natively (`winget install --id UB-Mannheim.TesseractOCR -e`, the UB Mannheim build for Windows; the measurements used 5.4.0). It does not need to be on the PATH: `configs/ocr.json` lists where to look (the PATH, `%LOCALAPPDATA%\Programs\Tesseract-OCR` and `C:\Program Files\Tesseract-OCR`).
 - **Language packs** (not in git; git-ignored): `tools/tessdata/` holds `eng`, `hun` and `osd`. `python -m jav.cli ocr --fetch-langs` downloads the missing ones from the tesseract-ocr project's `tessdata_fast` release 4.1.0 and keeps each file only when its SHA-256 matches the one pinned in `configs/ocr.json` (`tesseract.language_packs`): byte for byte the files every measurement read with, so recognition is the same on every machine. A different file already in the folder is left alone and reported. `JAV_TESSDATA_DIR` names another folder (for a second checkout or a worktree). Without a PDF, `python -m jav.cli ocr` prints the state of the engine and the language packs (which are missing, which differ from the pinned files), and `preflight` shows it on its OCR line. A scanned document read without them gets an OCR to-do, and the worker's log (`runs\logs\worker.log`) names the missing packs.

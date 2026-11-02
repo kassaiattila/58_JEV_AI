@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "recipes",
-  "version": "1.16.1",
+  "version": "1.17.0",
   "changelog": [
+   {
+    "version": "1.17.0",
+    "date": "2026-11-02",
+    "note": "The owner's decision of 2026-11-02: JPEG, PNG and TIFF images are documents too. processing and multi-format-processing take them (file_suffixes; multi-format-processing routes them to the document flow), and each is read through the PDF of its pixels (jav/documents/image_input.py): local text recognition, Azure on a weak result within the run's budget, type recognition and extraction as for a scan. The recipes' own versions do not change: their settings mean the same."
+   },
    {
     "version": "1.16.1",
     "date": "2026-11-01",
@@ -135,7 +140,12 @@
    ],
    "file_suffixes": [
     ".pdf",
-    ".json"
+    ".json",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".tif",
+    ".tiff"
    ],
    "params": {
     "arm": {
@@ -300,9 +310,9 @@
    "result": "Versioned extracted facts with original proposals, source locations, reading gaps and human corrections.",
    "manual_action": "Resolve review reasons, check the source and approve the reviewed result version.",
    "flow": "document",
-   "flows_by_suffix": {".pdf": "document", ".docx": "native", ".xlsx": "native", ".txt": "native", ".csv": "native"},
+   "flows_by_suffix": {".pdf": "document", ".docx": "native", ".xlsx": "native", ".txt": "native", ".csv": "native", ".jpg": "document", ".jpeg": "document", ".png": "document", ".tif": "document", ".tiff": "document"},
    "input_kinds": ["document"],
-   "file_suffixes": [".pdf", ".docx", ".xlsx", ".txt", ".csv"],
+   "file_suffixes": [".pdf", ".docx", ".xlsx", ".txt", ".csv", ".jpg", ".jpeg", ".png", ".tif", ".tiff"],
    "params": {
     "arm": {"allowed": ["auto", "S", "G"], "default": "auto"},
     "jev_cache": {"allowed": ["reuse", "live"], "default": "reuse"},

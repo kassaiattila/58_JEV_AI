@@ -288,7 +288,8 @@ def routes(app: FastAPI, r: str) -> None:
     def item_source(wp_id: WpId, item_id: ItemId) -> Response:
         """The item's source document (shown in the browser or downloaded): the verified bytes (075)."""
         p, data = _item_source(wp_id, item_id)
-        return Response(data, media_type="application/pdf" if p.suffix.lower() == ".pdf" else "application/octet-stream",
+        media = {".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}  # 279: images too
+        return Response(data, media_type=media.get(p.suffix.lower(), "application/octet-stream"),
                         headers={"Content-Disposition": "inline", "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
 
     @app.get(r + "/workpackages/{wp_id}/reviews")

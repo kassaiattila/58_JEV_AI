@@ -224,7 +224,8 @@ catalog reads whether a type is active from the same switch.
    mailbox download's package, a watched folder's package, an assignment without `engine`. Saved settings and started runs keep
    their own (a run freezes its settings when it starts); an assignment saved before the engine setting existed (recipes 1.9.0, 2026-10-02) has no `jev` and stays JEV and GPT.
 3. **OpenAI, through Pydantic AI**: the existing G path and the general data proposal produce structured proposals and then apply source checking. The graphs described here neither restrict OpenAI to generating extracts nor make JEV the only tool for every interpretive decision: further interpreting, classifying and verifying roles are also permitted, for documents and emails alike. Any new division of labour must be built in on the basis of targeted measurement; source checking, separate cost accounting and manual activation apply to every role. The Burr states are plain Pydantic models, not Pydantic AI.
-4. **OCR pipeline**: `jav/documents/ocr.py` + `configs/ocr.json` — PDF without text → page image (pypdfium2,
+4. **OCR pipeline**: `jav/documents/ocr.py` + `configs/ocr.json` — PDF without text (a JPEG, PNG or TIFF image is first
+   wrapped into a PDF of exactly its pixels, `jav/documents/image_input.py`, the same bytes every time) → page image (pypdfium2,
    300 dpi) → tesseract word boxes (native tesseract on the machine; the Hungarian + English language packs in `tools/tessdata`, the old sidecar
    image's files, pinned by their SHA-256 in `configs/ocr.json` and fetched by `ocr --fetch-langs`, `jav/documents/tessdata.py`; the only local engine, the old sidecar image is no longer one) → the same line/cell builder as for the text layer
    (`jav/documents/pdf.py: build_layout`). A separate graph step (`ocr_pdf`) in the M1 and M2 graphs, a disk cache in `runs/ocr/`,

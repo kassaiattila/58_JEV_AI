@@ -1,7 +1,9 @@
 """Page image for source-bound review (045 K3b): one PDF page as PNG, via pypdfium2 (without poppler).
 
 Follows the V4 `sidecar /page-image` pattern (per page, limited dpi), but in colour: stamps and highlighting matter to
-the human reviewer too. For a non-PDF (image) source the file is returned unchanged, and only page 1 can be requested.
+the human reviewer too. For a JPEG or PNG source the file is returned unchanged, and only page 1 can be requested;
+279: a TIFF, which a browser cannot show, is drawn from the PDF of its pixels (`jav/documents/image_input.py`), page by
+page.
 
 077: PDFium runs in the isolated PDF reader (`jav/documents/isolated_pdf.py`): one request at a time (PDFium is not thread-safe,
 063), with a time and memory limit; over a limit `PdfReaderLimit`, which the local service answers with 422.
@@ -11,10 +13,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from jav.documents import isolated_pdf, pdf
+from jav.documents import image_input, isolated_pdf, pdf
 from jav.core.user_messages import explained
 
 IMAGE_TYPES = {".png": "PNG", ".jpg": "JPEG", ".jpeg": "JPEG"}
+TIFF_TYPES = (".tif", ".tiff")  # 279
 
 
 class BadPage(ValueError):
@@ -24,6 +27,8 @@ class BadPage(ValueError):
 def page_count(path: Path) -> int:
     if path.suffix.lower() in IMAGE_TYPES:
         return 1
+    if path.suffix.lower() in TIFF_TYPES:
+        return image_input.page_count(path.read_bytes())
     return isolated_pdf.run(isolated_pdf.page_count, kind="page_image", path=str(path))
 
 
@@ -34,6 +39,11 @@ def render(path: Path, page: int, *, dpi: int = 144, data: bytes | None = None) 
         if page != 1:
             raise explained(BadPage, "An image has only page 1, not {{page}}", page=page)
         return data if data is not None else path.read_bytes()
+    if path.suffix.lower() in TIFF_TYPES:  # 279: drawn from the PDF of its pixels
+        try:
+            data = image_input.pdf_bytes(data if data is not None else path.read_bytes())
+        except image_input.ImageUnreadable as exc:
+            raise explained(BadPage, "This image cannot be read ({{why}})", why=str(exc)) from exc
     head = data[:1024] if data is not None else _head(path)
     if b"%PDF" not in head:
         # 167 (review 153 E): a Word, Excel, text or statement file has no page image; PDFium's raw error said so badly

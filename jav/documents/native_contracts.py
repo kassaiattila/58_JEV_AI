@@ -33,6 +33,12 @@ DOCUMENT_FORMATS = (
     DocumentFormat(suffix=".xlsx", label="Excel", flow="native", source_view="cells"),
     DocumentFormat(suffix=".txt", label="UTF-8 text", flow="native", source_view="text"),
     DocumentFormat(suffix=".csv", label="UTF-8 comma-separated values", flow="native", source_view="cells"),
+    # 279 (the owner's decision of 2026-11-02): an image is read through the PDF of its pixels (jav/documents/image_input.py)
+    DocumentFormat(suffix=".jpg", label="JPEG image", flow="document", source_view="pdf"),
+    DocumentFormat(suffix=".jpeg", label="JPEG image", flow="document", source_view="pdf"),
+    DocumentFormat(suffix=".png", label="PNG image", flow="document", source_view="pdf"),
+    DocumentFormat(suffix=".tif", label="TIFF image", flow="document", source_view="pdf"),
+    DocumentFormat(suffix=".tiff", label="TIFF image", flow="document", source_view="pdf"),
 )
 DOCUMENT_SUFFIXES = tuple(item.suffix for item in DOCUMENT_FORMATS)
 NATIVE_SUFFIXES = tuple(item.suffix for item in DOCUMENT_FORMATS if item.flow == "native")
