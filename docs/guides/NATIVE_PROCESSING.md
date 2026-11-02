@@ -89,8 +89,9 @@ the existing reservation semantics.
 
 `native_processing.py` calls the existing reader provider adapters and
 `runtime.calls`; it adds no provider ledger or SDK route. Budget estimates bound
-the GPT request and output, optional JEV verification and JEV alias resolution.
-The JEV-off setting omits both its budget and its call. The S path is rejected
+the GPT request and output, the judgement service's verification (JEV or OpenAI
+Decisions, by the AI engine) and its alias resolution. GPT only omits both its
+budget and its call. The S path is rejected
 before processing because native discovery has no predefined selection contract.
 
 Large source views are partitioned into requests within the same 80,000-byte
@@ -145,12 +146,13 @@ recalculation occurs. The shared content checks (`configs/fact_checks.json`,
 `jav/documents/fact_checks.py`) also raise a warning when a value is an unfilled template
 field (`[Name]`, a run of dots, a date mask) or when its kind (money,
 percentage, date, time) conflicts with the meaning of its property and unit;
-a currency value claimed as a time quantity is one such conflict. A JEV support
-in the existing default band's `no` range (`native.support` in `policy.json`)
+a currency value claimed as a time quantity is one such conflict. A judgement service's
+support in the existing default band's `no` range (`native.support` in `policy.json`)
 opens a `native:fact:<n>:unsupported:<p>` to-do; the uncertain range does not,
-as on the PDF path. When JEV does not answer (no key, no budget left, a
+as on the PDF path. When the judgement service does not answer (no key, no budget left, a
 provider error), the GPT facts are published without support and the item gets
-a `jev_unavailable:<reason>` to-do, as in the other flows; the reason is kept
+the service's `jev_unavailable:<reason>` or `decisions_unavailable:<reason>`
+to-do, as in the other flows; the reason is kept
 with the saved outcome. These checks preserve the original proposal and literal
 match; they do not establish general semantic correctness or introduce a new
 threshold. Older saved interpretation hashes remain unchanged on reload, and

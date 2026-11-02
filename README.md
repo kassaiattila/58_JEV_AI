@@ -14,7 +14,8 @@ The system reads invoices, other documents and emails. It recognises what type e
 |---|---|---|
 | Native documents | **DOCX, XLSX, TXT and CSV** through the work-package workflow: preserve paragraphs, cells and text positions; extract source-linked facts in bounded requests with recorded source coverage; review and correct values or citations; approve the displayed version and export the results. Excel links remain inert, and saved formula values retain their unverified status. Partial readings and failed interpretations remain visible. [Native processing](docs/guides/NATIVE_PROCESSING.md) | Works within reader limits; model accuracy requires evaluation on the intended documents |
 | Recognition | **Document type recognition**: 15 broad types, "other" among them, plus "unknown" (the newest: an insurance application), the document's language and issuer; within a broad type it also picks one of 25 detailed types (for example the statement of a given bank, or a utility bill) | Works |
-| Extraction | **Data extraction** on two paths: code finds the candidates and JEV chooses (S path), or GPT extracts and JEV verifies (G path). Type packs for Hungarian and foreign invoices, six kinds of utility bill and the other detailed types | Works |
+| Extraction | **AI engine** (Settings › Processing): JEV and GPT (the default), OpenAI Decisions and GPT (OpenAI's judgement service in JEV's place), or GPT only, checked by code; the engine's judgement service chooses or verifies on the paths below | Works; OpenAI Decisions selectable since v1.78.0 |
+| | **Data extraction** on two paths: code finds the candidates and JEV chooses (S path), or GPT extracts and JEV verifies (G path). Type packs for Hungarian and foreign invoices, six kinds of utility bill and the other detailed types | Works |
 | | **Invoice line items**: the line list of an invoice, with a line-total check and per-line checks; line lists can be corrected in the UI, and the checks re-run on the corrected data | Works |
 | | **Data checks** in code: one number reader for every path (amounts and quantities read whole, in Hungarian and English notation; money never with three decimals; an ambiguous reading becomes a to-do); one date reader for every path (month names in six languages, two-digit years, the document's own dates decide the order of day and month, an undecided order becomes a to-do; new); tax numbers and bank account numbers by format and check digit; one party in two roles (two role fields sharing a name or tax number) becomes a to-do on every path; an invoice whose supplier and buyer stand the other way round than on most earlier invoices of the same two companies becomes a to-do (new); an unfilled template field or a value whose kind (money, percentage, date, time) conflicts with its property becomes a to-do in Word, Excel and text sources (new); a field with no candidate is flagged "No estimate"; a PDF without a fitting type pack still gets source-bound general facts (switchable per package; a scan through local text recognition, with a to-do); limits on file size, page count and image size | Works |
 | | **OCR** for PDFs without a text layer: local Tesseract, with optional paid escalation to Azure Document Intelligence when the local result is weak. Azure is a processing setting and is paid from the run's budget | Works |
@@ -36,7 +37,7 @@ The system reads invoices, other documents and emails. It recognises what type e
 | Operations | **Local service** shared by the UI and the command line; it listens on the local machine only and validates every input | Works |
 | | **Operations**: a verified daily backup with an optional second location, persistent logs, thinning of the flow-state store and a weekly dependency audit; JEV asked by a pinned version, with a daily look for a newer one; the Operations page shows the running version, the worker, the backup, the audit and the JEV version | Works |
 | | **Repository safeguards**: a data guard before every commit and push, so that personal data, keys, internal working documents and document files cannot get into git | Works |
-| | **Rules and their trace**: Settings › Rules shows, for each kind of decision the system makes on its own, what it decides, the values it decides with, the version of its rule files in use and how many decisions it has made; every such decision is recorded with its inputs, its outcome and the rule versions it used (`python -m jav.cli trace`), and every run, item, case and approval names the code and the rule files it was computed with (`python -m jav.cli snapshot`); a proposed version of a rule file can first be tried on the earlier decisions, free (`python -m jav.cli rules-preview`), and each field of work keeps its rules in a file of its own (the email routes `configs/email.json`, the finance rules `configs/finance.json`) | Works |
+| | **Rules and their trace**: Settings › Defaults shows, for each kind of decision the system makes on its own, what it decides, the values it decides with, the version of its rule files in use and how many decisions it has made; every such decision is recorded with its inputs, its outcome and the rule versions it used (`python -m jav.cli trace`), and every run, item, case and approval names the code and the rule files it was computed with (`python -m jav.cli snapshot`); a proposed version of a rule file can first be tried on the earlier decisions, free (`python -m jav.cli rules-preview`), and each field of work keeps its rules in a file of its own (the email routes `configs/email.json`, the finance rules `configs/finance.json`) | Works |
 | Learning | **Teaching a document type**: field proposals from the general facts of a held-out family's development documents, an edited draft from which code makes the type pack, a measurement on documents the draft has not seen, and turning the type on or off by command (a taught type only with that measurement) | Works on one family (the admission ticket, measured on its unseen half); one layout of one issuer |
 | Measurement | Golden-set runs, determinism runs, a shared evaluation report and a cost ledger | Works; the golden sets live in the legacy project |
 
@@ -51,6 +52,22 @@ How it is built: [architecture](docs/ARCHITECTURE.md). How to use the workspace:
 - The utility-cost report breaks down only the gross amount, and it is built from a single run.
 - We do not claim real-world accuracy without an independent hand-labelled golden set.
 
+## What you need to run it
+
+A Windows 11 machine; no Docker or other container platform is needed: the service, the worker and the interface run
+locally, and the data stays in a local SQLite file.
+
+- **Python 3.12** with [uv](https://docs.astral.sh/uv/) (the packages: `requirements.lock`; among them TypeSafe/JEV,
+  Pydantic AI with OpenAI, Burr, FastAPI and Uvicorn, pdfplumber, openpyxl and python-docx);
+- **Node.js 20.19+ or 22.12+**, only to build the interface (React and Vite);
+- **Tesseract 5** with the Hungarian and English language packs, for scanned documents;
+- **git**;
+- the keys in `.env`: JEV (`TypeSafeJAV_API_KEY`) and/or OpenAI (`OPENAI_API_KEY`, also for OpenAI Decisions);
+- optional: desktop Outlook for the mailbox download, and an Azure Document Intelligence key for the paid escalation of
+  weak local OCR.
+
+Docker is used only by the legacy project's slow OCR fallback, never by default. Details: [setup](docs/guides/SETUP.md).
+
 ## Getting started
 
 ```powershell
@@ -59,7 +76,11 @@ uv venv --python 3.12 .venv; uv pip install --require-hashes -r requirements-dev
 python -m jav.cli hooks-install        # data guard: checks before commit and push (once per clone)
 python -m jav.cli preflight            # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
 python smoke_test.py                   # the keys; --jev-budget-usd 0.01 adds one live JEV call
+cd ui; npm ci; npm run build; cd ..    # the interface
+.\scripts\dev.ps1 start                # the local service, the worker and the interface: http://127.0.0.1:8930/
 ```
+
+Before the first start, copy `.env.example` to `.env` and fill in the keys.
 
 In a fresh clone, without the legacy project (`10_AIFLOW_V4`) and its golden set, the UI, work packages, runs and the mailbox download all work; the golden-set measurements need the legacy project. Details: [setup, fresh clone](docs/guides/SETUP.md).
 
