@@ -306,3 +306,38 @@ def test_the_service_lists_a_processs_choices_and_starts_a_case_with_them(merged
         assert c.get(f"/api/cases/{made.json()['case_id']}/next").json()["choices"] == {"invoices_from": "mailbox"}
         assert c.get("/api/processes/monthly_reconciliation/examples?choice=invoices_from:both").status_code == 200
         assert c.get("/api/processes/monthly_reconciliation/examples?choice=invoices_from:tray").status_code == 400
+
+
+# --- 277 (O3e): the case types' groups ------------------------------------------------------------------------------
+
+
+def test_every_process_stands_in_one_group_and_the_service_names_it() -> None:
+    from fastapi.testclient import TestClient
+
+    from jav.service.api import create_app
+
+    assert process_packs.group_problems() == []
+    assert [g["id"] for g in process_packs.groups()] == ["documents", "emails", "reconciliation", "quotes"]
+    assert process_packs.group_of("bank_statements") == "documents"
+    assert process_packs.group_of("it_quote") == "quotes"
+    assert process_packs.group_of("nowhere") is None
+    with TestClient(create_app(), base_url="http://127.0.0.1:8930") as c:
+        listed = c.get("/api/processes").json()
+    assert [g["title"] for g in listed["groups"]] == ["Documents", "Emails", "Reconciliation", "Quotes"]
+    assert {p["id"]: p["group"] for p in listed["processes"]}["mail_routing"] == "emails"
+
+
+def test_a_group_that_names_what_is_not_there_is_refused(monkeypatch) -> None:
+    groups = [{"id": "documents", "title": "Documents", "processes": ["documents", "ghost"]},
+              {"id": "documents", "title": "", "processes": ["documents"]}]
+    monkeypatch.setattr(process_packs, "groups", lambda: groups)
+    problems = process_packs.group_problems()
+    for expected in ("a group is listed twice: documents", "group 'documents' has no title",
+                     "group 'documents' names no process pack 'ghost'", "process 'documents' stands in two groups",
+                     "process 'bank_statements' stands in no group"):
+        assert any(expected in p for p in problems), (expected, problems)
+
+
+def test_a_retired_packs_cases_stand_in_its_successors_group(monkeypatch) -> None:
+    monkeypatch.setattr(process_packs, "successor", lambda pack_id: ("monthly_reconciliation", {}) if pack_id == "old_chain" else None)
+    assert process_packs.group_of("old_chain") == "reconciliation"

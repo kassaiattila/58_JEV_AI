@@ -45,8 +45,8 @@ from jav.core import cfg
 from jav.core.process.definition import NAME, ProcessDef, StepDef
 
 __all__ = ["Adopt", "Choice", "ChoiceRefused", "Element", "ExampleSet", "Examples", "FollowUp", "Intake", "Option", "PackError", "PartnerLink",
-           "ProcessPack", "Replaced", "Step", "Tab", "UnknownPack", "chosen", "definition", "load", "packs", "picked",
-           "successor", "variants"]
+           "ProcessPack", "Replaced", "Step", "Tab", "UnknownPack", "chosen", "definition", "group_of", "group_problems",
+           "groups", "load", "packs", "picked", "successor", "variants"]
 
 ELEMENTS = "screen_elements"
 EXAMPLE_DOCUMENTS = "examples_"  # 231 (U0): `configs/examples_<name>.json`, a pack's invented documents
@@ -631,6 +631,46 @@ def load(pack_id: str) -> ProcessPack:
 def packs() -> list[ProcessPack]:
     """Every process pack, read and checked."""
     return [load(name.split(":", 1)[1]) for name in cfg.all_names() if name.startswith("process:")]
+
+
+GROUPS = "process_groups"  # 277 (O3): `configs/process_groups.json`
+
+
+def groups() -> list[dict[str, Any]]:
+    """277 (O3; the owner's decision of 2026-11-02): the case types' groups in their order, each {id, title,
+    processes} with its processes in their order (`configs/process_groups.json`)."""
+    return [dict(g) for g in cfg.load(GROUPS)["groups"]]
+
+
+def group_of(pack_id: str) -> str | None:
+    """277 (O3): the group a process stands in; a pack another took the place of, its successor's; None for none."""
+    for group in groups():
+        if pack_id in group["processes"]:
+            return str(group["id"])
+    later = successor(pack_id)
+    return group_of(later[0]) if later is not None and later[0] != pack_id else None
+
+
+def group_problems() -> list[str]:
+    """277 (O3): what is wrong with the groups: a group listed twice or without a title, one naming a process that is
+    not there or another group's, and a process in no group."""
+    problems: list[str] = []
+    ids = [str(g.get("id")) for g in groups()]
+    problems += [f"a group is listed twice: {i}" for i in sorted({i for i in ids if ids.count(i) > 1})]
+    known = {p.id for p in packs()}
+    placed: dict[str, str] = {}
+    for group in groups():
+        if not group.get("title"):
+            problems.append(f"group {group.get('id')!r} has no title")
+        for pack_id in group.get("processes") or []:
+            if pack_id not in known:
+                problems.append(f"group {group['id']!r} names no process pack {pack_id!r}")
+            elif pack_id in placed:
+                problems.append(f"process {pack_id!r} stands in two groups: {placed[pack_id]}, {group['id']}")
+            else:
+                placed[pack_id] = str(group["id"])
+    problems += [f"process {p!r} stands in no group" for p in sorted(known - set(placed))]
+    return problems
 
 
 def successor(pack_id: str) -> tuple[str, dict[str, str]] | None:

@@ -149,8 +149,10 @@ def routes(app: FastAPI, r: str) -> None:
                                # 277 (O3): a case started with the default choices; each option says its own
                                "missing_at_start": process_settings.missing_at_start(process_packs.chosen(p)),
                                "examples": any(_has_examples(process_packs.chosen(p, v)) for v in process_packs.variants(p)),
-                               "choices": _choices(p)}
-                              for p in process_packs.packs()]}
+                               "choices": _choices(p), "group": process_packs.group_of(p.id)}
+                              for p in process_packs.packs()],
+                # 277 (O3): the groups the New case page lists the processes in, in their order
+                "groups": [{"id": g["id"], "title": g["title"]} for g in process_packs.groups()]}
 
     @app.exception_handler(examples.ExampleInUse)
     async def example_in_use(_request: Request, exc: examples.ExampleInUse):

@@ -23,7 +23,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from jav.app import capabilities, datasets, package_scope, parties, process_runtime
+from jav.app import capabilities, datasets, package_scope, parties, process_packs, process_runtime
 from jav.app.datasets import Dataset, LabelSet, Rows, col
 from jav.core import store
 from jav.core.process import cases, outbox, tasks
@@ -230,10 +230,12 @@ def view_counts(actor: str | None) -> dict[str, Any]:
     counts = {v: sum(1 for r in rows if _in_view(r, v, actor, None)) for v in VIEWS}
     by: dict[str, dict[str, Any]] = {}
     for r in rows:
-        entry = by.setdefault(r["pack"], {"pack": r["pack"], "title": r["process"], "open": 0, "all": 0, "repeats": r["_repeats"]})
+        entry = by.setdefault(r["pack"], {"pack": r["pack"], "title": r["process"], "open": 0, "all": 0, "repeats": r["_repeats"],
+                                          "group": process_packs.group_of(r["pack"])})  # 277 (O3)
         entry["all"] += 1
         entry["open"] += r["status"] == cases.OPEN and not r.get("_hidden")
-    return {"views": counts, "processes": sorted(by.values(), key=lambda e: e["title"])}
+    return {"views": counts, "processes": sorted(by.values(), key=lambda e: e["title"]),
+            "groups": [{"id": g["id"], "title": g["title"]} for g in process_packs.groups()]}
 
 
 def _handovers(scope: dict[str, str]) -> Rows:
