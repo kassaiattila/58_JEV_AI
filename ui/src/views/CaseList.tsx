@@ -9,7 +9,7 @@
 // process at first and keeps its state; a process repeated by period also shows its period grid (a party's row, a
 // month's column, the case's state in the cell).
 import { useMemo, useState, type ReactNode } from "react";
-import { api, type DsColumn, type DsRow, type DsScope } from "../api";
+import { api, inGroupOrder, type DsColumn, type DsRow, type DsScope } from "../api";
 import { DataTable } from "../components/DataTable";
 import { Icon } from "../components/Icon";
 import { Navigator, type NavNode } from "../components/Navigator";
@@ -71,7 +71,7 @@ export function CaseList({ shown, process }: { shown?: CaseListView; process?: s
     // 277 (O3; the owner's decision of 2026-11-02): the processes under their groups, in the groups' order; a process
     // of no group (one an older service names) after them
     { key: "by-process", label: t("By process"), children: [...(counts.data?.groups ?? []), { id: "", title: "Other" }]
-      .map((g) => ({ g, ps: (counts.data?.processes ?? []).filter((p) => (p.group ?? "") === g.id) }))
+      .map((g) => ({ g, ps: inGroupOrder((counts.data?.processes ?? []).filter((p) => (p.group ?? "") === g.id), (p) => p.pack, g) }))
       .filter(({ ps }) => ps.length)
       .map(({ g, ps }) => ({ key: `g:${g.id || "other"}`, label: t(g.title), count: ps.reduce((n, p) => n + p.open, 0),
         children: ps.map((p) => ({ key: `p:${p.pack}`, label: t(p.title), href: routeHash({ view: "case-list", process: p.pack }), count: p.open })) })) },

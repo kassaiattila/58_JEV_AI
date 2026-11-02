@@ -235,7 +235,8 @@ def view_counts(actor: str | None) -> dict[str, Any]:
         entry["all"] += 1
         entry["open"] += r["status"] == cases.OPEN and not r.get("_hidden")
     return {"views": counts, "processes": sorted(by.values(), key=lambda e: e["title"]),
-            "groups": [{"id": g["id"], "title": g["title"]} for g in process_packs.groups()]}
+            "groups": [{"id": g["id"], "title": g["title"], "processes": list(g["processes"])}
+                       for g in process_packs.groups()]}
 
 
 def _handovers(scope: dict[str, str]) -> Rows:

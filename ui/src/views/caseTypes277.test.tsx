@@ -15,8 +15,8 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); window.location.hash = ""; })
 
 const CASE = "wp-000000000277";
 const PARTY = "party-000000000001";
-const GROUPS = [{ id: "documents", title: "Documents" }, { id: "emails", title: "Emails" },
-  { id: "reconciliation", title: "Reconciliation" }, { id: "quotes", title: "Quotes" }];
+const GROUPS = [{ id: "documents", title: "Documents", processes: ["documents", "bank_statements"] },
+  { id: "emails", title: "Emails" }, { id: "reconciliation", title: "Reconciliation" }, { id: "quotes", title: "Quotes" }];
 const MONTHLY: ProcessRow = {
   id: "monthly_reconciliation", title: "Monthly reconciliation", version: "1.2.0", scope: ["party", "period", "step_sources"],
   asks: ["party", "period", "step_sources"], package_kinds: [], manual: true, examples: false, missing_at_start: [],
@@ -42,12 +42,13 @@ const QUOTE: ProcessRow = { ...ROW("insurance_offer", "Insurance quote", "quotes
 describe("the case types (277 O3)", () => {
   it("lists the processes under their groups, in the groups' order", async () => {
     vi.spyOn(api, "processes").mockResolvedValue({ groups: GROUPS, processes: [
-      QUOTE, MONTHLY, ROW("documents", "Documents", "documents"), ROW("mailbox", "Emails from a mailbox", "emails"),
-      ROW("bank_statements", "Bank statements", "documents")] });
+      QUOTE, MONTHLY, ROW("bank_statements", "Bank statements", "documents"), ROW("mailbox", "Emails from a mailbox", "emails"),
+      ROW("documents", "Documents", "documents")] });
     render(<NewCase />);
     const list = await screen.findByRole("region", { name: "Which process?" });
     const groups = within(list).getAllByRole("group");
     expect(groups.map((g) => g.querySelector("legend")?.textContent)).toEqual(["Documents", "Emails", "Reconciliation", "Quotes"]);
+    // in the group's own order, not as the service lists them
     expect(within(groups[0]).getAllByRole("radio").map((r) => r.getAttribute("aria-label"))).toEqual(["Documents", "Bank statements"]);
   });
 

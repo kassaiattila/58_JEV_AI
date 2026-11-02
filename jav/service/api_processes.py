@@ -152,7 +152,8 @@ def routes(app: FastAPI, r: str) -> None:
                                "choices": _choices(p), "group": process_packs.group_of(p.id)}
                               for p in process_packs.packs()],
                 # 277 (O3): the groups the New case page lists the processes in, in their order
-                "groups": [{"id": g["id"], "title": g["title"]} for g in process_packs.groups()]}
+                "groups": [{"id": g["id"], "title": g["title"], "processes": list(g["processes"])}
+                           for g in process_packs.groups()]}
 
     @app.exception_handler(examples.ExampleInUse)
     async def example_in_use(_request: Request, exc: examples.ExampleInUse):

@@ -37,8 +37,13 @@ export interface ProcessOption {
   missing_at_start: { key: string; label: string }[];
 }
 export interface ProcessChoice { id: string; title: string; default: string; options: ProcessOption[] }
-/** 277 (O3): a group of the case types, in the order the lists show them. */
-export interface ProcessGroup { id: string; title: string }
+/** 277 (O3): a group of the case types, in the order the lists show them, with its processes in their order. */
+export interface ProcessGroup { id: string; title: string; processes?: string[] }
+/** 277 (O3): the items of a group in the group's order of its processes (one it does not name last, as they came). */
+export const inGroupOrder = <T,>(items: T[], idOf: (item: T) => string, group: ProcessGroup) => {
+  const at = (item: T) => { const i = (group.processes ?? []).indexOf(idOf(item)); return i < 0 ? Number.MAX_SAFE_INTEGER : i; };
+  return [...items].sort((a, b) => at(a) - at(b));
+};
 /** 277 (O3): the options a case starts with (each choice not named at its default) as the address's `choice=` list. */
 export const choiceQuery = (choices?: Record<string, string>) => {
   const named = Object.entries(choices ?? {}).map(([c, o]) => `choice=${enc(`${c}:${o}`)}`);

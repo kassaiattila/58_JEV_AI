@@ -85,8 +85,8 @@ export interface CaseTab { id: string; label: string; elements: CaseElement[] }
 export interface CaseViewCounts {
   views: { waiting: number; mine: number; open: number; closed: number };
   processes: { pack: string; title: string; open: number; all: number; repeats: boolean; group?: string | null }[];
-  /** 277 (O3): the case types' groups in order (each process names its own) */
-  groups?: { id: string; title: string }[];
+  /** 277 (O3): the case types' groups in order, each with its processes in their order (each process names its own) */
+  groups?: { id: string; title: string; processes?: string[] }[];
 }
 export interface CaseView {
   /** U-A8: `due`, whether the worker has something to do for the case now (the page asks again while it has) */

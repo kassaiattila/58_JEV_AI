@@ -5454,10 +5454,10 @@
   "An own party's period in one case: its incoming invoices, from a folder or files, a mailbox or both, and its bank statements are read side by side, then reconciled.": "Egy saját gazdálkodó egy időszaka egy ügyben: a bejövő számlák (mappából vagy fájlokból, postafiókból vagy mindkettőből) és a bankkivonatok beolvasása egymás mellett, majd az egyeztetésük.",
   "Chosen when a case starts": "Az ügy indításakor választható",
   "Where the invoices come from": "Honnan jönnek a számlák",
-  "A folder or files": "Mappából vagy fájlokból",
+  "From a folder or files": "Mappából vagy fájlokból",
   "The incoming invoices from a folder or chosen files.": "A bejövő számlák egy mappából vagy kiválasztott fájlokból.",
   "A mailbox's emails downloaded and read with their attachments, the invoices among them.": "Egy postafiók leveleinek letöltése és beolvasása a csatolmányokkal, köztük a számlákkal.",
-  "Both": "Mindkettőből",
+  "From both": "Mindkettőből",
   "Invoices from a folder or files and from a mailbox's emails.": "Számlák mappából vagy fájlokból és egy postafiók leveleiből.",
   "Download only": "Csak letöltés",
   "The emails downloaded and read; nothing is routed.": "A levelek letöltése és beolvasása; becsatornázás nincs.",
@@ -5466,5 +5466,6 @@
   "Invented business property product": "Kitalált vállalkozói vagyonbiztosítás",
   "The invented example product, its tariff, registers and limit.": "A kitalált mintatermék a díjtáblájával, nyilvántartásaival és határértékével.",
   "Allianz corporate property": "Allianz vállalati vagyonbiztosítás",
-  "The Allianz corporate property product (example rates): a large risk's premium is decided by a second person, by the sum insured.": "Az Allianz vállalati vagyonbiztosítási terméke (példa díjtételekkel): nagy kockázat díjáról a biztosítási összeg szerint második személy dönt."
+  "The Allianz corporate property product (example rates): a large risk's premium is decided by a second person, by the sum insured.": "Az Allianz vállalati vagyonbiztosítási terméke (példa díjtételekkel): nagy kockázat díjáról a biztosítási összeg szerint második személy dönt.",
+  "From a mailbox": "Postafiókból"
 }

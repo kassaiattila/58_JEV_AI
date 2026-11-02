@@ -7,7 +7,7 @@
 // 2026-11-02): the processes stand in their groups, and a process that asks choices when a case starts (the invoices'
 // source, the routing, the product) shows them first: the example material and the form follow the options picked.
 import { useState } from "react";
-import { api, pickedOptions, type ProcessRow } from "../api";
+import { api, inGroupOrder, pickedOptions, type ProcessRow } from "../api";
 import { ExampleMaterial } from "../elements/ExampleMaterial";
 import { ChoiceFields, ProcessCreate } from "../elements/ProcessStart";
 import { PageHeader } from "../components/PageHeader";
@@ -34,8 +34,8 @@ export function NewCase({ pack, after }: { pack?: string; after?: string }) {
   const materialChanged = () => { processes.reload(); setMaterial((n) => n + 1); };
   // 277 (O3): the groups in their order, each with its processes the search leaves; a process of no group last
   const groups = [...(processes.data?.groups ?? []), { id: "", title: "Other" }]
-    .map((g) => ({ ...g, processes: shownProcesses.filter((p) => (p.group ?? "") === g.id) }))
-    .filter((g) => g.processes.length);
+    .map((g) => ({ ...g, shown: inGroupOrder(shownProcesses.filter((p) => (p.group ?? "") === g.id), (p) => p.id, g) }))
+    .filter((g) => g.shown.length);
   const choice = (p: ProcessRow) => (
     <label key={p.id} className="wizard-choice">
       <input type="radio" name="new-case-process" checked={p.id === chosen?.id} aria-label={t(p.title)}
@@ -65,7 +65,7 @@ export function NewCase({ pack, after }: { pack?: string; after?: string }) {
             {groups.map((g) => (
               <fieldset key={g.id || "other"} className="wizard-choices compact new-case-group">
                 <legend>{t(g.title)}</legend>
-                {g.processes.map(choice)}
+                {g.shown.map(choice)}
               </fieldset>
             ))}
             {!shownProcesses.length ? <p className="muted small">{t("No process matches the search.")}</p> : null}

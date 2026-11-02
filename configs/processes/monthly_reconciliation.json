@@ -60,7 +60,7 @@
       "options": [
         {
           "id": "folder",
-          "title": "A folder or files",
+          "title": "From a folder or files",
           "summary": "The incoming invoices from a folder or chosen files.",
           "leaves_out": [
             "emails"
@@ -68,7 +68,7 @@
         },
         {
           "id": "mailbox",
-          "title": "A mailbox",
+          "title": "From a mailbox",
           "summary": "A mailbox's emails downloaded and read with their attachments, the invoices among them.",
           "leaves_out": [
             "invoices"
@@ -76,7 +76,7 @@
         },
         {
           "id": "both",
-          "title": "Both",
+          "title": "From both",
           "summary": "Invoices from a folder or files and from a mailbox's emails."
         }
       ]
