@@ -7,10 +7,11 @@
 // only a step's document batch shows the batch's stages (`EmbeddedBatch`). A sub-case and a batch of a case have no
 // page of their own any more: their addresses lead here. The page's main action stands at the right end of the title
 // row: the next step where it is done, when that is not the part shown (there, the part's own solid button is it).
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useState, type CSSProperties, type ReactNode } from "react";
 import { api, type CaseElement, type CaseView, type PackageWorkView, type SubCaseData } from "../api";
 import { PageActions, PageActionsSlot } from "../components/PageActions";
 import { PageHeader } from "../components/PageHeader";
+import { TrackLead, type Lead } from "../components/TrackLead";
 import { ActionButtons } from "../elements/ActionsElement";
 import { subCaseStatus } from "../elements/caseStatus";
 import { PackageWorkNote } from "../elements/PackageWork";
@@ -92,21 +93,24 @@ function stepLine(view: CaseView, e: CaseElement): string {
 }
 
 /** 263 (E2): a track - its items left to right, numbered when they are steps, the next one ringed - and its log apart
- *  at the right end. `sub`: a step's track under the case's, quieter. */
-function TrackBar({ label, items, shown, next, href, line, log, logShown, sub }: {
+ *  at the right end. `sub`: a step's track under the case's, quieter; 277 (O4): led by that step (`lead`), its items
+ *  unnumbered. */
+function TrackBar({ label, items, shown, next, href, line, log, logShown, sub, lead }: {
   label: string; items: TrackItem[]; shown: string | null; next: string | null; href: (id: string) => string;
-  line: (x: TrackItem) => string; log: TrackItem | null; logShown: boolean; sub?: boolean;
+  line: (x: TrackItem) => string; log: TrackItem | null; logShown: boolean; sub?: boolean; lead?: Lead;
 }) {
+  const leadId = useId();
   return (
-    <div className="track-row">
+    <div className={`track-row${sub ? " is-sub" : ""}`}>
+      {lead ? <TrackLead id={leadId} lead={lead} /> : null}
       <div className={`stage-tabs ${sub ? "sub-track" : "case-track"}`} role="tablist" aria-label={label}
-        style={{ "--tabs": items.length } as CSSProperties}>
+        aria-describedby={lead ? leadId : undefined} style={{ "--tabs": items.length } as CSSProperties}>
         {items.map((x) => {
           const text = line(x);
           return (
             <a key={`${x.kind}-${x.id}`} role="tab" aria-selected={shown === x.id} className={`stage-tab ${next === x.id ? "is-next" : ""}`}
               href={href(x.id)}>
-              {x.n !== undefined ? <span className="stage-no" aria-hidden="true">{x.n}</span> : null}
+              {x.n !== undefined && !sub ? <span className="stage-no" aria-hidden="true">{x.n}</span> : null}
               <span className="stage-text"><strong>{t(x.label)}</strong><span className="small" title={text || undefined}>{text}</span></span>
             </a>
           );
@@ -286,12 +290,13 @@ function StepWork({ main, item, sub, of, batch, otherwise, onChanged }: {
     </>
   );
   const lone = items.length === 1 ? batchOf(items[0].elements) : null;
+  const lead: Lead = { n: item.n, label: item.label };  // 277 (O4): the step whose work this is, as the case's track shows it
   if (lone) {
     batchOfCase(lone, subId);
     return (
       <>
         {head}
-        <EmbeddedBatch wpId={lone} route={batch?.route ?? { view: "workpackages", wpId: lone }} onChanged={changed} level="sub"
+        <EmbeddedBatch wpId={lone} route={batch?.route ?? { view: "workpackages", wpId: lone }} onChanged={changed} level="sub" lead={lead}
           otherwise={otherwise} note={<PackageWorkNote data={items[0].elements[0].data as PackageWorkView | null} />}
           side={log ? <LogLink href={href(log.id)} shown={logShown} line={statusOf(log)} /> : null}
           body={logShown && log ? <Blocks view={view} elements={log.elements} props={props} /> : undefined} />
@@ -311,9 +316,10 @@ function StepWork({ main, item, sub, of, batch, otherwise, onChanged }: {
     <>
       {head}
       <TrackBar label={t("The step's parts")} items={items} shown={shown?.id ?? null} next={own} href={href} line={statusOf}
-        log={log} logShown={logShown} sub />
+        log={log} logShown={logShown} sub lead={lead} />
       {shownBatch ? (
         <EmbeddedBatch wpId={shownBatch} route={batch?.route ?? { view: "workpackages", wpId: shownBatch }} onChanged={changed} level="sub"
+          lead={{ label: shown!.label }}
           otherwise={nextButton} note={<PackageWorkNote data={shown!.elements[0].data as PackageWorkView | null} />} />
       ) : (
         <>
@@ -414,7 +420,7 @@ export function CasePage({ caseId, tab, sub, of, batch }: { caseId: string; tab?
           // a tab that is only a step's batch, or the batch of a step shown among other elements (its tab's), or a batch
           // the case's track does not name (an earlier sub-case's): its stages
           <EmbeddedBatch wpId={shownBatch ?? batch!.wpId} route={batch?.route ?? { view: "workpackages", wpId: shownBatch! }}
-            onChanged={changed} level="sub" otherwise={nextButton}
+            onChanged={changed} level="sub" otherwise={nextButton} lead={shown ? { n: shown.n, label: shown.label } : undefined}
             note={shown && batchOf(shown.elements) ? <PackageWorkNote data={shown.elements[0].data as PackageWorkView | null} /> : null} />
         ) : (
           <>

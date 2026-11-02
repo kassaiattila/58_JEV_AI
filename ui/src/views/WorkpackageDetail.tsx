@@ -4,10 +4,11 @@
 // service (the list column shows the same). 263 (plan E, E2; the owner's decisions of 2026-10-30: one case, one track):
 // a case's step's batch opens on its case's page, under the step (`CasePage` with the batch embedded); the stages are a
 // shared part (`BatchStages`), and a batch of no case keeps its own page.
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { api, ApiError, USERS_EVENT, type WorkpackageView } from "../api";
 import { lazyPage } from "../components/LazyPage";
 import { PageHeader } from "../components/PageHeader";
+import { TrackLead, type Lead } from "../components/TrackLead";
 import { Picker } from "../components/Picker";
 import { useEvent, useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -163,12 +164,14 @@ export function WorkpackageDetail({ route, wpId }: { route: Extract<Route, { vie
  *  step, done elsewhere) the page's. `extra` stands at the bar's right end (the
  *  batch's management and the step's log, under a case); `note` above the Processing stage's work (what the case's step
  *  says of the batch's run: the cost cap a person approved); `body` in place of a stage's work, with no stage chosen
- *  (the step's log). `level`: "sub" under a case's track, quieter; "main" when the stages are the page's track. */
-export function BatchStages({ view, route, onChanged, extra, otherwise, note, body, level = "main" }: {
+ *  (the step's log). `level`: "sub" under a case's track, quieter; "main" when the stages are the page's track. 277
+ *  (O4): under a case's track the stages are unnumbered and led by the part above they belong to (`lead`). */
+export function BatchStages({ view, route, onChanged, extra, otherwise, note, body, level = "main", lead }: {
   view: WorkpackageView; route: Extract<Route, { view: "workpackages" }>; onChanged: () => void; extra?: ReactNode;
-  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level?: "main" | "sub";
+  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level?: "main" | "sub"; lead?: Lead;
 }) {
   useLocale();
+  const leadId = useId();
   const { workpackage, next } = view;
   const wpId = workpackage.id;
   const stage: Stage | null = body !== undefined ? null : route.stage ?? next.stage;
@@ -185,11 +188,13 @@ export function BatchStages({ view, route, onChanged, extra, otherwise, note, bo
       {workpackage.status === "archived" ? (
         <p className="notice">{t("This batch is hidden from the list; its runs and results are kept. Use “Manage batch” to bring it back.")}</p>
       ) : null}
-      <div className="track-row">
-        <div className={`stage-tabs ${level === "sub" ? "sub-track" : "case-track"}`} role="tablist" aria-label={t("Document batch stages")}>
+      <div className={`track-row${level === "sub" ? " is-sub" : ""}`}>
+        {lead && level === "sub" ? <TrackLead id={leadId} lead={lead} /> : null}
+        <div className={`stage-tabs ${level === "sub" ? "sub-track" : "case-track"}`} role="tablist" aria-label={t("Document batch stages")}
+          aria-describedby={lead && level === "sub" ? leadId : undefined}>
           {(Object.keys(labels) as Stage[]).map((s, i) => (
             <a key={s} role="tab" aria-selected={stage === s} className={`stage-tab ${next.stage === s ? "is-next" : ""}`} href={wpHash(wpId, s)}>
-              <span className="stage-no" aria-hidden="true">{i + 1}</span>
+              {level === "sub" ? null : <span className="stage-no" aria-hidden="true">{i + 1}</span>}
               <span className="stage-text"><strong>{labels[s]}</strong><span className="small">{status[s]}</span></span>
             </a>
           ))}
@@ -235,9 +240,9 @@ export function BatchStages({ view, route, onChanged, extra, otherwise, note, bo
 /** 263 (E2): a case's step's batch on its case's page: its stages (`BatchStages`), its management at the bar's right
  *  end, asking again while it runs; a person's action on it tells the case's page too. 263 (F1): `manage` false - a
  *  case that is only its batch has one menu, the case's. */
-export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, body, level, manage = true }: {
+export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, body, level, manage = true, lead }: {
   wpId: string; route: Extract<Route, { view: "workpackages" }>; onChanged: () => void; side?: ReactNode;
-  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level: "main" | "sub"; manage?: boolean;
+  otherwise?: ReactNode; note?: ReactNode; body?: ReactNode; level: "main" | "sub"; manage?: boolean; lead?: Lead;
 }) {
   useLocale();
   const [poll, setPoll] = useState(false);
@@ -249,6 +254,6 @@ export function EmbeddedBatch({ wpId, route, onChanged, side, otherwise, note, b
   const changed = () => { wp.reload(); onChanged(); };
   return (
     <BatchStages view={wp.data} route={route} onChanged={changed} otherwise={otherwise} note={note} body={body} level={level}
-      extra={<div className="track-side">{side}{manage ? <WorkpackageActions view={wp.data} onChanged={changed} /> : null}</div>} />
+      lead={lead} extra={<div className="track-side">{side}{manage ? <WorkpackageActions view={wp.data} onChanged={changed} /> : null}</div>} />
   );
 }

@@ -97,8 +97,12 @@ describe("one case, one track (263 E2)", () => {
     const steps = await screen.findByRole("tablist", { name: "The case's steps" });
     expect(within(steps).getByRole("tab", { name: /Reconciliation/ }).getAttribute("aria-selected")).toBe("true");
     const parts = await screen.findByRole("tablist", { name: "The step's parts" });
+    // 277 (O4; the owner's decision of 2026-11-02): the step's parts carry no numbers of their own; their row starts
+    // with the step it belongs to, its number and name as on the case's track
     expect(within(parts).getAllByRole("tab").map((a) => [a.textContent, a.getAttribute("href")])).toEqual([
-      ["1Lines", `#/cases/${MAIN}/reconcile/lines`], ["2Pairing", `#/cases/${MAIN}/reconcile/pairing`]]);
+      ["Lines", `#/cases/${MAIN}/reconcile/lines`], ["Pairing", `#/cases/${MAIN}/reconcile/pairing`]]);
+    const lead = document.getElementById(parts.getAttribute("aria-describedby")!)!;
+    expect(lead.textContent).toBe(within(steps).getByRole("tab", { name: /Reconciliation/ }).querySelector(".stage-no")!.textContent + "Reconciliation");
     expect(within(parts).getByRole("tab", { name: "Lines" }).getAttribute("aria-selected")).toBe("true");
     const head = screen.getByRole("heading", { level: 1, name: "Invented March" }).closest("header")!;
     fireEvent.click(await within(head).findByRole("button", { name: "Pair the lines →" }));
@@ -139,6 +143,9 @@ describe("one case, one track (263 E2)", () => {
     render(<CasePage caseId={MAIN} tab="statements" />);
     const stages = await screen.findByRole("tablist", { name: "Document batch stages" });
     expect(within(stages).getByRole("tab", { name: /Processing/ }).getAttribute("aria-selected")).toBe("true");
+    // 277 (O4): a step's batch under the case's track: its stages unnumbered, led by the step's number and name
+    expect(within(stages).getAllByRole("tab").map((a) => a.querySelector(".stage-no"))).toEqual([null, null, null]);
+    expect(document.getElementById(stages.getAttribute("aria-describedby")!)!.textContent).toMatch(/^\d+Bank statements$/);
     const head = screen.getByRole("heading", { level: 1, name: "Invented March" }).closest("header")!;
     expect(within(head).queryByRole("button", { name: /→$/ })).toBeNull();
   });
@@ -161,6 +168,9 @@ describe("one case, one track (263 E2)", () => {
     const stages = await screen.findByRole("tablist", { name: "Document batch stages" });
     expect(screen.queryByRole("tablist", { name: "The case's steps" })).toBeNull();
     expect(within(stages).getByRole("tab", { name: /Processing/ }).getAttribute("aria-selected")).toBe("true");
+    // 277 (O4): the stages as the case's own track keep their numbers and have no row above them to name
+    expect(within(stages).getAllByRole("tab").map((a) => a.querySelector(".stage-no")?.textContent)).toEqual(["1", "2", "3"]);
+    expect(stages.getAttribute("aria-describedby")).toBeNull();
     // the cost cap a person approved for the run, above the processing
     expect(screen.getByText(/Started by itself within the cap Synthetic Owner approved/)).toBeTruthy();
     // the batch's own next step is the title row's main action
