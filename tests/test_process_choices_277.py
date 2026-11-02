@@ -237,3 +237,42 @@ def test_a_resource_an_option_sets_is_the_cases_choice_not_the_processs_own_valu
         assert process_settings.effective_resources(process_packs.chosen(pack, {}))["letter_frame"] == "own_frame"
     assert process_packs.chosen(pack, {"frame": "other"}).fixed == ("letter_frame",)
     assert pack.option_resources() == {"letter_frame"}
+
+
+# --- 277 (O3c): a sub-case reads the batch a step of its own case keeps ------------------------------------------
+
+
+def _routed_mailbox() -> dict:
+    """The mailbox download with its routing as a step of its own case (the shape of the merged mailbox process)."""
+    data = copy.deepcopy(cfg.load("process:mailbox"))
+    data["steps"].append({"id": "routing", "uses": "run_case@1", "title": "Routing", "after": ["process"],
+                          "params": {"pack": "mail_routing", "sources_from": ["process"]}})
+    data["screens"]["tabs"].insert(1, {"id": "routing", "label": "Routing",
+                                       "elements": [{"type": "sub_case", "step": "routing"}]})
+    data["choices"] = [{"id": "routing", "title": "Routing", "default": "download_only", "options": [
+        {"id": "download_only", "title": "Download only", "leaves_out": ["routing"]},
+        {"id": "route", "title": "Download and route"}]}]
+    return data
+
+
+def test_a_sub_case_may_read_the_batch_its_own_cases_step_keeps() -> None:
+    assert _problems(_routed_mailbox()) == []
+    data = _routed_mailbox()
+    data["steps"][1]["params"]["sources_from"] = ["nowhere"]
+    assert any("sources_from names 'nowhere', which is no step that runs a case or keeps a batch" in p for p in _problems(data))
+    # the default leaves the routing out: the mailbox download as it was
+    assert [s.id for s in process_packs.chosen(_pack(_routed_mailbox()), {}).steps] == ["process"]
+
+
+def test_the_batch_of_a_step_of_the_case_itself_is_read_as_a_sub_cases_batches(monkeypatch) -> None:
+    from jav.app import document_processing, sub_cases
+
+    class Ctx:
+        case_id = "wp-case"
+
+        def result_of(self, step_id):
+            return ("done", {"case_id": "wp-sub"} if step_id == "emails" else {})
+
+    monkeypatch.setattr(document_processing, "case_packages", lambda case: ["wp-a", "wp-b"] if case == "wp-sub" else [])
+    monkeypatch.setattr(document_processing, "package_of", lambda case, step: "wp-own" if (case, step) == ("wp-case", "process") else None)
+    assert sub_cases._batches(Ctx(), ("emails", "process", "ghost")) == ["wp-a", "wp-b", "wp-own"]
