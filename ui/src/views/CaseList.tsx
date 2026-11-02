@@ -58,6 +58,7 @@ export function CaseList({ shown, process }: { shown?: CaseListView; process?: s
   const actor = useActor();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   const [open, setOpen] = useState<Set<string>>(() => new Set(["by-process"]));
+  const [shut, setShut] = useState<Set<string>>(() => new Set());  // 277 (O3): the groups a person closed (open by default)
   const counts = useLoad(`case-views:${actor}`, () => api.caseViews(actor || undefined), 30000);
   const toCheck = useLoad("handovers:count", () => api.datasetQuery("handovers", {}, { limit: 1 }), 30000);
   const view: CaseListView = shown ?? "open";
@@ -67,21 +68,29 @@ export function CaseList({ shown, process }: { shown?: CaseListView; process?: s
     ...(Object.keys(VIEW_LABEL) as CaseListView[]).map((k) => ({
       key: k, label: t(VIEW_LABEL[k]), href: routeHash({ view: "case-list", ...(k === "open" ? {} : { shown: k }) }), count: v ? v[k] : null,
     })),
-    { key: "by-process", label: t("By process"), children: (counts.data?.processes ?? []).map((p) => ({
-      key: `p:${p.pack}`, label: t(p.title), href: routeHash({ view: "case-list", process: p.pack }), count: p.open })) },
+    // 277 (O3; the owner's decision of 2026-11-02): the processes under their groups, in the groups' order; a process
+    // of no group (one an older service names) after them
+    { key: "by-process", label: t("By process"), children: [...(counts.data?.groups ?? []), { id: "", title: "Other" }]
+      .map((g) => ({ g, ps: (counts.data?.processes ?? []).filter((p) => (p.group ?? "") === g.id) }))
+      .filter(({ ps }) => ps.length)
+      .map(({ g, ps }) => ({ key: `g:${g.id || "other"}`, label: t(g.title), count: ps.reduce((n, p) => n + p.open, 0),
+        children: ps.map((p) => ({ key: `p:${p.pack}`, label: t(p.title), href: routeHash({ view: "case-list", process: p.pack }), count: p.open })) })) },
   ];
+  const groupKeys = (nodes[nodes.length - 1].children ?? []).map((n) => n.key);
+  const opened = new Set([...open, ...groupKeys.filter((k) => !shut.has(k))]);
   const selected = process ? `p:${process}` : view;
   const title = process ? (proc ? t(proc.title) : process) : t(VIEW_LABEL[view]);
   const scope: DsScope = process ? { pack: process, include_closed: "1" } : { view, ...(actor ? { actor } : {}) };
-  const toggle = (key: string) => setOpen((prev) => {
+  const flip = (prev: Set<string>, key: string) => {
     const next = new Set(prev);
     if (next.has(key)) next.delete(key); else next.add(key);
     return next;
-  });
+  };
+  const toggle = (key: string) => (key.startsWith("g:") ? setShut((prev) => flip(prev, key)) : setOpen((prev) => flip(prev, key)));
   return (
     <div className="settings-layout case-list-layout">
       <SidePanel id="cases" label={t("Views")}>
-        <Navigator nodes={nodes} selected={selected} open={open} onToggle={toggle} label={t("Views")} />
+        <Navigator nodes={nodes} selected={selected} open={opened} onToggle={toggle} label={t("Views")} />
       </SidePanel>
       <div className="settings-page">
         <PageHeader compact crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={title} actionsSlot={setSlot}

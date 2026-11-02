@@ -26,7 +26,27 @@ export interface ProcessRow {
   /** 231 (U0): whether a person may start a case by hand, what the process is for, what a case of it cannot start
    *  without now (a resource it needs at its start with no active version), and whether it has example material */
   manual?: boolean; summary?: string | null; missing_at_start?: { key: string; label: string }[]; examples?: boolean;
+  /** 277 (O3): the choices a case starts with (its options leave steps out, set resources, bring their own example
+   *  material), and the group the process stands in */
+  choices?: ProcessChoice[]; group?: string | null;
 }
+/** 277 (O3): an option of a choice a case starts with: the steps it leaves out, whether it has example material, and
+ *  what a case of it cannot start without now. */
+export interface ProcessOption {
+  id: string; title: string; summary?: string | null; leaves_out: string[]; examples: boolean;
+  missing_at_start: { key: string; label: string }[];
+}
+export interface ProcessChoice { id: string; title: string; default: string; options: ProcessOption[] }
+/** 277 (O3): a group of the case types, in the order the lists show them. */
+export interface ProcessGroup { id: string; title: string }
+/** 277 (O3): the options a case starts with (each choice not named at its default) as the address's `choice=` list. */
+export const choiceQuery = (choices?: Record<string, string>) => {
+  const named = Object.entries(choices ?? {}).map(([c, o]) => `choice=${enc(`${c}:${o}`)}`);
+  return named.length ? `?${named.join("&")}` : "";
+};
+/** 277 (O3): the picked option of each choice, each one not picked at its default. */
+export const pickedOptions = (choices: ProcessChoice[] | undefined, picks: Record<string, string>) =>
+  (choices ?? []).map((c) => c.options.find((o) => o.id === (picks[c.id] ?? c.default)) ?? c.options[0]);
 /** 231 (U2c): a step of a multi-step process whose sub-case takes its own documents. */
 export interface StepSource {
   step: string; title: string; pack: string; process: string; source_kinds: string[]; examples: boolean;
@@ -63,6 +83,8 @@ export interface ResourceSetting {
   derived_from?: string | null;
   /** 263 (E1): the readable name of each value it shows (a draft's or a retired thing's too), by its code */
   names?: Record<string, string>;
+  /** 277 (O3): set by a case's choice when it starts (read only here): each option's value */
+  chosen_at_start?: { choice: string; option: string; title: string; value: string }[];
 }
 export interface RuleSetting {
   key: string; file: string; path: string; what: string; kind: "int" | "choice"; least: number | null; most: number | null;
@@ -133,7 +155,7 @@ const defaultBase = (id: string) => `/defaults/${enc(id)}`;
 const base = (pack: string, kind: SettingKind, key: string) => `/processes/${enc(pack)}/${kind}/${enc(key)}`;
 
 export const processesApi = {
-  processes: () => request<{ processes: ProcessRow[] }>("GET", "/processes"),
+  processes: () => request<{ processes: ProcessRow[]; groups?: ProcessGroup[] }>("GET", "/processes"),
   /** 261: each step's estimate for the start form's caps (nothing is written) */
   processEstimate: (pack: string, body: { party_id?: string; period_start?: string; period_end?: string;
     step_sources: Record<string, CaseSource> }) =>
@@ -151,11 +173,15 @@ export const processesApi = {
   previewRule: (pack: string, key: string, value: string | number) =>
     request<RulePreview>("POST", `${base(pack, "rules", key)}/preview`, { value }),
   /** 231 (U0): the example material, its installation and removal, and a packet's documents written as files */
-  processExamples: (pack: string) => request<ProcessExamples>("GET", `/processes/${enc(pack)}/examples`),
-  installExamples: (pack: string) => request<ProcessExamples>("POST", `/processes/${enc(pack)}/examples/install`, {}),
-  removeExamples: (pack: string) => request<ProcessExamples>("POST", `/processes/${enc(pack)}/examples/remove`, {}),
-  examplePacketFiles: (pack: string, packet: string) =>
-    request<{ files: string[] }>("POST", `/processes/${enc(pack)}/examples/packets/${enc(packet)}/files`, {}),
+  // 277 (O3): of the options `choices` names (an option may bring its own material)
+  processExamples: (pack: string, choices?: Record<string, string>) =>
+    request<ProcessExamples>("GET", `/processes/${enc(pack)}/examples${choiceQuery(choices)}`),
+  installExamples: (pack: string, choices?: Record<string, string>) =>
+    request<ProcessExamples>("POST", `/processes/${enc(pack)}/examples/install${choiceQuery(choices)}`, {}),
+  removeExamples: (pack: string, choices?: Record<string, string>) =>
+    request<ProcessExamples>("POST", `/processes/${enc(pack)}/examples/remove${choiceQuery(choices)}`, {}),
+  examplePacketFiles: (pack: string, packet: string, choices?: Record<string, string>) =>
+    request<{ files: string[] }>("POST", `/processes/${enc(pack)}/examples/packets/${enc(packet)}/files${choiceQuery(choices)}`, {}),
   usedBy: (kind: LibraryKind) => request<{ used_by: UsedByMap }>("GET", `/library/used-by/${enc(kind)}`),
   letterFrames: () => request<LetterFrames>("GET", "/library/letter-frames"),
   proposeLetterFrame: (kind: string, ident: string, values: Record<string, string | string[]>, note: string | null) =>

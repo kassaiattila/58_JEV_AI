@@ -3,8 +3,8 @@
 // choose) and from such a package's own page (the processes that take it, with the cases already reading it). Until
 // C1c the email routing's own form and offer.
 import { useEffect, useState, type ReactNode } from "react";
-import { api, ApiError, type CaseNextDraft, type CaseSource, type PackageOffer, type ProcessRecord, type StepEstimate,
-  type StepSource } from "../api";
+import { api, ApiError, pickedOptions, type CaseNextDraft, type CaseSource, type PackageOffer, type ProcessRecord,
+  type ProcessRow, type StepEstimate, type StepSource } from "../api";
 import { BrowseButton } from "../components/BrowseButton";
 import { FormActions } from "../components/FormActions";
 import { Icon } from "../components/Icon";
@@ -36,9 +36,9 @@ const choiceReady = (c: SourceChoice, kinds: string[]) => (domainChooser(kinds) 
 
 /** The source as the service takes it; (U0) an example packet's documents are written as files first, and the case
  *  starts on those files. */
-async function sourceOf(c: SourceChoice, kinds: string[], pack: string): Promise<CaseSource | null> {
+async function sourceOf(c: SourceChoice, kinds: string[], pack: string, choices?: Record<string, string>): Promise<CaseSource | null> {
   if (domainChooser(kinds)) return c.domain;
-  if (c.kind === "example") return { kind: "files", files: (await api.examplePacketFiles(pack, c.packet)).files };
+  if (c.kind === "example") return { kind: "files", files: (await api.examplePacketFiles(pack, c.packet, ...(choices ? [choices] : []))).files };
   const onlyNew = c.onlyNew ? { only_new: true } : {};  // 261
   return c.kind === "folder" ? { kind: "folder", folder: c.folder.trim(), recursive: c.recursive, ...onlyNew }
     : { kind: "files", files: linesOf(c.files), ...onlyNew };
@@ -82,19 +82,54 @@ function useStepEstimates(pack: string, sources: Record<string, CaseSource>, par
  *  reads; 231 C2d: its own party and period; the other parts take their default, e.g. the party's accounts) and its
  *  name; (U2c) for a process whose steps run cases of other processes, each such step's own documents. 261: `after`, the
  *  case whose next period it starts: the form is filled in from it (the service's draft) and the new case follows it. */
-export function ProcessCreate({ pack, onDone, after, onCancel }: {
+export function ProcessCreate({ pack, onDone, after, onCancel, choices }: {
   pack: string; onDone: (wpId: string) => void; after?: string; onCancel?: () => void;
+  /** 277 (O3): the options the case starts with (the page's choice fields), each choice not named at its default */
+  choices?: Record<string, string>;
 }) {
   useLocale();
   const draft = useLoad(after ? `case-next:${after}` : null, () => api.caseNext(after ?? ""));
-  if (!after) return <ProcessForm pack={pack} onDone={onDone} onCancel={onCancel} />;
+  if (!after) return <ProcessForm pack={pack} onDone={onDone} onCancel={onCancel} choices={choices} />;
   if (draft.error) return <p className="notice error" role="alert">{draft.error.message}</p>;
   if (!draft.data) return <p className="muted">{t("Loading…")}</p>;
-  return <ProcessForm pack={pack} onDone={onDone} onCancel={onCancel} draft={draft.data} />;
+  return <ProcessForm pack={pack} onDone={onDone} onCancel={onCancel} draft={draft.data} choices={choices ?? draft.data.choices} />;
 }
 
-function ProcessForm({ pack, onDone, onCancel, draft }: {
-  pack: string; onDone: (wpId: string) => void; onCancel?: () => void; draft?: CaseNextDraft;
+/** 277 (O3; the owner's decision of 2026-11-02: one case type in place of several alike): the choices a case of the
+ *  process starts with, each as its options side by side with what each means; an option a case cannot start on yet
+ *  says what it needs. */
+export function ChoiceFields({ info, picks, onChange }: {
+  info: ProcessRow; picks: Record<string, string>; onChange: (picks: Record<string, string>) => void;
+}) {
+  useLocale();
+  if (!info.choices?.length) return null;
+  return (
+    <>
+      {info.choices.map((c) => (
+        <fieldset key={c.id} className="wizard-choices compact case-choice">
+          <legend>{t(c.title)}</legend>
+          {c.options.map((o) => (
+            <label key={o.id} className="wizard-choice">
+              <input type="radio" name={`case-choice-${c.id}`} checked={(picks[c.id] ?? c.default) === o.id} aria-label={t(o.title)}
+                onChange={() => onChange({ ...picks, [c.id]: o.id })} />
+              <span>
+                <strong>{t(o.title)}</strong>
+                {o.summary ? <span className="small muted">{t(o.summary)}</span> : null}
+                {o.missing_at_start.length ? (
+                  <span className="todo-text small">{t("Before a case can start: {{what}} needs an active version.",
+                    { what: o.missing_at_start.map((m) => t(m.label)).join(", ") })}</span>
+                ) : null}
+              </span>
+            </label>
+          ))}
+        </fieldset>
+      ))}
+    </>
+  );
+}
+
+function ProcessForm({ pack, onDone, onCancel, draft, choices }: {
+  pack: string; onDone: (wpId: string) => void; onCancel?: () => void; draft?: CaseNextDraft; choices?: Record<string, string>;
 }) {
   useLocale();
   const packs = useLoad("processes", api.processes);
@@ -115,12 +150,17 @@ function ProcessForm({ pack, onDone, onCancel, draft }: {
     () => Object.fromEntries(Object.entries(draft?.step_budgets ?? {}).map(([step, caps]) => [step, { on: true, caps }])));
   const { busy, error, run } = useAction();
   const info = packs.data?.processes.find((p) => p.id === pack);
-  const stepList = (info?.asks ?? info?.scope ?? []).includes("step_sources") ? info?.step_sources ?? [] : [];
+  // 277 (O3): the steps the chosen options leave out ask for no documents; the case starts with the options
+  const leftOut = new Set(pickedOptions(info?.choices, choices ?? {}).flatMap((o) => o.leaves_out));
+  const picked = info?.choices?.length ? Object.fromEntries(info.choices.map((c) => [c.id, choices?.[c.id] ?? c.default])) : undefined;
+  const stepList = ((info?.asks ?? info?.scope ?? []).includes("step_sources") ? info?.step_sources ?? [] : [])
+    .filter((x) => !leftOut.has(x.step));
   const estimates = useStepEstimates(pack, Object.fromEntries(stepList.flatMap((x) => {
     const given = estimateSourceOf(stepChoices[x.step] ?? NO_SOURCE, x.source_kinds);
     return given ? [[x.step, given]] : [];
   })), partyId, start, end);
-  const examples = useLoad(info?.examples ? `examples:${pack}` : null, () => api.processExamples(pack));  // 231 (U0)
+  const examples = useLoad(info?.examples ? `examples:${pack}:${JSON.stringify(picked ?? {})}` : null,
+    () => api.processExamples(pack, ...(picked ? [picked] : [])));  // 231 (U0); 277: the chosen option's
   const packets = examples.data?.packets ?? [];
   if (packs.error) return <p className="notice error" role="alert">{packs.error.message}</p>;
   if (!info) return <p className="muted">{t("Loading…")}</p>;
@@ -131,7 +171,7 @@ function ProcessForm({ pack, onDone, onCancel, draft }: {
   const wantsPeriod = asks.includes("period");
   const wantsSource = asks.includes("source");
   const wantsRecord = asks.includes("record");
-  const steps = asks.includes("step_sources") ? info.step_sources ?? [] : [];
+  const steps = stepList;
   const kinds = info.source_kinds ?? ["folder", "files"];
   const packetTitle = packets.find((x) => x.id === choice.packet)?.title;
   const candidates = (list.data?.workpackages ?? []).filter((w) => (info.package_kinds ?? []).includes(w.source_kind));
@@ -158,7 +198,7 @@ function ProcessForm({ pack, onDone, onCancel, draft }: {
     return [title, partyName, wantsPeriod ? `${start} – ${end}` : "", where].filter(Boolean).join(" · ");
   };
   const submit = () => run(async () => {
-    const documents = wantsSource ? await sourceOf(choice, kinds, pack) : null;
+    const documents = wantsSource ? await sourceOf(choice, kinds, pack, picked) : null;
     const bySteps: Record<string, CaseSource> = {};
     for (const x of steps) {
       const given = await sourceOf(stepChoices[x.step] ?? NO_SOURCE, x.source_kinds, x.pack);
@@ -170,7 +210,7 @@ function ProcessForm({ pack, onDone, onCancel, draft }: {
       ...(wantsPeriod ? { period_start: start, period_end: end } : {}), ...(wantsSource && documents ? { source: documents } : {}),
       ...(wantsRecord && record ? { record: { workpackage_id: record.workpackage_id, item_id: record.item_id } } : {}),
       ...(steps.length ? { step_sources: bySteps } : {}), ...(draft ? { follows: draft.follows } : {}),
-      ...(Object.keys(approved).length ? { step_budgets: approved } : {}),
+      ...(Object.keys(approved).length ? { step_budgets: approved } : {}), ...(picked ? { choices: picked } : {}),
     });
   }, { then: (made) => onDone(made.case_id) });
   return (

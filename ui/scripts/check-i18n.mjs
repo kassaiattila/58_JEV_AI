@@ -156,7 +156,14 @@ export function serverKeys() {
     for (const s of pack.steps ?? []) if (s.title) keys.add(s.title);
     if (pack.summary) keys.add(pack.summary);  // 231 (U0): what the process is for, on the new case page
     if (pack.examples?.note) keys.add(pack.examples.note);  // 231 (U1e): how its example material is tried
+    // 277 (O3): the choices a case starts with, their options and what each means, on the new case page
+    for (const c of pack.choices ?? []) {
+      keys.add(c.title);
+      for (const o of c.options ?? []) for (const v of [o.title, o.summary, o.examples?.note]) if (v) keys.add(v);
+    }
   }
+  // 277 (O3): the case types' groups (configs/process_groups.json), on the new case page and in the case list
+  for (const g of JSON.parse(fs.readFileSync(path.join(ROOT, "configs", "process_groups.json"), "utf8")).groups ?? []) keys.add(g.title);
   // 231 (U0): the titles of a process's packets of example documents (configs/examples_*.json)
   for (const f of fs.readdirSync(path.join(ROOT, "configs")).filter((n) => /^examples_.*\.json$/.test(n))) {
     for (const packet of JSON.parse(fs.readFileSync(path.join(ROOT, "configs", f), "utf8")).packets ?? []) if (packet.title) keys.add(packet.title);
