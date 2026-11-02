@@ -15,7 +15,7 @@ from tests import test_api
 env = test_api.env
 
 
-@pytest.mark.parametrize("name", ["type:../service", "../service", "process:../../x", "callsite:..\detect", "C:/x/y"])
+@pytest.mark.parametrize("name", ["type:../service", "../service", "process:../../x", "callsite:..\\detect", "C:/x/y"])
 def test_a_name_that_leaves_the_folder_is_refused(name) -> None:
     with pytest.raises(ValueError, match="not a config name"):
         cfg.path_of(name)

@@ -1,4 +1,4 @@
-"""272 (K4, the rest of TOOL-07): the data guard's pre-filter finds every line the line-by-line scan would report.
+r"""272 (K4, the rest of TOOL-07): the data guard's pre-filter finds every line the line-by-line scan would report.
 
 265 (TOOL-07) made the tracked tree's scan look first for the lines that could hold a finding, searching each file's
 whole text, and claimed no pattern crosses a line break. The key-variable pattern does (`\s*` around `=`), and a
