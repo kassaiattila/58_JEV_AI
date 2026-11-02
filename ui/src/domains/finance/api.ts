@@ -217,7 +217,7 @@ export interface StatementPackageView {
   statements: StatementPackageItem[];
 }
 /** 134: JEV's or GPT's raw answer about a statement line (jav/domains/finance/reconcile_ai.py); a person decides. */
-export type ReconcileAiEngine = "jev" | "gpt";
+export type ReconcileAiEngine = string;  // 275: an engine of configs/engines.json (jev, decisions, gpt)
 export interface ReconcileAiProposal {
   pays: string | null; pays_probability: number | null; options: string[]; kind: string | null; kind_probability: number | null;
   suggested_mark: string | null; expects_invoice: boolean | null; measured: boolean; error: string | null; created_at: string;

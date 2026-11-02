@@ -5428,5 +5428,9 @@
   "Automatic (recommended) — {{judge}} and GPT": "Automatikus (ajánlott) — {{judge}} és GPT",
   "{{judge}} where possible — cheaper, no line items; GPT elsewhere (S)": "{{judge}}, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)",
   "GPT + {{judge}} — with line items (G)": "GPT + {{judge}} — tételsorokkal (G)",
-  "With {{judge}}": "{{judge}} ítéletével"
+  "With {{judge}}": "{{judge}} ítéletével",
+  "AI suggests: {{reason}} (agreeing: {{engines}})": "AI-javaslat: {{reason}} (egyezik: {{engines}})",
+  "Two or more AIs read the same kind of payment, and each judgement service among them is at least {{p}} sure of it. The models agree; that is not a checked fact.": "Legalább két AI ugyanazt a fizetésfajtát olvasta ki, és köztük minden ítélő szolgáltatás legalább {{p}} valószínűséggel biztos benne. A modellek egyetértenek; ez nem ellenőrzött tény.",
+  "Only one AI answered, or a judgement service is less than {{p}} sure: look at the lines before you accept them.": "Csak egy AI válaszolt, vagy egy ítélő szolgáltatás {{p}}-nél kevésbé biztos: elfogadás előtt nézd át a tételeket.",
+  "Asks {{judges}} about the statement lines still to decide and can spend up to {{usd}}": "A még eldöntendő kivonatsorokról kérdezi: {{judges}}, legfeljebb {{usd}} költséggel"
 }

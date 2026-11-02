@@ -10,6 +10,8 @@ import { setLanguage } from "./i18n";
 import { BUDGET_PROVIDERS, ENGINE, engineReason, paramShort, pathChoices, PATH } from "./labels";
 import { EnginePanel } from "./views/settings/EnginePanel";
 import { budgetText } from "./views/workflows/labels";
+import { kinds, suggestMark } from "./domains/finance/reconcile/partners";
+import type { ReconcileLine } from "./domains/finance/api";
 
 const CHOICES: EngineChoice[] = [
   { engine: "jev", label: "JEV and GPT", available: true, reason: null, provider: null, judge_provider: "jev" },
@@ -88,3 +90,18 @@ describe("the processing path", () => {
     expect(paramShort(PATH, "engine:decisions:G")).toBe("GPT + OpenAI Decisions — with line items (G)");
   });
 });
+
+describe("275: the reconciliation reads every engine of the registry", () => {
+  const answer = (mark: string) => ({ kind: "retail", kind_probability: 0.97, suggested_mark: mark, expects_invoice: false });
+  const line = (ai: Record<string, unknown>): ReconcileLine => ({ id: "l1", ai, earlier_marks: [], category_mark: null } as unknown as ReconcileLine);
+
+  it("counts OpenAI Decisions' answer, JEV first and GPT last, and agrees on two or more engines", () => {
+    const three = line({ gpt: answer("private"), decisions: answer("private"), jev: answer("private") });
+    expect(kinds(three).map((k) => k.engine)).toEqual(["jev", "decisions", "gpt"]);
+    expect(suggestMark([three])).toMatchObject({ category: "private", source: "ai_both", engines: ["jev", "decisions", "gpt"] });
+    expect(suggestMark([line({ decisions: answer("private"), gpt: answer("private") })])?.source).toBe("ai_both");
+    expect(suggestMark([line({ jev: answer("private"), gpt: answer("private") })])?.source).toBe("ai_both");  // as before
+    expect(suggestMark([line({ decisions: answer("private") })])).toMatchObject({ source: "ai_one", engines: ["decisions"] });
+  });
+});
+

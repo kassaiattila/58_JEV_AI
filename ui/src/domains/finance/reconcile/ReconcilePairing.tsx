@@ -562,7 +562,11 @@ function suggestionText(s: MarkSuggestion): string {
   const reason = MARK[s.category] ?? s.category;
   if (s.source === "earlier") return t("Earlier for this partner: {{reason}} ({{n}} lines)", { reason, n: s.lines ?? 0 });
   if (s.source === "category") return t("The bank's category suggests: {{reason}}", { reason });
-  if (s.source === "ai_both") return t("AI suggests: {{reason}} (JEV and GPT agree)", { reason });
+  if (s.source === "ai_both") {
+    const names = (s.engines ?? []).map((e) => ENGINE[e] ?? e);
+    return names.join() === "JEV,GPT" ? t("AI suggests: {{reason}} (JEV and GPT agree)", { reason })
+      : t("AI suggests: {{reason}} (agreeing: {{engines}})", { reason, engines: names.join(", ") });  // 275: any engines
+  }
   return t("AI suggests: {{reason}} ({{engine}} only)", { reason, engine: (s.engines ?? []).map((e) => ENGINE[e]).join(", ") });
 }
 

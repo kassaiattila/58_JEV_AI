@@ -5,7 +5,7 @@
 import { api } from "../../api";
 import { useAction } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { usdBudget } from "../../labels";
+import { judgeProvider, providerName, usdBudget } from "../../labels";
 import type { ElementProps } from "../../elements/registry";
 
 /** The element's data: the step's latest run and the cap a run reserves (provider -> USD). */
@@ -20,6 +20,14 @@ export interface ProposalData {
 }
 
 const capOf = (usd: Record<string, string>) => Object.values(usd).reduce((s, v) => s + (Number(v) || 0), 0);
+
+/** 275: whom the button asks, by the judgement service of each engine the step asks (JEV, OpenAI Decisions). */
+function askTitle(engines: string[], cap: number): string {
+  const judges = [...new Set(engines.map((e) => { const j = judgeProvider(e); return j ? providerName(j) : "GPT"; }))];
+  return judges.join() === "JEV" || !judges.length
+    ? t("Asks JEV about the statement lines still to decide and can spend up to {{usd}}", { usd: usdBudget(cap) })
+    : t("Asks {{judges}} about the statement lines still to decide and can spend up to {{usd}}", { judges: judges.join(", "), usd: usdBudget(cap) });
+}
 
 export function PairingProposal({ caseId, element, page, onChanged }: ElementProps) {
   useLocale();
@@ -41,7 +49,7 @@ export function PairingProposal({ caseId, element, page, onChanged }: ElementPro
         <h3>{t("AI pairing proposal")}</h3>
         {step.awaiting_start || retry ? (
           <button type="button" className="secondary" disabled={busy} onClick={() => void (retry ? again() : ask())}
-            title={t("Asks JEV about the statement lines still to decide and can spend up to {{usd}}", { usd: usdBudget(cap) })}>
+            title={askTitle(data.engines, cap)}>
             {retry ? t("Ask the AI again") : t("Ask the AI for proposals")}
             <span className="spend" aria-hidden="true">≤ {usdBudget(cap)}</span>
           </button>
