@@ -38,7 +38,7 @@ import json
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError
 
 from jav.app import capabilities, scopes
 from jav.core import cfg
@@ -46,7 +46,7 @@ from jav.core.process.definition import NAME, ProcessDef, StepDef
 
 __all__ = ["Adopt", "Choice", "Element", "ExampleSet", "Examples", "FollowUp", "Intake", "Option", "PackError", "PartnerLink",
            "ProcessPack", "Replaced", "Step", "Tab", "UnknownPack", "chosen", "definition", "load", "packs", "picked",
-           "variants"]
+           "successor", "variants"]
 
 ELEMENTS = "screen_elements"
 EXAMPLE_DOCUMENTS = "examples_"  # 231 (U0): `configs/examples_<name>.json`, a pack's invented documents
@@ -264,10 +264,22 @@ class ProcessPack(_Model):
     # 277 (O3): the choices a case starts with (`chosen`), and the packs this one took the place of
     choices: tuple[Choice, ...] = ()
     replaces: tuple[Replaced, ...] = ()
+    _fixed: tuple[str, ...] = PrivateAttr(default=())  # 277 (O3): the resources the chosen options set (`chosen`)
 
     @property
     def version(self) -> str:
         return str(self.meta["version"])
+
+    @property
+    def fixed(self) -> tuple[str, ...]:
+        """277 (O3): the resources a narrowed pack's options set: a case's choice, which the process's own values do not
+        go over (`process_settings.effective_resources`); none for a pack as its file has it."""
+        return self._fixed
+
+    def option_resources(self) -> set[str]:
+        """277 (O3): the resources any option of the pack's choices sets (a person sets them by the choice, not as the
+        process's own value)."""
+        return {k for c in self.choices for o in c.options for k in o.resources}
 
 
 def picked(pack: ProcessPack, choices: dict[str, str] | None) -> dict[str, str]:
@@ -321,12 +333,14 @@ def chosen(pack: ProcessPack, choices: dict[str, str] | None = None) -> ProcessP
     tabs = tuple(t.model_copy(update={"elements": kept}) for t in pack.screens.tabs
                  if (kept := tuple(e for e in t.elements if e.step not in left)))
     examples = next((o.examples for o in options if o.examples is not None), pack.examples)
-    return pack.model_copy(update={
+    narrowed = pack.model_copy(update={
         "resources": resources, "steps": steps, "screens": pack.screens.model_copy(update={"tabs": tabs}),
         "examples": examples, "partners": tuple(p for p in pack.partners if p.from_step not in left),
         "wraps": tuple(w for w in pack.wraps if w.step not in left),
         "workflow": pack.workflow if pack.workflow is None or pack.workflow.step not in left else None,
         "choices": ()})
+    narrowed._fixed = tuple(sorted({k for o in options for k in o.resources}))
+    return narrowed
 
 
 def _choice_problems(pack: ProcessPack, known: list[str]) -> list[str]:
@@ -613,6 +627,16 @@ def load(pack_id: str) -> ProcessPack:
 def packs() -> list[ProcessPack]:
     """Every process pack, read and checked."""
     return [load(name.split(":", 1)[1]) for name in cfg.all_names() if name.startswith("process:")]
+
+
+def successor(pack_id: str) -> tuple[str, dict[str, str]] | None:
+    """277 (O3): the pack that took the place of `pack_id` (its `replaces`) and the choices that make a case of it what
+    a case of `pack_id` was; None when none did."""
+    for pack in packs():
+        for old in pack.replaces:
+            if old.pack == pack_id:
+                return pack.id, picked(pack, old.choices)
+    return None
 
 
 def definition(pack: ProcessPack) -> ProcessDef:

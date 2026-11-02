@@ -3742,6 +3742,7 @@
   "It follows from the {{source}}: set the {{source}} instead.": "A(z) {{source}} határozza meg: a(z) {{source}} értékét állítsd be helyette.",
   "From the {{source}}": "A(z) {{source}} szerint",
   "the {{what}} follows from the {{source}}: set the {{source}} instead": "a(z) {{what}} a(z) {{source}} szerint alakul: a(z) {{source}} értékét állítsd be helyette",
+  "the {{what}} is chosen when a case starts": "a(z) {{what}} az ügy indításakor választható",
   "There is nothing to choose yet: make one active on its own Settings page first.": "Még nincs miből választani: előbb tegyél élővé egyet a saját beállítás-oldalán.",
   "Matches each requested item with a catalogue item: sure, to check, or not listed.": "Minden kért tételt párosít egy katalógustétellel: biztos, ellenőrizendő vagy nem szerepel.",
   "Proposes the package each emailed document belongs to; a person accepts, rejects or redirects each one.": "Javasolja, melyik kötegbe tartozik minden levélben érkezett irat; egy személy egyenként elfogadja, elutasítja vagy máshová irányítja.",

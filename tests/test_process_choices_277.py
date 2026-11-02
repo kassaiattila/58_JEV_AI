@@ -122,3 +122,118 @@ def _with_choice(**option) -> dict:
 def test_a_choice_that_names_what_is_not_there_is_refused(change, expected) -> None:
     problems = _problems(change(_chained()))
     assert any(expected in p for p in problems), problems
+
+
+# --- 277 (O3b): a case starts on the pack narrowed by its choices --------------------------------------------------
+
+
+MARCH = ["2026-03-01", "2026-03-31"]
+PERSON = "anna"
+
+
+def _merged() -> process_packs.ProcessPack:
+    """The merged monthly reconciliation as the configs will have it: the four-step chain with the invoices' source
+    chosen, taking the place of the two chains it unites."""
+    data = _chained()
+    data["id"] = "monthly_reconciliation"
+    data["replaces"] = [{"pack": "mailbox_reconciliation", "choices": {"invoices_from": "mailbox"}},
+                        {"pack": "two_sources_reconciliation", "choices": {"invoices_from": "both"}}]
+    return _pack(data)
+
+
+@pytest.fixture
+def merged(tmp_path, monkeypatch):
+    from jav.core import store
+    from tests.statement_pdf import pdf_lines_as_text
+
+    pdf_lines_as_text(monkeypatch)
+    pack, real = _merged(), process_packs.load
+    gone: set[str] = set()
+
+    def load(pack_id: str) -> process_packs.ProcessPack:
+        if pack_id in gone:
+            raise process_packs.UnknownPack(f"no process pack {pack_id!r}")
+        return pack if pack_id == "monthly_reconciliation" else real(pack_id)
+
+    monkeypatch.setattr(process_packs, "load", load)
+    names = cfg.all_names  # a removed pack's file is not listed either
+    monkeypatch.setattr(cfg, "all_names", lambda *a, **k: [n for n in names(*a, **k) if n.removeprefix("process:") not in gone])
+    with store.use_store(tmp_path / "choices.sqlite"):
+        yield tmp_path, gone
+
+
+def _scope(folder, *steps: str) -> dict:
+    from tests.test_workflows_146 import _invoices, _party, _statements
+
+    sources = {"invoices": {"kind": "folder", "folder": str(_invoices(folder / "inv", n=1))},
+               "emails": {"kind": "mailbox", "request": {"accounts": ["office@example.com"], "since_days": 7}},
+               "statements": {"kind": "folder", "folder": str(_statements(folder / "erste"))}}
+    return {"party": _party(), "period": MARCH, "step_sources": {s: sources[s] for s in steps}}
+
+
+def _data(case_id: str) -> dict:
+    from jav.core import store
+    from jav.core.process import cases
+
+    with store.connect() as c:
+        return cases.find_case_in(c, case_id)["data"]
+
+
+def test_a_case_keeps_its_choices_and_runs_only_the_chosen_steps(merged) -> None:
+    from jav.app import case_views, process_runtime
+
+    folder, _gone = merged
+    case = process_runtime.start_case("monthly_reconciliation", _scope(folder, "emails", "statements"), name="March",
+                                      actor=PERSON, choices={"invoices_from": "mailbox"})
+    assert _data(case)["choices"] == {"invoices_from": "mailbox"}
+    assert [s.id for s in process_runtime.pack_for(case).steps] == ["emails", "statements", "reconcile"]
+    assert list(case_views.view(case)["steps"]) == ["emails", "statements", "reconcile"]
+    draft = process_runtime.next_draft(case)  # its next period is chosen alike
+    assert (draft["pack"], draft["choices"]) == ("monthly_reconciliation", {"invoices_from": "mailbox"})
+    default = process_runtime.start_case("monthly_reconciliation", _scope(folder / "b", "invoices", "statements"),
+                                         name="March B", actor=PERSON)
+    assert _data(default)["choices"] == {"invoices_from": "folder"}
+    assert [s.id for s in process_runtime.pack_for(default).steps] == ["invoices", "statements", "reconcile"]
+    with pytest.raises(process_packs.PackError, match="no option 'tray'"):
+        process_runtime.start_case("monthly_reconciliation", _scope(folder / "c", "invoices", "statements"),
+                                   name="March C", actor=PERSON, choices={"invoices_from": "tray"})
+    documents = process_runtime.start_case("documents", {"source": _scope(folder / "d", "invoices")["step_sources"]["invoices"]},
+                                           name="Documents", actor=PERSON)
+    assert "choices" not in _data(documents)  # a pack without choices keeps its cases' data as it was
+
+
+def test_a_case_of_a_pack_another_took_the_place_of_runs_on_and_goes_on_as_the_new_ones(merged) -> None:
+    from jav.app import case_views, process_runtime
+
+    folder, gone = merged
+    old = process_runtime.start_case("mailbox_reconciliation", _scope(folder, "emails", "statements"), name="Old March",
+                                     actor=PERSON)
+    gone.add("mailbox_reconciliation")  # the file is removed
+    assert [s.id for s in process_runtime.pack_for(old).steps] == ["emails", "statements", "reconcile"]
+    assert case_views.view(old)["case"]["pack"] == "mailbox_reconciliation"
+    draft = process_runtime.next_draft(old)
+    assert (draft["pack"], draft["choices"]) == ("monthly_reconciliation", {"invoices_from": "mailbox"})
+    scope = {"party": _data(old)["scope"]["party"], "period": [draft["period_start"], draft["period_end"]],
+             "step_sources": draft["step_sources"]}
+    following = process_runtime.start_next(old, "monthly_reconciliation", scope, name="April", actor=PERSON)
+    assert _data(following)["choices"] == {"invoices_from": "mailbox"} and _data(following)["follows"] == old
+    assert [s.id for s in process_runtime.pack_for(following).steps] == ["emails", "statements", "reconcile"]
+
+
+def test_a_resource_an_option_sets_is_the_cases_choice_not_the_processs_own_value(tmp_path, monkeypatch) -> None:
+    import json
+
+    from jav.app import process_settings
+    from jav.core import store
+
+    data = copy.deepcopy(cfg.load("process:insurance_offer"))
+    data["choices"] = [{"id": "frame", "title": "Frame", "default": "file", "options": [
+        {"id": "file", "title": "As the file"}, {"id": "other", "title": "Another", "resources": {"letter_frame": "chosen_frame"}}]}]
+    pack = _pack(data)
+    own = [{"key": "letter_frame", "value": json.dumps("own_frame"), "setting_id": "s", "version": 1}]
+    monkeypatch.setattr(process_settings, "_active_rows", lambda c, pack_id, kind: own if kind == process_settings.RESOURCE else [])
+    with store.use_store(tmp_path / "own.sqlite"):
+        assert process_settings.effective_resources(process_packs.chosen(pack, {"frame": "other"}))["letter_frame"] == "chosen_frame"
+        assert process_settings.effective_resources(process_packs.chosen(pack, {}))["letter_frame"] == "own_frame"
+    assert process_packs.chosen(pack, {"frame": "other"}).fixed == ("letter_frame",)
+    assert pack.option_resources() == {"letter_frame"}

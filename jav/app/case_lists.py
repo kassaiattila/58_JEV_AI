@@ -87,7 +87,7 @@ def _case_rows(c: Any, *, closed: bool) -> list[dict[str, Any]]:
     party_names = {pid: row["name"] for pid, row in parties.party_rows(c).items()}
     # H25: every case, its steps and its scope read at once; a pack once per version
     all_cases, all_steps, all_scopes = cases.all_in(c), cases.all_step_states_in(c), package_scope.stored_all(c)
-    packs: dict[tuple[str, str], Any] = {}
+    packs: dict[tuple[Any, ...], Any] = {}
     found: dict[str, dict[str, Any]] = {}
     subs: dict[tuple[str, str], str] = {}  # (main case, its step) -> the sub-case running it now
     for wp in _containers(c, closed=True):  # a closed main case may hold an open sub-case's place
@@ -95,7 +95,8 @@ def _case_rows(c: Any, *, closed: bool) -> list[dict[str, Any]]:
         data = (case or {}).get("data") or {}
         if case is None or "pack" not in data:
             continue
-        key = (data["pack"], data["pack_version"])
+        # 277 (O3): and its choices, which narrow the pack's steps
+        key = (data["pack"], data["pack_version"], tuple(sorted((data.get(process_runtime.CHOICES) or {}).items())))
         if key not in packs:
             packs[key] = process_runtime.pack_for(wp["id"])
         pack = packs[key]

@@ -61,7 +61,8 @@ activity_kinds.register_events("package", ("case_wrapped",), __name__)  # C3b4: 
 
 def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who, follows: str | None = None,
                owner: identity.Who | None = None, parent: tuple[str, str] | None = None,
-               then: Callable[[sqlite3.Connection, str], None] | None = None) -> str:
+               then: Callable[[sqlite3.Connection, str], None] | None = None,
+               choices: dict[str, str] | None = None) -> str:
     """Starts a case of the pack's current version with this scope (checked by its parts); returns its id. 231 (B2):
     with the process's own active values over the file's resources, kept in the case's data (a later change reaches
     only the cases started after it); (B3) and its own active rule values, which the case's work reads over the rule
@@ -71,10 +72,11 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
     (a case the email intake starts belongs to whom the email's package belongs), else to who starts it. U2c: the
     scope is checked by the pack's capabilities too (`Capability.scope_check`, a step's own documents); a sub-case names
     the case and step it is part of (`parent`, in its data), and `then(c, case_id)` is written in its start's
-    transaction (the parent step's note of it)."""
+    transaction (the parent step's note of it). 277 (O3): a pack that asks choices runs narrowed by `choices` (each one
+    not given at its default; `process_packs.PackError` for one it does not ask), kept in the case's data."""
     from jav.app import process_settings
 
-    pack = process_packs.load(pack_id)
+    pack, chose = _chosen(pack_id, choices)
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
     for key in dict.fromkeys(s.uses for s in pack.steps):  # U2c: before anything is made, as the parts' check
         if (cap := capabilities.of(key)).scope_check is not None:
@@ -92,7 +94,7 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
         data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": name.strip(), "scope": checked,
                 "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,
                 capabilities.KEPT_RULES: kept_rule_files} | ({"follows": follows} if follows else {}) | (
-            {PARENT: {"case": parent[0], "step": parent[1]}} if parent else {})
+            {PARENT: {"case": parent[0], "step": parent[1]}} if parent else {}) | chose
         package_scope.save(c, case_id, parts=checked, actor=actor, **_scope_columns(checked))
         cases.start_in(c, case_id, definition, data, identity.who(actor))
         for step_id in _approving(pack, from_start=True):  # C3a-1: it waits for that approval as a person's task
@@ -103,6 +105,15 @@ def start_case(pack_id: str, scope: dict[str, Any], *, name: str, actor: identit
 
 
 PARENT = "parent"  # 231 (U2c): in a sub-case's data, the case and step it is part of ({"case", "step"})
+CHOICES = "choices"  # 277 (O3): in a case's data, the choices it started with (only a pack that asks some)
+
+
+def _chosen(pack_id: str, choices: dict[str, str] | None = None) -> tuple[process_packs.ProcessPack, dict[str, Any]]:
+    """277 (O3): the pack a new case of `pack_id` runs on, narrowed by `choices` (`process_packs.chosen`), and what its
+    data keeps of them: the choices with their defaults filled in, for a pack that asks some (none for another, so its
+    cases' data stays as it was)."""
+    full = process_packs.load(pack_id)
+    return process_packs.chosen(full, choices), ({CHOICES: process_packs.picked(full, choices)} if full.choices else {})
 
 
 def parent_of(case_id: str) -> dict[str, Any] | None:
@@ -211,6 +222,12 @@ def next_draft(case_id: str) -> dict[str, Any]:
             if step.uses == sub_cases.KEY}  # each step's sub-case's process, whose maker says what only-new means
 
     draft: dict[str, Any] = {"pack": pack.id, "follows": case_id, "period_start": period[0], "period_end": period[1]}
+    # 277 (O3): the same choices; a case of a pack another took the place of goes on as a case of that one
+    started_with = data.get(CHOICES)
+    if (later := process_packs.successor(pack.id)) is not None:
+        draft["pack"], started_with = later
+    if started_with:
+        draft[CHOICES] = started_with
     if scope.get(scopes.PARTY):
         draft["party_id"] = scope[scopes.PARTY]
     if (source := scope.get(document_processing.SOURCE_PART)) and (again := moved(source, pack)) is not None:
@@ -226,14 +243,17 @@ def next_draft(case_id: str) -> dict[str, Any]:
     return draft
 
 
-def start_next(case_id: str, pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who) -> str:
+def start_next(case_id: str, pack_id: str, scope: dict[str, Any], *, name: str, actor: identity.Who,
+               choices: dict[str, str] | None = None) -> str:
     """261: the case's next period's case, of the same process, with the scope a person checked (the form filled in
     from `next_draft`), knowing the case it follows (`follows` in its data) and recorded on that case, so each case has
-    one next case. Refused (`NextPeriodError`) as `next_draft` refuses, or for another process."""
+    one next case. Refused (`NextPeriodError`) as `next_draft` refuses, or for another process. 277 (O3): with the
+    choices a person checked, else the draft's (the case's own, or those its pack's successor takes it with)."""
     draft = next_draft(case_id)
     if pack_id != draft["pack"]:
         raise explained(NextPeriodError, "the next period's case is a case of the same process")
-    new = start_case(pack_id, scope, name=name, actor=actor, follows=case_id)
+    new = start_case(pack_id, scope, name=name, actor=actor, follows=case_id,
+                     choices=choices if choices is not None else draft.get(CHOICES))
     with cases.transaction() as c:
         cases.record(c, case_id, None, FOLLOWED, identity.who(actor), {"pack": pack_id, "case": new, "next_period": True})
     return new
@@ -312,7 +332,7 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
     step has not run). "adopted"; "exists" for a package already taken over (nothing changes). KeyError: no package."""
     from jav.app import process_settings
 
-    pack = process_packs.load(pack_id)
+    pack, chose = _chosen(pack_id)  # 277 (O3): a taken-over package's case runs on the pack's default choices
     checked = scopes.check(pack.scope.needs(), scope, optional=pack.scope.optional)
     wp = work.get(wp_id)
     kept = process_settings.at_start(pack)  # D0-e, D-a
@@ -327,7 +347,7 @@ def adopt_case(pack_id: str, wp_id: str, scope: dict[str, Any], *, actor: identi
     data = {"pack": pack.id, "pack_version": pack.version, "container": wp_id, "name": wp["name"], "scope": checked,
             "resources": resources, capabilities.RULES: rules, capabilities.RULE_REFS: rule_refs,
             capabilities.KEPT_RULES: _kept_rule_files(pack),
-            "adopted_from": {"source_kind": wp["source_kind"], "source_ref": wp.get("source_ref")}}
+            "adopted_from": {"source_kind": wp["source_kind"], "source_ref": wp.get("source_ref")}} | chose
     who = identity.who(actor)
     with cases.transaction() as c:
         if cases.find_case_in(c, wp_id) is not None:
@@ -357,11 +377,11 @@ def wrap_into(pack_id: str, wp_id: str, *, scope: dict[str, Any], actor: identit
     """231 (C3b5b): a workflow step's new package wrapped by a new case of the pack that serves the step (its `workflow`
     block: the step that takes the package and the scope part naming it), with the workflow's `scope` (its party and
     period, as the pack takes them). "wrapped"; "exists" for a package a step has already."""
-    pack = process_packs.load(pack_id)
+    pack, chose = _chosen(pack_id)  # 277 (O3): on the pack's default choices
     serves = pack.workflow
     if serves is None:
         raise explained(ValueError, "process pack {{pack}} serves no workflow step", pack=pack_id)
-    return _wrap(pack, wp_id, step_id=serves.step, package_part=serves.package_part, scope=scope, actor=actor)
+    return _wrap(pack, wp_id, step_id=serves.step, package_part=serves.package_part, scope=scope, actor=actor, chose=chose)
 
 
 def pack_step_kind(pack: process_packs.ProcessPack, *, start: Any, package_kinds: tuple[str, ...], rule: str | None = None,
@@ -390,14 +410,14 @@ def wrap_case(pack_id: str, wp_id: str, rule: process_packs.Wrap, *, actor: iden
     the package's runs (`Capability.adopt`). The package keeps its id, kind, items, runs, approvals and versions; its log
     names the case. "wrapped"; "exists" for a package a step has already (nothing changes). KeyError: no package;
     `scopes.ScopeError`: its stored scope does not give the case's."""
-    pack = process_packs.load(pack_id)
+    pack, chose = _chosen(pack_id)  # 277 (O3): on the pack's default choices
     stored = package_scope.stored(wp_id) or {}
     return _wrap(pack, wp_id, step_id=rule.step, package_part=rule.package_part,
-                 scope={part: _stored_value(stored, key) for part, key in rule.scope.items()}, actor=actor)
+                 scope={part: _stored_value(stored, key) for part, key in rule.scope.items()}, actor=actor, chose=chose)
 
 
 def _wrap(pack: process_packs.ProcessPack, wp_id: str, *, step_id: str, package_part: str, scope: dict[str, Any],
-          actor: identity.Who) -> str:
+          actor: identity.Who, chose: dict[str, Any]) -> str:
     """The wrapping itself (`wrap_case`, `wrap_into`): the case's scope is `scope` with `package_part` naming the
     package."""
     from jav.app import process_settings
@@ -428,7 +448,7 @@ def _wrap(pack: process_packs.ProcessPack, wp_id: str, *, step_id: str, package_
             data = {"pack": pack.id, "pack_version": pack.version, "container": case_id, "name": wp["name"],
                     "scope": checked, "resources": resources, capabilities.RULES: rules,
                     capabilities.RULE_REFS: rule_refs, capabilities.KEPT_RULES: _kept_rule_files(pack),
-                    "wrapped": {"workpackage_id": wp_id, "source_kind": wp["source_kind"]}}
+                    "wrapped": {"workpackage_id": wp_id, "source_kind": wp["source_kind"]}} | chose
             cases.adopt(c, case_id, definition, data, owner, who, {step.id: state} if state is not None else {})
             if wp["status"] == "archived":  # an archived package's case is archived too
                 c.execute("UPDATE workpackages SET status='archived' WHERE id=?", (case_id,))
@@ -541,19 +561,25 @@ def pack_for(case_id: str) -> process_packs.ProcessPack | None:
 
 
 def _pack_for_in(c: Any, case_id: str) -> process_packs.ProcessPack | None:
-    """`pack_for` on the caller's connection (C3a-1: a store's schema change reads it while it runs)."""
-    pinned = _pack_of_in(c, case_id)
-    if pinned is None:
+    """`pack_for` on the caller's connection (C3a-1: a store's schema change reads it while it runs). 277 (O3): narrowed
+    by the choices the case started with; a case of a pack that is gone (one another took the place of) runs on the
+    version its start's snapshot holds."""
+    data = (cases.find_case_in(c, case_id) or {}).get("data") or {}
+    if "pack" not in data:
         return None
-    current = process_packs.load(pinned[0])
-    if current.version == pinned[1]:
-        return current
+    pack_id, version = data["pack"], data["pack_version"]
+    try:
+        current: process_packs.ProcessPack | None = process_packs.load(pack_id)
+    except process_packs.UnknownPack:
+        current = None
+    if current is not None and current.version == version:
+        return process_packs.chosen(current, data.get(CHOICES))
     snapshot = rulebook.get_in(c, rulebook.of_in(c, rulebook.CASE, case_id) or "")
-    entry = (snapshot or {}).get("files", {}).get(f"processes/{pinned[0]}.json")
+    entry = (snapshot or {}).get("files", {}).get(f"processes/{pack_id}.json")
     content = rulebook.content_in(c, entry["sha256"]) if entry else None
     if content is None:
-        raise process_packs.PackError(f"process pack {pinned[0]!r} {pinned[1]} of case {case_id} is not stored")
-    return process_packs.ProcessPack.model_validate(json.loads(content))
+        raise process_packs.PackError(f"process pack {pack_id!r} {version} of case {case_id} is not stored")
+    return process_packs.chosen(process_packs.ProcessPack.model_validate(json.loads(content)), data.get(CHOICES))
 
 
 def outputs_of(case_id: str) -> tuple[str, ...]:
