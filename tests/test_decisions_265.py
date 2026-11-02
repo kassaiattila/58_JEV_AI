@@ -262,12 +262,30 @@ def test_a_provider_switched_off_here_is_never_sent(work, monkeypatch):
     """The provider registry's switch is the last word (configs/providers.json `enabled`): a run queued while OpenAI
     Decisions was on, or a command naming it, sends nothing once it is off; the flow raises its to-do."""
     monkeypatch.delenv("JAV_PROVIDERS_ON")
+    monkeypatch.setenv("JAV_PROVIDERS_OFF", "openai_decisions")
     service = Service((200, _answer()))
     adapter = service.adapter(work)
     with calls.measurement("measure-265", {"openai": Decimal("0.01")}):
-        with pytest.raises(jev.JevUnavailableError, match="under_measurement"):
+        with pytest.raises(jev.JevUnavailableError, match="switched_off"):
             adapter.ask("select", STATE, QUESTIONS, run_id="run-265")
     assert service.requests == []
+
+
+def test_a_refusal_is_settled_at_the_cost_its_answer_reports(work):
+    """275: a refused question was answered, so billed: the call log and the ledger keep its cost, not 0 nor the
+    reservation's maximum."""
+    body = _answer()
+    body["answers"][0] = {"type": "refusal", "name": "number"}
+    adapter = Service((200, body)).adapter(work)
+    with calls.measurement("measure-275", {"openai": Decimal("0.01")}) as scope:
+        with pytest.raises(jev.JevUnavailableError, match="refusal"):
+            adapter.ask("select", STATE, QUESTIONS, run_id="run-275")
+        assert calls.left(scope, "openai") == Decimal("0.0098")  # 2 000 uncached input tokens at 0.10 USD per million
+    with store.connect() as c:
+        inv = c.execute("SELECT status, cost_usd, cost_known FROM invocations").fetchone()
+        ledger = c.execute("SELECT cost_usd, error FROM ledger").fetchone()
+    assert (inv["status"], inv["cost_usd"], inv["cost_known"]) == ("failed", "0.000200", 1)
+    assert ledger["cost_usd"] == 0.0002 and ledger["error"].startswith("refusal")
 
 
 def test_a_refusal_becomes_an_unavailable_judge(work):

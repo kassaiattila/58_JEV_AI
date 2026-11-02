@@ -29,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import json
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Any
 
 from jav.ai import decisions_wire as wire
@@ -151,11 +152,34 @@ class DecisionsAdapter(JevAdapter):
 
     def _send(self, state: object, questions: dict[str, Question], *, model: str):
         from openai.types.decision import Decision
+        from pydantic import ValidationError
 
         decision = self.client.post(PATH, cast_to=Decision, body=self._body(state, questions, model))
-        response = wire.to_system_one(decision.model_dump(mode="json"), questions)
-        validate_response(response, questions)
+        answer = decision.model_dump(mode="json")
+        try:
+            response = wire.to_system_one(answer, questions)
+            validate_response(response, questions)
+        except (wire.Refused, InvalidJevResponse, ValidationError) as exc:
+            # 275: answered, so billed: the call is settled at the cost its answer's usage gives, not its maximum
+            exc.known_outcome = self._answered_outcome(answer, model)  # type: ignore[attr-defined]
+            raise
         return response
+
+    def _answered_outcome(self, answer: dict[str, Any], model: str):
+        """The certain outcome of an answer that could not be used (a refusal, a value missing): its cost from its usage."""
+        from jav.core import calls  # deferred: the runtime builds on the store, the adapter is the lowest layer
+
+        usage = answer.get("usage") or {}
+        details = usage.get("input_tokens_details") or {}
+        tokens = SimpleNamespace(usage=SimpleNamespace(input_tokens=usage.get("input_tokens"),
+                                                       output_tokens=usage.get("output_tokens")),
+                                 cached_tokens=details.get("cached_tokens") or 0,
+                                 cache_write_tokens=details.get("cache_write_tokens") or 0)
+        cost = self._call_cost(tokens)
+        if cost is None:
+            return None
+        return calls.Outcome(response=None, model=answer.get("model") or model, input_tokens=usage.get("input_tokens"),
+                             output_tokens=usage.get("output_tokens"), cost_usd=cost)
 
     def _service_error(self, exc: BaseException) -> bool:
         from openai import APIError
