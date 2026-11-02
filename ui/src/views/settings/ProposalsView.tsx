@@ -14,7 +14,7 @@ import { FormActions } from "../../components/FormActions";
 import { Picker } from "../../components/Picker";
 import { useLoad } from "../../hooks";
 import { t, useLocale } from "../../i18n";
-import { numText, tmap, usdBudget, when } from "../../labels";
+import { judgeName, numText, tmap, todoJudge, usdBudget, when } from "../../labels";
 import { go, settingsHash } from "../../route";
 import { Citation, current, DecisionTable, documentsByRef, levelLabel, RULE_KIND, SaidLines } from "./RegistryParts";
 import { useSettingsTitle } from "./settingsTree";
@@ -71,6 +71,7 @@ export function ProposalsView({ registry, runId, open, onChanged }: { registry: 
 
 function StartCard({ registry, standIns, onStarted }: { registry: ProductRegistry; standIns: string[]; onStarted: (r: RuleProposalRun) => void }) {
   useLocale();
+  const judge = judgeName(useLoad("engine", api.engine).data?.engine);  // 275: the application engine's judge
   const documentOptions = registry.documents.flatMap((d) => d.versions.map((v) => ({ value: v.ref, label: v.content.title, detail: v.ref })));
   const productOptions = [{ value: "", label: t("No product") },
     ...registry.products.map((p) => ({ value: p.ident, label: current(p).name, detail: p.ident }))];
@@ -128,8 +129,8 @@ function StartCard({ registry, standIns, onStarted }: { registry: ProductRegistr
         <div className="form-row">
           <label className="block">{t("OpenAI budget (USD)")}<input className="tnum" inputMode="decimal" value={openai} maxLength={8} onChange={(e) => setOpenai(e.target.value)} /></label>
           <label className="check proposal-verify"><input type="checkbox" checked={verify} onChange={(e) => setVerify(e.target.checked)} />
-            {t("JEV judges each proposal")}</label>
-          {verify ? <label className="block">{t("JEV budget (USD)")}<input className="tnum" inputMode="decimal" value={jev} maxLength={8} onChange={(e) => setJev(e.target.value)} /></label> : null}
+            {judge === "JEV" ? t("JEV judges each proposal") : t("{{judge}} judges each proposal", { judge })}</label>
+          {verify ? <label className="block">{judge === "JEV" ? t("JEV budget (USD)") : t("{{judge}} budget (USD)", { judge })}<input className="tnum" inputMode="decimal" value={jev} maxLength={8} onChange={(e) => setJev(e.target.value)} /></label> : null}
         </div>
       ) : null}
       <FormActions busy={busy}>
@@ -148,6 +149,7 @@ function RunCard({ runId, registry, documents, onChanged, initial }: {
   runId: string; registry: ProductRegistry; documents: Map<string, ConditionDocument>; onChanged: () => void; initial: number | null;
 }) {
   useLocale();
+  const judge = judgeName(useLoad("engine", api.engine).data?.engine);  // 275: the application engine's judge
   const loaded = useLoad(`rule-proposal-run:${runId}`, () => api.ruleProposalRun(runId), 3000);
   const [open, setOpenState] = useState<number | null>(initial);
   // 264 (F5): the opened proposal is in the address (`?open=<id>`), so a reload or a link sent on opens it again
@@ -173,7 +175,7 @@ function RunCard({ runId, registry, documents, onChanged, initial }: {
       {run.state === "failed" ? <p className="notice error small" role="alert">{run.error}</p> : null}
       {run.proposals?.length ? (
         <table className="table compact" aria-label={t("Proposals")}>
-          <thead><tr><th className="num">#</th><th>{t("Title")}</th><th>{t("Kind")}</th><th>{t("Read from")}</th><th>{t("Code's check")}</th><th>{t("JEV")}</th><th>{t("Decision")}</th></tr></thead>
+          <thead><tr><th className="num">#</th><th>{t("Title")}</th><th>{t("Kind")}</th><th>{t("Read from")}</th><th>{t("Code's check")}</th><th>{judge === "JEV" ? t("JEV") : judge}</th><th>{t("Decision")}</th></tr></thead>
           <tbody>
             {run.proposals.map((p) => (
               <Fragment key={p.id}>
@@ -202,6 +204,13 @@ function RunCard({ runId, registry, documents, onChanged, initial }: {
 }
 
 /** A number as a person reads it: in the language's notation with its unit or currency; a code as written. */
+/** 275: a judgement service that could not answer, by its name (JEV's, OpenAI Decisions'). */
+function unavailableText(reason: string): string | null {
+  const judge = todoJudge(reason);
+  if (!judge) return null;
+  return judge === "JEV" ? t("JEV was not available") : t("{{judge}} was not available", { judge });
+}
+
 function numberText(n: ProposalNumber): string {
   if (n.kind === "code") return n.value;
   const [figure, ...rest] = n.value.split(" ");
@@ -214,6 +223,7 @@ function ProposalDetail({ proposal: p, registry, documents, onDone }: {
   proposal: RuleProposal; registry: ProductRegistry; documents: Map<string, ConditionDocument>; onDone: () => void;
 }) {
   useLocale();
+  const judge = judgeName(useLoad("engine", api.engine).data?.engine);  // 275: the application engine's judge
   const toConfirm = unconfirmed(p.numbers);
   const [confirmed, setConfirmed] = useState<string[]>([]);
   const [reason, setReason] = useState("");
@@ -263,9 +273,9 @@ function ProposalDetail({ proposal: p, registry, documents, onDone }: {
         </table>
       ) : null}
       {p.support ? (
-        <p className="registry-line"><span className="muted small">{t("JEV:")}</span> <Mark table={SUPPORT} value={p.support.mark} />
-          {p.support.reason ? <span className="muted small">{p.support.reason.startsWith("jev_unavailable") ? t("JEV was not available")
-            : SUPPORT_REASON[p.support.reason] ?? p.support.reason}</span> : null}
+        <p className="registry-line"><span className="muted small">{judge === "JEV" ? t("JEV:") : `${judge}:`}</span> <Mark table={SUPPORT} value={p.support.mark} />
+          {p.support.reason ? <span className="muted small">{unavailableText(p.support.reason)
+            ?? SUPPORT_REASON[p.support.reason] ?? p.support.reason}</span> : null}
         </p>
       ) : null}
       {open ? (

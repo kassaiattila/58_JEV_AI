@@ -567,7 +567,7 @@ export const paramInEffect = (k: string, params: Record<string, string>): boolea
 
 /** 265 (plan L): the engine registry (configs/engines.json), read as the service reads it (`jav/ai/engine.py`). */
 const ENGINES = engineRegistry.engines as Record<string, { judge: string | null }>;
-const JUDGES = engineRegistry.judges as Record<string, { provider: string }>;
+const JUDGES = engineRegistry.judges as Record<string, { provider: string; todo: string }>;
 const LEGACY = engineRegistry.legacy.values as Record<string, string>;
 /** The engine without a judgement service (GPT answers, the code checks). */
 export const GPT_ONLY = Object.keys(ENGINES).find((e) => ENGINES[e].judge === null) ?? "gpt";
@@ -575,6 +575,16 @@ export const GPT_ONLY = Object.keys(ENGINES).find((e) => ENGINES[e].judge === nu
 export const judgeProvider = (engine: string): string | null => {
   const judge = ENGINES[engine]?.judge;
   return judge ? JUDGES[judge]?.provider ?? null : null;
+};
+/** 275: the name of the judgement service an engine asks; JEV's for an engine without one (GPT only), as a rule
+ *  proposal's recheck asks JEV then (`jav/app/rule_proposal_runs.py`). */
+export const judgeName = (engine?: string | null): string =>
+  providerName(judgeProvider(engine ?? engineRegistry.default) ?? judgeProvider(engineRegistry.default) ?? "jev");
+/** 275: the name of the judgement service a to-do's code says could not answer (`jev_unavailable:…`,
+ *  `decisions_unavailable:…`), else null. */
+export const todoJudge = (code: string): string | null => {
+  const judge = Object.values(JUDGES).find((j) => code === j.todo || code.startsWith(`${j.todo}:`));
+  return judge ? providerName(judge.provider) : null;
 };
 /** 265: the AI engine of saved settings: `engine`, or, saved before 265, the JEV switch (`jev: on | off`), or the
  *  registry's default. */
