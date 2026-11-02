@@ -74,14 +74,14 @@ def test_the_file_in_use_as_its_own_candidate_changes_nothing(traced) -> None:
 
 
 def test_a_moved_threshold_changes_exactly_the_decisions_inside_the_band(traced, tmp_path) -> None:
-    def raise_threshold(d):
-        d["bands"]["default"]["choice_human_max_conf"] = 0.7
+    def raise_threshold(d):  # the type recognition's own set (2026-11-02: 0.8)
+        d["bands"]["detect_type"]["choice_human_max_conf"] = 0.95
 
     candidate = _candidate(tmp_path, "policy", raise_threshold).read_bytes()
     report = rules_preview.preview("policy.json", candidate, store_path=traced)
     doc_type = _point(report, flow_detect.DOC_TYPE_POINT)
-    assert (doc_type["decisions"], doc_type["changed"]) == (5, 2)  # 0.62 and 0.65 now wait for a person
-    assert sorted(e["subject"] for e in doc_type["examples"]) == ["document:doc-1", "document:doc-2"]
+    assert (doc_type["decisions"], doc_type["changed"]) == (5, 1)  # 0.9 now waits for a person
+    assert sorted(e["subject"] for e in doc_type["examples"]) == ["document:doc-4"]
     assert all(e["changes"] == {"uncertain": [False, True]} for e in doc_type["examples"])
     assert report["candidate"]["version"] == "9.9.9" and report["current"]["version"] == cfg.version("policy")
     with store.use_store(traced), store.read_only():
@@ -133,13 +133,13 @@ def test_a_replay_shows_a_whole_items_effect_of_the_candidate(processed, tmp_pat
 
 
 def test_the_command_reads_a_candidate_file_or_a_git_reference(traced, tmp_path, capsys) -> None:
-    def raise_threshold(d):
-        d["bands"]["default"]["choice_human_max_conf"] = 0.7
+    def raise_threshold(d):  # the type recognition's own set (2026-11-02: 0.8)
+        d["bands"]["detect_type"]["choice_human_max_conf"] = 0.95
 
     candidate = _candidate(tmp_path, "policy", raise_threshold)
     assert cli.main(["rules-preview", "policy.json", "--candidate", str(candidate), "--store", str(traced)]) == 0
     text = capsys.readouterr().out
-    assert "detect.doc_type: 5 decisions, 2 would change" in text and "no AI call, nothing written" in text
+    assert "detect.doc_type: 5 decisions, 1 would change" in text and "no AI call, nothing written" in text
     assert cli.main(["rules-preview", "policy.json", "--ref", "no-such-ref-224", "--store", str(traced)]) == 2
     assert "no-such-ref-224" in capsys.readouterr().out
     assert rules_preview.from_ref("HEAD", "policy.json")[:1] == b"{"

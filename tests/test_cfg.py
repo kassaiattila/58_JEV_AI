@@ -42,7 +42,9 @@ def test_registries_come_from_json():
 def test_policy_thresholds_come_from_json():
     p = cfg.load("policy")
     assert policy.human_max_conf() == p["bands"]["default"]["choice_human_max_conf"] == 0.60
-    assert policy.intent_human_max_conf() == policy.detect_low_confidence() == 0.60  # v1.1.0: taken from the bands
+    assert policy.intent_human_max_conf() == 0.60  # v1.1.0: taken from the bands
+    # 2026-11-02 (the owner's decision): the type recognition has its own set
+    assert policy.detect_low_confidence() == p["bands"]["detect_type"]["choice_human_max_conf"] == 0.80
     from jav.domains.email import email_rules  # 224: the email routes are the email domain's own rule file
 
     e = cfg.load("email")

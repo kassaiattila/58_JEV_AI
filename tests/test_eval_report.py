@@ -137,8 +137,8 @@ def test_policy_reeval_counts_cases_that_would_change(runs: dict[str, Path]):
     assert s["cases"] == 2 and s["cases_human"] == 1 and s["cases_uncertain_only"] == 1
     assert s["uncertain_only_accuracy"] == 0.0  # c1 invoice_number is wrong: the band's warning is right
     d = next(r for r in pe if r["flow"] == "doc_detect")
-    # d3 human (0.55), d2 uncertain (gap 0.10)
-    assert d["cases"] == 3 and d["cases_human"] == 1 and d["cases_uncertain_only"] == 1
+    # d3 (0.55) and d2 (0.62) human: below the type recognition's own 0.8 (2026-11-02; until then d2 was only uncertain)
+    assert d["cases"] == 3 and d["cases_human"] == 2 and d["cases_uncertain_only"] == 0
     e = next(r for r in pe if r["flow"] == "email_intent")
     assert e["cases_uncertain_only"] == 0  # e2: gap 0.20, not < 0.20
 
