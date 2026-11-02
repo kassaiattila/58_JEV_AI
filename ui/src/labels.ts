@@ -197,18 +197,19 @@ export function reasonText(code: string): string {
     }
     case "jev:unsupported": return t("Not supported by the model: {{field}}", { field: f });
     // 167 (review AI-10): a list left out of the JEV verification so that the request fits its size limit
-    case "jev:list_omitted": return t("JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand", { field: f });
-    // 177 (plan 170 E6): the JEV verification's field and document flags (jav/ai/policy.py); until now the raw code showed
-    case "jev:absence_wrong": return t("JEV: the field was left empty, though it is on the document: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:off_target": return t("JEV: the value belongs to another field: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:wrong_kind": return t("JEV: the value is not of this field's kind: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:incomplete": return t("JEV: the value seems cut short: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:parties_swapped": return t("JEV: the supplier and the buyer seem swapped ({{p}})", { p: num(p[2]) });
-    case "jev:line_items_missing_rows": return t("JEV: the document has line items the extracted list lacks ({{p}})", { p: num(p[2]) });
+    case "jev:list_omitted": return t("The AI check left this list out, to keep the request within its size limit: {{field}}; check its rows by hand", { field: f });
+    // 177 (plan 170 E6): the JEV verification's field and document flags (jav/ai/policy.py); until now the raw code showed.
+    // 275: OpenAI Decisions raises the same flags, so they name the AI check, not JEV
+    case "jev:absence_wrong": return t("AI check: the field was left empty, though it is on the document: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:off_target": return t("AI check: the value belongs to another field: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:wrong_kind": return t("AI check: the value is not of this field's kind: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:incomplete": return t("AI check: the value seems cut short: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:parties_swapped": return t("AI check: the supplier and the buyer seem swapped ({{p}})", { p: num(p[2]) });
+    case "jev:line_items_missing_rows": return t("AI check: the document has line items the extracted list lacks ({{p}})", { p: num(p[2]) });
     // 190: the per-list questions a verification call site may name (`list_nouls`), the list as the field
-    case "jev:missing_rows": return t("JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:extra_rows": return t("JEV: the extracted list has rows the document does not: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:line_items_extra_rows": return t("JEV: the extracted list has line items the document does not ({{p}})", { p: num(p[2]) });
+    case "jev:missing_rows": return t("AI check: the document has rows of this list that the extraction lacks: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:extra_rows": return t("AI check: the extracted list has rows the document does not: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:line_items_extra_rows": return t("AI check: the extracted list has line items the document does not ({{p}})", { p: num(p[2]) });
     // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
     case "source:not_found": return t("The extracted value is not printed on the document: {{field}}", { field: f });
     // 092: without JEV, an accounting field GPT is not sure enough of (below the policy's review_below)
@@ -321,8 +322,8 @@ export function reasonText(code: string): string {
     case "native:claim": return t("A fact is not certain ({{state}})", { state: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:fact": {
       const n = Number(p[2]) + 1;
-      if (p[3] === "unsupported") return t("JEV does not support fact {{n}} ({{p}})", { n, p: num(p[4]) });
-      if (p[3] === "uncertain") return t("JEV is uncertain about fact {{n}} ({{p}})", { n, p: num(p[4]) });
+      if (p[3] === "unsupported") return t("The AI check does not support fact {{n}} ({{p}})", { n, p: num(p[4]) });
+      if (p[3] === "uncertain") return t("The AI check is uncertain about fact {{n}} ({{p}})", { n, p: num(p[4]) });
       return t("Fact {{n}} has a warning; check it", { n });
     }
   }

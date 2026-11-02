@@ -5435,5 +5435,17 @@
   "Asks {{judges}} about the statement lines still to decide and can spend up to {{usd}}": "A még eldöntendő kivonatsorokról kérdezi: {{judges}}, legfeljebb {{usd}} költséggel",
   "{{judge}} judges each proposal": "{{judge}}: minden javaslatot megítél",
   "{{judge}} budget (USD)": "Keret, {{judge}} (USD)",
-  "{{judge}} was not available": "nem volt elérhető: {{judge}}"
+  "{{judge}} was not available": "nem volt elérhető: {{judge}}",
+  "The AI check left this list out, to keep the request within its size limit: {{field}}; check its rows by hand": "Az AI-ellenőrzés ezt a listát kihagyta, hogy a kérés beférjen a méretkorlátba: {{field}}; ellenőrizd kézzel a sorait",
+  "AI check: the field was left empty, though it is on the document: {{field}} ({{p}})": "Az AI-ellenőrzés szerint a mező üresen maradt, pedig szerepel az iraton: {{field}} ({{p}})",
+  "AI check: the value belongs to another field: {{field}} ({{p}})": "Az AI-ellenőrzés szerint az érték egy másik mezőhöz tartozik: {{field}} ({{p}})",
+  "AI check: the value is not of this field's kind: {{field}} ({{p}})": "Az AI-ellenőrzés szerint az érték nem illik a mező fajtájához: {{field}} ({{p}})",
+  "AI check: the value seems cut short: {{field}} ({{p}})": "Az AI-ellenőrzés szerint az érték csonka: {{field}} ({{p}})",
+  "AI check: the supplier and the buyer seem swapped ({{p}})": "Az AI-ellenőrzés szerint a szállító és a vevő fel van cserélve ({{p}})",
+  "AI check: the document has line items the extracted list lacks ({{p}})": "Az AI-ellenőrzés szerint az iraton olyan tételsor is van, amely a kinyert listából hiányzik ({{p}})",
+  "AI check: the document has rows of this list that the extraction lacks: {{field}} ({{p}})": "Az AI-ellenőrzés szerint az iraton a lista olyan sora is szerepel, amely a kinyertből hiányzik: {{field}} ({{p}})",
+  "AI check: the extracted list has rows the document does not: {{field}} ({{p}})": "Az AI-ellenőrzés szerint a kinyert listában olyan sor is van, amely nincs az iraton: {{field}} ({{p}})",
+  "AI check: the extracted list has line items the document does not ({{p}})": "Az AI-ellenőrzés szerint a kinyert listában olyan tételsor is van, amely nincs az iraton ({{p}})",
+  "The AI check does not support fact {{n}} ({{p}})": "Az AI-ellenőrzés nem támasztja alá a(z) {{n}}. adatjavaslatot ({{p}})",
+  "The AI check is uncertain about fact {{n}} ({{p}})": "Az AI-ellenőrzés bizonytalan a(z) {{n}}. adatjavaslatban ({{p}})"
 }
