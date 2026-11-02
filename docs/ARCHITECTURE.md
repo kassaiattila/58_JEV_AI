@@ -1544,8 +1544,9 @@ quote and the case closes as referred), a lower limit above which another person
 (`case_decisions.json` 1.1.0) and the renewal's own letter frame (`letter_frames.json` 1.1.0). No module names it; its
 test runs the reference set to the sent letter and the referred set to the full quote
 (`tests/test_insurance_renewal_231.py`).
-The real corporate property product's quote (the owner's decisions of 2026-10-27):
-`configs/processes/allianz_property_offer.json` is the invented insurer's quote with the same capabilities and screens
+The real corporate property product's quote (the owner's decisions of 2026-10-27; since the owner's decision of
+2026-11-02 the `allianz` option of `insurance_offer.json`'s `product` choice, until then its own pack
+`configs/processes/allianz_property_offer.json`) is the invented insurer's quote with the same capabilities and screens
 and the real product's data: its documents read into `facts_allianz_property.json` by
 `fact_readings_allianz_property.json`, the product `az_corporate_property` (from its condition documents, made active by
 a person) and its example tariff (`product_set_allianz_tariff.json`, invented rates). The rule evaluation names the
@@ -1675,6 +1676,29 @@ Tests: `tests/test_email_routing_181.py`, `tests/test_mail_routing_case_231.py`,
 **One work list, the cases (the owner's decisions of 2026-10-28).** The interface's header holds the cases and the settings; a case opens at its own address (`#/cases/<id>`, the case list's `case` link). A case step's document batch (the work package, *iratköteg* in the Hungarian interface) leads back to its case: its view names `owner_case` (the case, the step and the case's tab that shows the step; `document_processing.owner_of`), and the list of every batch (`workpackages`, reached from Settings › System) leaves out the cases' containers and the case steps' batches. The batches made before every batch was a case's are wrapped by their kind: the documents pack 1.4.0 wraps a folder's, chosen files', a watched folder's and an upload's batch, the mailbox pack 1.3.0 a download's (`Wrap.kind`); by its kind, `adopt_all` leaves out a hidden batch (it stays in the list of every batch) and one whose scope names a rule (that rule's process takes it). A watched folder's new batch gets its documents case at once (`app_settings._own_case`), as a download no step takes already did. Tests: `tests/test_batch_wrap_231.py`, `tests/test_document_processing_231.py`, `ui/src/views/singleList231.test.tsx`.
 
 **A step that runs a case of another process (the owner's decision of 2026-10-28: a chain is a multi-step process).** The shared capability `run_case@1` (`jav/app/sub_cases.py`) starts a sub-case of the pack its parameters name, with the parts of the case's scope that pack takes, the step's own documents (the scope part `step_sources`, {step: source}, each checked as `source`) and, by `sources_from`, the batches the sub-cases of earlier steps made (`document_processing.case_packages`); `process_runtime.start_case(parent=, then=)` names the step in the sub-case's data and notes the sub-case on the step in the same transaction. The sub-case's closing sends the step `case_closed` in the closing's transaction (`cases.on_leave`): done makes the step done, another outcome stops it with why, and its retry starts a new sub-case. Two general hooks of a capability check what a step reads from the whole pack: `Capability.pack_check` (a missing process, one that runs itself, a part the sub-case needs that the pack neither holds nor can fill, `scopes.fillable`, a `sources_from` step it does not wait for) and `Capability.scope_check` at a case's start (a step's documents missing; nothing is made). The element `sub_case` shows the sub-case with its state and its own next step; a sub-case's page leads back to its case (`process_runtime.parent_of`); the case list says a step waits for its sub-case. The list of every batch leaves the cases out before it reads their next steps (`work_views.workpackage_list(batches_only=True)`), so it builds no reconciliation's workspace. Tests: `tests/test_sub_case_231.py`, `ui/src/views/subCase231.test.tsx`. The four multi-step workflow templates are process packs of such steps (`monthly_reconciliation`, `mailbox_reconciliation`, `two_sources_reconciliation`, `mailbox_routing`), started from New case: `GET /api/processes` names a pack's steps that take their own documents (`step_sources`: the step, its sub-case's process, the source kinds it takes and whether it has invented documents), and `POST /api/cases` takes them (`step_sources`, each a source as `source` is); the general form asks each one with the same source fields (`ui/src/elements/ProcessStart.tsx` `SourceFields`). What a step's sub-cases spent is the step's cost (`Capability.spent`). Tests: `tests/test_multi_step_processes_231.py`, `ui/src/views/newChain231.test.tsx`.
+
+**Choices when a case starts, and the groups (the owner's decision of 2026-11-02: case types alike made one).** A
+pack's `choices` (`process_packs.Choice`) each offer options (`Option`): the steps an option leaves out, the resources and
+step parameters it sets over the pack's, and its own example material. `process_packs.chosen(pack, choices)` is the pack
+as a case started with them runs it, made before its definition: a step left out is gone, and from what the other steps
+wait for, the screens, the partners, the wraps and the workflow kind, so the process core, the track and the sub-cases
+see only the chosen steps; the check (`_problems`) tries every combination (`variants`). `process_runtime.start_case(
+choices=)` keeps them in the case's data (`choices`; only for a pack that asks some) and `pack_for` narrows by them; a
+taken-over, wrapped or sub-case's case runs on the defaults. A resource an option sets stays the case's
+(`ProcessPack.fixed`): the process's own value does not go over it and the process cannot take one of its own for it
+(its settings show each option's value, `chosen_at_start`). A pack that took the place of others names them
+(`replaces`, with the choices that make a case of it what theirs was): their files are gone, their cases run on as their
+start's snapshot holds them (`_pack_for_in` falls back to it), their next period is a case of the successor
+(`process_packs.successor`), and a case keeps what its former pack was known by outside the store (`former`: the output
+folder's part). `run_case@1`'s `sources_from` may name a step of the case that keeps a batch of its own (the mailbox
+download's routing reads the case's own download). Three merges: `monthly_reconciliation.json` 1.2.0 (`invoices_from`:
+folder, mailbox or both; it replaces the two other monthly chains), `mailbox.json` 1.4.0 (`routing`: download only or
+download and route; it replaces "From the mailbox to the packages") and `insurance_offer.json` 1.10.0 (`product`:
+invented or Allianz). `configs/process_groups.json` orders the case types' groups (`groups`, `group_of`: a retired
+pack's under its successor's; `group_problems`, every pack in exactly one), which `GET /processes` and the case list's
+counts name; New case and the case list's left panel show them. The service takes the choices on `POST /cases` (a 400
+`choice_refused` for one the pack does not ask) and the example material's addresses (`choice=<choice>:<option>`).
+Tests: `tests/test_process_choices_277.py`, `ui/src/views/caseTypes277.test.tsx`.
 
 **Each process its own settings page (the owner's decision of 2026-10-28).** Settings › Processes lists every process with what it is for, and each process has its own address (`#/settings/processes/<id>/<tab>`, the settings route's `item` and `tab`) and its own item under Processes in the Settings menu. Its page has tabs: Description (how a case of it starts, its steps with what each capability does, who starts it and what it waits for, its outputs and the golden sets that measure it: `process_settings.view`'s `description`), What it uses (the resources), Rule values, Partner roles and Examples (the shared example material element). Tests: `tests/test_process_page_231.py`, `ui/src/views/settings/processSettings231.test.tsx`.
 
