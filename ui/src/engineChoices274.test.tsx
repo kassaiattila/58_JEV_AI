@@ -10,6 +10,8 @@ import { setLanguage } from "./i18n";
 import { BUDGET_PROVIDERS, ENGINE, engineReason, paramShort, pathChoices, PATH } from "./labels";
 import { EnginePanel } from "./views/settings/EnginePanel";
 import { budgetText } from "./views/workflows/labels";
+import { kinds, suggestMark } from "./domains/finance/reconcile/partners";
+import type { ReconcileLine } from "./domains/finance/api";
 
 const CHOICES: EngineChoice[] = [
   { engine: "jev", label: "JEV and GPT", available: true, reason: null, provider: null, judge_provider: "jev" },
@@ -68,9 +70,38 @@ describe("the processing path", () => {
     const decisions = choices[3];
     expect(decisions.disabled).toBe(true);
     expect(decisions.detail).toMatch(/^Under measurement/);
-    expect(paramShort(PATH, "engine:decisions")).toBe("OpenAI Decisions and GPT");
-    const on = pathChoices(["auto", "S", "G"], ["email"], CHOICES.map((c) => ({ ...c, available: true, reason: null })));
-    expect(on.map((c) => [c.value, Boolean(c.disabled)])).toEqual([["jev", false], ["engine:decisions", false], ["gpt", false]]);
+    expect(decisions.group).toBeUndefined();  // no groups while JEV's are the only judged paths
+    const on = CHOICES.map((c) => ({ ...c, available: true, reason: null }));
+    const emails = pathChoices(["auto", "S", "G"], ["email"], on);
+    expect(emails.map((c) => [c.value, Boolean(c.disabled)])).toEqual([["jev", false], ["engine:decisions:with", false], ["gpt", false]]);
+    expect(paramShort(PATH, "engine:decisions:with")).toBe("With OpenAI Decisions");
     expect(pathChoices(["auto", "S", "G"], ["document"]).map((c) => c.value)).toEqual(["auto", "S", "G", "gpt"]);  // an older service
   });
+
+  it("275: offers a selectable judge's own paths, each choice under its engine's name", () => {
+    const on = CHOICES.map((c) => ({ ...c, available: true, reason: null }));
+    const docs = pathChoices(["auto", "S", "G"], ["document"], on);
+    expect(docs.map((c) => [c.value, c.group])).toEqual([
+      ["auto", "JEV and GPT"], ["S", "JEV and GPT"], ["G", "JEV and GPT"],
+      ["engine:decisions", "OpenAI Decisions and GPT"], ["engine:decisions:S", "OpenAI Decisions and GPT"],
+      ["engine:decisions:G", "OpenAI Decisions and GPT"], ["gpt", "GPT only"]]);
+    expect(paramShort(PATH, "engine:decisions")).toBe("Automatic (recommended) — OpenAI Decisions and GPT");
+    expect(paramShort(PATH, "engine:decisions:S")).toBe("OpenAI Decisions where possible — cheaper, no line items; GPT elsewhere (S)");
+    expect(paramShort(PATH, "engine:decisions:G")).toBe("GPT + OpenAI Decisions — with line items (G)");
+  });
 });
+
+describe("275: the reconciliation reads every engine of the registry", () => {
+  const answer = (mark: string) => ({ kind: "retail", kind_probability: 0.97, suggested_mark: mark, expects_invoice: false });
+  const line = (ai: Record<string, unknown>): ReconcileLine => ({ id: "l1", ai, earlier_marks: [], category_mark: null } as unknown as ReconcileLine);
+
+  it("counts OpenAI Decisions' answer, JEV first and GPT last, and agrees on two or more engines", () => {
+    const three = line({ gpt: answer("private"), decisions: answer("private"), jev: answer("private") });
+    expect(kinds(three).map((k) => k.engine)).toEqual(["jev", "decisions", "gpt"]);
+    expect(suggestMark([three])).toMatchObject({ category: "private", source: "ai_both", engines: ["jev", "decisions", "gpt"] });
+    expect(suggestMark([line({ decisions: answer("private"), gpt: answer("private") })])?.source).toBe("ai_both");
+    expect(suggestMark([line({ jev: answer("private"), gpt: answer("private") })])?.source).toBe("ai_both");  // as before
+    expect(suggestMark([line({ decisions: answer("private") })])).toMatchObject({ source: "ai_one", engines: ["decisions"] });
+  });
+});
+

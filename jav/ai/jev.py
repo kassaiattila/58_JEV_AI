@@ -434,9 +434,12 @@ class JevAdapter:
                 raise  # An input / programming error is not reported as a service failure.
             seconds = observability.since(t0)
             reason, ledger_error, retry_after = self._error_reason(exc)
+            known = getattr(exc, "known_outcome", None)  # 275: an answered request's certain cost (OpenAI Decisions')
             store.ledger_add(
-                run_id=run_id, step=request_id, provider=self.provider, model=model, input_tokens=None, output_tokens=None,
-                cost_usd=0.0, seconds=seconds, cached=False, cache_key=None, config_hash=config_hash, error=ledger_error,
+                run_id=run_id, step=request_id, provider=self.provider, model=model,
+                input_tokens=getattr(known, "input_tokens", None), output_tokens=getattr(known, "output_tokens", None),
+                cost_usd=float(known.cost_usd) if known is not None and known.cost_usd is not None else 0.0,
+                seconds=seconds, cached=False, cache_key=None, config_hash=config_hash, error=ledger_error,
             )
             raise JevUnavailableError(reason, retry_after_ms=retry_after) from exc
         seconds = observability.since(t0)

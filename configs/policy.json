@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "policy",
-  "version": "1.28.0",
+  "version": "1.29.0",
   "changelog": [
+   {
+    "version": "1.29.0",
+    "date": "2026-11-02",
+    "note": "The owner's decision of 2026-11-02: the document type recognition has its own band set, detect_type: a to-do below 0.8 confidence (until now the default set's 0.6), the rest the default set's. A wrong type at 0.77 (JEV) and 0.69 (OpenAI Decisions) passed without a to-do on the golden set; at 0.8 it is caught with no other to-do on the golden set's 102 documents and no change to the installation's traced type decisions. GPT only's type recognition keeps its own set."
+   },
    {
     "version": "1.28.0",
     "date": "2026-11-01",
@@ -169,6 +174,9 @@
   "high_stakes": {
    "choice_human_max_conf": 0.85
   },
+  "detect_type": {
+   "choice_human_max_conf": 0.8
+  },
   "verify_flag": {},
   "gpt_detect": {},
   "gpt_intent": {}
@@ -177,7 +185,7 @@
   "invoice.pick": "default",
   "invoice.pick.high_stakes": "high_stakes",
   "invoice.verify": "verify_flag",
-  "detect.doc_type": "default",
+  "detect.doc_type": "detect_type",
   "detect.issuer_is_hungarian": "default",
   "email.intent": "default",
   "email.signal": "default",

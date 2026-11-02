@@ -1,7 +1,7 @@
 // 147 (backlog F-quick-review; DECISIONS 147): the quick review of a reconciliation package. The lines a person still
 // decides are shown in groups by what is known of them (a sure pair, the partner's earlier reason, the bank's category,
 // salary, the AI's sure kind, the AI's suggestion to look at, an expected invoice, the rest); a group's lines are ticked
-// and accepted at once. The AI counts as sure when both engines give the same kind and JEV is at least the policy's
+// and accepted at once. The AI counts as sure when two or more engines give the same kind and each judgement service is at least the policy's
 // threshold sure of it; its other suggestions start unticked. The service re-reads the group when a person accepts it
 // and takes only the lines still in it (jav/domains/finance/reconcile_review.py).
 import { useState } from "react";
@@ -25,8 +25,9 @@ const HOW: Record<QuickReviewGroupId, string> = {
   earlier: "You gave this reason for the partner's other lines.",
   bank_category: "The bank's own category of the line: an ATM withdrawal is cash, an exchange or a top-up is a transfer between own accounts.",
   salary_rule: "The memo or the description says salary.",
-  ai_sure: "Both AIs (JEV and GPT) read the same kind of payment, and JEV is at least {{p}} sure of it. The two models agree; that is not a checked fact.",
-  ai_review: "Only one AI answered, or JEV is less than {{p}} sure: look at the lines before you accept them.",
+  // 275: any engines of the registry (until then JEV and GPT): the judgement services are JEV or OpenAI Decisions
+  ai_sure: "Two or more AIs read the same kind of payment, and each judgement service among them is at least {{p}} sure of it. The models agree; that is not a checked fact.",
+  ai_review: "Only one AI answered, or a judgement service is less than {{p}} sure: look at the lines before you accept them.",
   expects_invoice: "The AI read a kind of payment that usually has an invoice, but no invoice was found: it may be missing from the store.",
   rest: "Nothing tells what these lines are: decide them on the cards or the two lists.",
 };

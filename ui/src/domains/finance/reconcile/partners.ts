@@ -3,10 +3,12 @@
 // lines are grouped and marked as needing no invoice in one step. A suggestion for the reason comes from a person's
 // earlier marks of the partner's lines first, then (140) from the lines' own category in the bank's export, then from
 // the AI's kind of payment (jav/domains/finance/reconcile_ai.py) — a suggestion only: a person chooses and saves it.
+import engineRegistry from "../../../../../configs/engines.json";
 import { OPEN_LINE_STATES, type ReconcileAiEngine, type ReconcileLine } from "../api";
 import { parseCanonical } from "./money";
 
-export const ENGINES: ReconcileAiEngine[] = ["jev", "gpt"];
+/** 275: every engine of the registry, in its order (JEV first, GPT last); a line holds the answers of those asked. */
+export const ENGINES: ReconcileAiEngine[] = Object.keys(engineRegistry.engines);
 
 export interface KindAnswer {
   engine: ReconcileAiEngine; kind: string; probability: number | null; mark: string | null; expects: boolean | null;
@@ -46,9 +48,9 @@ export type SuggestionSource = "earlier" | "category" | "ai_both" | "ai_one";
 export interface MarkSuggestion { category: string; source: SuggestionSource; lines?: number; engines?: ReconcileAiEngine[] }
 
 /** The reason suggested for marking these lines: the most frequent earlier reason of their partner; otherwise the
- *  reason every line's own category suggests (140); otherwise the reason both engines' kind suggests for every line;
- *  otherwise the one engine that answered alone does. None when the engines disagree or a line's kind expects an
- *  invoice. */
+ *  reason every line's own category suggests (140); otherwise the reason two or more engines' kind suggests for every
+ *  line (275: until then both of JEV and GPT, the two asked); otherwise the one engine that answered alone does. None
+ *  when the engines disagree or a line's kind expects an invoice. */
 export function suggestMark(lines: ReconcileLine[]): MarkSuggestion | null {
   if (!lines.length) return null;
   const earlier = new Map<string, number>();
@@ -63,7 +65,7 @@ export function suggestMark(lines: ReconcileLine[]): MarkSuggestion | null {
   const marks = new Set(per.flatMap((ks) => ks.map((k) => k.mark!)));
   if (marks.size !== 1) return null;
   const engines = ENGINES.filter((e) => per.every((ks) => ks.some((k) => k.engine === e)));
-  return { category: [...marks][0], source: per.every((ks) => ks.length === ENGINES.length) ? "ai_both" : "ai_one", engines };
+  return { category: [...marks][0], source: per.every((ks) => ks.length >= 2) ? "ai_both" : "ai_one", engines };
 }
 
 export interface PartnerGroup { key: string; name: string; lines: ReconcileLine[] }

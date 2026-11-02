@@ -158,7 +158,7 @@ def test_the_workflow_estimate_follows_the_applications_engine(db):
 def test_the_service_reads_and_saves_the_setting(env):
     c = env["client"]
     read = c.get("/api/settings/engine").json()
-    assert [(e["engine"], e["available"]) for e in read.pop("choices")] == [("jev", True), ("decisions", False), ("gpt", True)]
+    assert [(e["engine"], e["available"]) for e in read.pop("choices")] == [("jev", True), ("decisions", True), ("gpt", True)]
     assert read == {"engine": "jev", "actor": None, "updated_at": None}
     assert c.put("/api/settings/engine", json={"engine": "gpt"}).status_code == 422  # a person's name is needed
     assert c.put("/api/settings/engine", headers=HUMAN, json={"engine": "both"}).status_code == 422

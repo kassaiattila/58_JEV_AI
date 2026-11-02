@@ -22,10 +22,10 @@ describe("every to-do kind has a label (177)", () => {
 
 describe("the kinds that showed their raw code until 177", () => {
   it("the JEV verification's flags name the field and the probability", () => {
-    expect(reasonText("jev:absence_wrong:invoice_number:0.85")).toBe("JEV szerint a mező üresen maradt, pedig szerepel az iraton: Számlaszám (0,85)");
-    expect(reasonText("jev:off_target:net_total:0.81")).toBe("JEV szerint az érték egy másik mezőhöz tartozik: Nettó összeg (0,81)");
-    expect(reasonText("jev:parties_swapped:0.88")).toBe("JEV szerint a szállító és a vevő fel van cserélve (0,88)");
-    expect(reasonText("jev:line_items_missing_rows:0.74")).toBe("JEV szerint az iraton olyan tételsor is van, amely a kinyert listából hiányzik (0,74)");
+    expect(reasonText("jev:absence_wrong:invoice_number:0.85")).toBe("Az AI-ellenőrzés szerint a mező üresen maradt, pedig szerepel az iraton: Számlaszám (0,85)");
+    expect(reasonText("jev:off_target:net_total:0.81")).toBe("Az AI-ellenőrzés szerint az érték egy másik mezőhöz tartozik: Nettó összeg (0,81)");
+    expect(reasonText("jev:parties_swapped:0.88")).toBe("Az AI-ellenőrzés szerint a szállító és a vevő fel van cserélve (0,88)");
+    expect(reasonText("jev:line_items_missing_rows:0.74")).toBe("Az AI-ellenőrzés szerint az iraton olyan tételsor is van, amely a kinyert listából hiányzik (0,74)");
   });
   it("a number that cannot be read names its list row and column", () => {
     expect(reasonText("line_items[3].gross_amount:unparseable:'12,5x'")).toMatch(/^Nem értelmezhető szám: .+, 4\. sor: .+$/);

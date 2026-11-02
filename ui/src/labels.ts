@@ -197,18 +197,19 @@ export function reasonText(code: string): string {
     }
     case "jev:unsupported": return t("Not supported by the model: {{field}}", { field: f });
     // 167 (review AI-10): a list left out of the JEV verification so that the request fits its size limit
-    case "jev:list_omitted": return t("JEV did not check this list, to keep the request within its size limit: {{field}}; check its rows by hand", { field: f });
-    // 177 (plan 170 E6): the JEV verification's field and document flags (jav/ai/policy.py); until now the raw code showed
-    case "jev:absence_wrong": return t("JEV: the field was left empty, though it is on the document: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:off_target": return t("JEV: the value belongs to another field: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:wrong_kind": return t("JEV: the value is not of this field's kind: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:incomplete": return t("JEV: the value seems cut short: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:parties_swapped": return t("JEV: the supplier and the buyer seem swapped ({{p}})", { p: num(p[2]) });
-    case "jev:line_items_missing_rows": return t("JEV: the document has line items the extracted list lacks ({{p}})", { p: num(p[2]) });
+    case "jev:list_omitted": return t("The AI check left this list out, to keep the request within its size limit: {{field}}; check its rows by hand", { field: f });
+    // 177 (plan 170 E6): the JEV verification's field and document flags (jav/ai/policy.py); until now the raw code showed.
+    // 275: OpenAI Decisions raises the same flags, so they name the AI check, not JEV
+    case "jev:absence_wrong": return t("AI check: the field was left empty, though it is on the document: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:off_target": return t("AI check: the value belongs to another field: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:wrong_kind": return t("AI check: the value is not of this field's kind: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:incomplete": return t("AI check: the value seems cut short: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:parties_swapped": return t("AI check: the supplier and the buyer seem swapped ({{p}})", { p: num(p[2]) });
+    case "jev:line_items_missing_rows": return t("AI check: the document has line items the extracted list lacks ({{p}})", { p: num(p[2]) });
     // 190: the per-list questions a verification call site may name (`list_nouls`), the list as the field
-    case "jev:missing_rows": return t("JEV: the document has rows of this list that the extraction lacks: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:extra_rows": return t("JEV: the extracted list has rows the document does not: {{field}} ({{p}})", { field: f, p: v });
-    case "jev:line_items_extra_rows": return t("JEV: the extracted list has line items the document does not ({{p}})", { p: num(p[2]) });
+    case "jev:missing_rows": return t("AI check: the document has rows of this list that the extraction lacks: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:extra_rows": return t("AI check: the extracted list has rows the document does not: {{field}} ({{p}})", { field: f, p: v });
+    case "jev:line_items_extra_rows": return t("AI check: the extracted list has line items the document does not ({{p}})", { p: num(p[2]) });
     // 085: processing without JEV: the extracted value is printed nowhere on the document (the code's own check)
     case "source:not_found": return t("The extracted value is not printed on the document: {{field}}", { field: f });
     // 092: without JEV, an accounting field GPT is not sure enough of (below the policy's review_below)
@@ -321,8 +322,8 @@ export function reasonText(code: string): string {
     case "native:claim": return t("A fact is not certain ({{state}})", { state: NATIVE_STATUS[p[2]] ?? p[2] ?? "" });
     case "native:fact": {
       const n = Number(p[2]) + 1;
-      if (p[3] === "unsupported") return t("JEV does not support fact {{n}} ({{p}})", { n, p: num(p[4]) });
-      if (p[3] === "uncertain") return t("JEV is uncertain about fact {{n}} ({{p}})", { n, p: num(p[4]) });
+      if (p[3] === "unsupported") return t("The AI check does not support fact {{n}} ({{p}})", { n, p: num(p[4]) });
+      if (p[3] === "uncertain") return t("The AI check is uncertain about fact {{n}} ({{p}})", { n, p: num(p[4]) });
       return t("Fact {{n}} has a warning; check it", { n });
     }
   }
@@ -567,7 +568,7 @@ export const paramInEffect = (k: string, params: Record<string, string>): boolea
 
 /** 265 (plan L): the engine registry (configs/engines.json), read as the service reads it (`jav/ai/engine.py`). */
 const ENGINES = engineRegistry.engines as Record<string, { judge: string | null }>;
-const JUDGES = engineRegistry.judges as Record<string, { provider: string }>;
+const JUDGES = engineRegistry.judges as Record<string, { provider: string; todo: string }>;
 const LEGACY = engineRegistry.legacy.values as Record<string, string>;
 /** The engine without a judgement service (GPT answers, the code checks). */
 export const GPT_ONLY = Object.keys(ENGINES).find((e) => ENGINES[e].judge === null) ?? "gpt";
@@ -575,6 +576,16 @@ export const GPT_ONLY = Object.keys(ENGINES).find((e) => ENGINES[e].judge === nu
 export const judgeProvider = (engine: string): string | null => {
   const judge = ENGINES[engine]?.judge;
   return judge ? JUDGES[judge]?.provider ?? null : null;
+};
+/** 275: the name of the judgement service an engine asks; JEV's for an engine without one (GPT only), as a rule
+ *  proposal's recheck asks JEV then (`jav/app/rule_proposal_runs.py`). */
+export const judgeName = (engine?: string | null): string =>
+  providerName(judgeProvider(engine ?? engineRegistry.default) ?? judgeProvider(engineRegistry.default) ?? "jev");
+/** 275: the name of the judgement service a to-do's code says could not answer (`jev_unavailable:…`,
+ *  `decisions_unavailable:…`), else null. */
+export const todoJudge = (code: string): string | null => {
+  const judge = Object.values(JUDGES).find((j) => code === j.todo || code.startsWith(`${j.todo}:`));
+  return judge ? providerName(judge.provider) : null;
 };
 /** 265: the AI engine of saved settings: `engine`, or, saved before 265, the JEV switch (`jev: on | off`), or the
  *  registry's default. */
@@ -602,37 +613,49 @@ export const planEngine = (plan: { engine?: string; jev?: boolean }): string =>
 export const PATH = "path";
 const withDocuments = (kinds?: string[]) => !kinds?.length || kinds.includes("document");
 const hasPath = (keys: string[]) => keys.includes("arm") && keys.includes("engine");
-/** 274: a path value naming another judged engine of the registry (`engine:<id>`, OpenAI Decisions): its documents on
- *  the automatic path. The documents' own paths (automatic, S, G) and "with JEV" are the registry default's, JEV's,
- *  as their texts say. */
+/** 274/275: a path value naming another judged engine of the registry (OpenAI Decisions): `engine:<id>` its automatic
+ *  path, `engine:<id>:<arm>` its S or G path, `engine:<id>:with` a package of emails only "with it". The plain values (automatic, S, G, "with JEV") are
+ *  the registry default's, JEV's, as their texts say. */
 const ENGINE_PATH = "engine:";
-export const enginePath = (engine: string): string => `${ENGINE_PATH}${engine}`;
-const pathEngine = (path: string): string | null => (path.startsWith(ENGINE_PATH) ? path.slice(ENGINE_PATH.length) : null);
+const WITH = "with";  // a package of emails only: no documents' path
+export const enginePath = (engine: string, arm?: string): string =>
+  `${ENGINE_PATH}${engine}${arm && arm !== "auto" ? `:${arm}` : ""}`;
+const pathEngine = (path: string): { engine: string; arm: string } | null => {
+  if (!path.startsWith(ENGINE_PATH)) return null;
+  const [engine, arm] = path.slice(ENGINE_PATH.length).split(":");
+  return { engine, arm: arm ?? "auto" };
+};
 export function pathValue(params: Record<string, string>, kinds?: string[]): string {
   const engine = engineOf(params);
   if (engine === GPT_ONLY) return GPT_ONLY;
-  if (engine !== engineRegistry.default) return enginePath(engine);  // 274
+  if (engine !== engineRegistry.default) return enginePath(engine, withDocuments(kinds) ? params.arm : WITH);
   return withDocuments(kinds) ? params.arm ?? "auto" : "jev";
 }
 export const pathOptions = (armAllowed: string[], kinds?: string[]): string[] =>
   withDocuments(kinds) ? [...armAllowed, GPT_ONLY] : ["jev", GPT_ONLY];
-/** 274: the processing path's choices for the picker: the registry default's paths, then every other judged engine of
- *  the service's list (`choices`; one that cannot run here greyed, with its reason: the owner's decision of 2026-11-01),
- *  then GPT only. */
-export interface PathChoice { value: string; disabled?: boolean; detail?: string }
+/** 274/275: the processing path's choices for the picker: the registry default's paths, then every other judged engine
+ *  of the service's list with its own paths (one that cannot run here: one greyed row with its reason, the owner's
+ *  decision of 2026-11-01), then GPT only. While another engine can be chosen, each choice is grouped under its
+ *  engine's name. */
+export interface PathChoice { value: string; disabled?: boolean; detail?: string; group?: string }
 export function pathChoices(armAllowed: string[], kinds?: string[], choices?: EngineChoice[]): PathChoice[] {
-  const base = pathOptions(armAllowed, kinds).map((value) => ({ value }));
-  const others = (choices ?? []).filter((c) => c.engine !== engineRegistry.default && c.engine !== GPT_ONLY)
-    .map((c) => ({ value: enginePath(c.engine), disabled: !c.available,
-      detail: c.available ? undefined : engineReason(c.reason, c.provider) }));
-  return [...base.slice(0, -1), ...others, ...base.slice(-1)];
+  const base = pathOptions(armAllowed, kinds);
+  const own = base.slice(0, -1).map((value) => ({ value, group: ENGINE[engineRegistry.default] }));
+  const others = (choices ?? []).filter((c) => c.engine !== engineRegistry.default && c.engine !== GPT_ONLY);
+  const grouped = others.some((c) => c.available);
+  const theirs = others.flatMap((c): PathChoice[] => c.available
+    ? (withDocuments(kinds) ? armAllowed : [WITH]).map((arm) => ({ value: enginePath(c.engine, arm), group: ENGINE[c.engine] }))
+    : [{ value: enginePath(c.engine), disabled: true, detail: engineReason(c.reason, c.provider) }]);
+  const gpt = { value: GPT_ONLY, group: ENGINE[GPT_ONLY] };
+  const out = [...own, ...theirs, gpt];
+  return grouped ? out : out.map(({ group: _group, ...rest }) => rest);
 }
-/** 265: GPT only, or a path of the registry default (JEV), or (274) another judged engine on the automatic path. */
+/** 265: GPT only, or a path of the registry default (JEV), or (274/275) another judged engine's path. */
 export function applyPath(params: Record<string, string>, path: string): Record<string, string> {
   const { jev: _legacy, ...rest } = params;  // a setting saved before 265 is written with its engine
   if (path === GPT_ONLY) return { ...rest, engine: GPT_ONLY };
   const other = pathEngine(path);
-  if (other) return { ...rest, engine: other, ...("arm" in rest ? { arm: "auto" } : {}) };
+  if (other) return { ...rest, engine: other.engine, ...("arm" in rest && other.arm !== WITH ? { arm: other.arm } : {}) };
   const judged = engineRegistry.default;
   return path === "jev" ? { ...rest, engine: judged } : { ...rest, engine: judged, arm: path };
 }
@@ -649,9 +672,20 @@ export const shownValue = (k: string, saved: Record<string, string>, kinds?: str
   const params = upgradedParams(saved);
   return k === PATH ? pathValue(params, kinds) : params[k] ?? "";
 };
+/** 275: another judged engine's path, by the judgement service's name (JEV's own paths keep their texts). */
+const OTHER_PATH: Record<string, string> = tmap({
+  auto: "Automatic (recommended) — {{judge}} and GPT",
+  S: "{{judge}} where possible — cheaper, no line items; GPT elsewhere (S)",
+  G: "GPT + {{judge}} — with line items (G)",
+  with: "With {{judge}}",
+});
+export function otherPathText(engine: string, arm: string, table: Record<string, string> = OTHER_PATH): string {
+  const judge = providerName(judgeProvider(engine) ?? engine);
+  return (table[arm] ?? arm).replace("{{judge}}", judge);
+}
 export const paramShort = (k: string, v: string): string => {
-  const other = k === PATH ? pathEngine(v) : null;  // 274: another judged engine's automatic path
-  if (other) return ENGINE[other] ?? other;
+  const other = k === PATH ? pathEngine(v) : null;  // 274/275: another judged engine's path
+  if (other) return otherPathText(other.engine, other.arm);
   return PARAM_SHORT[`${k}:${v}`] ?? (k === "doc_type" ? docTypeLabel(v) : v);
 };
 export const paramsText = (saved: Record<string, string>): string => {

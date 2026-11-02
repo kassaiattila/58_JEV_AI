@@ -135,15 +135,16 @@ def test_the_rules_view_names_each_judgement_service_from_the_provider_registry(
 # --- an engine that cannot run here --------------------------------------------------------------------------------
 
 
-def test_a_batch_whose_engine_cannot_run_here_does_not_start(db):
-    """OpenAI Decisions is switched off by default (configs/providers.json): the overview says why, and nothing starts
-    until a person chooses another engine."""
+def test_a_batch_whose_engine_cannot_run_here_does_not_start(db, monkeypatch):
+    """An installation switched OpenAI Decisions off (JAV_PROVIDERS_OFF; 275: it is on by default): the overview says
+    why, and nothing starts until a person chooses another engine."""
+    monkeypatch.setenv(providers.OFF_ENV, "openai_decisions")
     wp = _package(db / "in")
     _assign(wp, {"engine": "decisions"})
     ready = work_readiness.readiness(wp)
     assert ready["ready"] is False and ready["plan"]["engine"] == "decisions"
     [blocker] = [b for b in ready["blockers"] if b["code"] == "engine_unavailable"]
-    assert blocker["message"] == display.text(work_readiness.ENGINE_UNAVAILABLE["under_measurement"],
+    assert blocker["message"] == display.text(work_readiness.ENGINE_UNAVAILABLE["switched_off"],
                                               engine=display.text(engines.get("decisions").label), provider="OpenAI Decisions")
     with pytest.raises(work.NotReady):
         work_runs.start_run(wp, mode="shadow", expected_assignment_revision=ready["assignment_revision"],
@@ -171,6 +172,7 @@ def test_a_run_of_the_pending_items_stops_on_an_engine_that_cannot_run_here(db, 
     with store.connect() as c:
         c.execute("UPDATE runs SET status='done' WHERE run_id=?", (run_id,))
     monkeypatch.delenv(providers.ON_ENV)
+    monkeypatch.setenv(providers.OFF_ENV, "openai_decisions")  # switched off here meanwhile
     ready = work_readiness.readiness(wp)
     offer = ready["supplement"]["shadow"]
     assert offer["ready"] is False and "engine_unavailable" in {b["code"] for b in offer["blockers"]}
@@ -186,23 +188,28 @@ def test_a_switched_on_engine_can_start(db, monkeypatch):
     assert "engine_unavailable" not in {b["code"] for b in work_readiness.readiness(wp)["blockers"]}
 
 
-def test_a_batch_without_ai_items_is_not_stopped_by_its_engine():
+def test_a_batch_without_ai_items_is_not_stopped_by_its_engine(monkeypatch):
+    monkeypatch.setenv(providers.OFF_ENV, "openai_decisions")
     assert work_readiness.engine_blocker({"engine": "decisions", "documents": 0, "emails": 0}) is None
     assert work_readiness.engine_blocker({"engine": "decisions", "documents": 1})["code"] == "engine_unavailable"
 
 
 def test_the_application_engine_can_only_be_one_that_runs_here(db, monkeypatch):
+    monkeypatch.setenv(providers.OFF_ENV, "openai_decisions")
     with pytest.raises(ValueError, match="cannot run here"):
         app_settings.save_engine_default("decisions", actor="tester")
     assert app_settings.engine_default() == "jev"
-    monkeypatch.setenv(providers.ON_ENV, "openai_decisions")
+    monkeypatch.delenv(providers.OFF_ENV)
     assert app_settings.save_engine_default("decisions", actor="tester")["engine"] == "decisions"
 
 
-def test_the_settings_and_the_catalogue_list_the_engines_with_whether_they_run_here(db):
+def test_the_settings_and_the_catalogue_list_the_engines_with_whether_they_run_here(db, monkeypatch):
     choices = {c["engine"]: c for c in app_settings.engine_setting()["choices"]}
     assert (choices["jev"]["available"], choices["gpt"]["available"]) == (True, True)
-    assert (choices["decisions"]["available"], choices["decisions"]["reason"]) == (False, providers.UNDER_MEASUREMENT)
+    assert (choices["decisions"]["available"], choices["decisions"]["reason"]) == (True, None)  # 275: selectable
+    monkeypatch.setenv(providers.OFF_ENV, "openai_decisions")
+    off = {c["engine"]: c for c in app_settings.engine_setting()["choices"]}["decisions"]
+    assert (off["available"], off["reason"]) == (False, providers.SWITCHED_OFF)
     assert choices["decisions"]["judge_provider"] == "openai_decisions" and choices["gpt"]["judge_provider"] is None
     processing = next(r for r in work_views.recipe_catalog() if r["id"] == "processing")
     assert [c["engine"] for c in processing["params"]["engine"]["choices"]] == engines.ids()

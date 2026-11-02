@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "providers",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "description": "Every paid service the system calls, one description each (jav/core/providers.py). `key`: the key it needs, read from the environment (`typesafe`: TypeSafeJAV_API_KEY or TYPESAFE_API_KEY; `openai`: OPENAI_API_KEY; `azure_di`: AZURE_DI_ENDPOINT and AZURE_DI_KEY). `budget`: the provider whose budget its calls reserve from; the call log keeps the provider's own name. `enabled`: whether an installation may call it at all; an installation overrides it with JAV_PROVIDERS_ON / JAV_PROVIDERS_OFF (comma-separated provider names), and `off_note` says why it is off by default; `off_reason` names that reason as a code the screens show (`under_measurement`: being measured before an installation may choose it), while an installation's own switch reads as `switched_off`. `key_fallback`: how it is still reached without its own key, so a missing key is not reported as a refusal (Azure DI through the legacy sidecar). `label`: its name on screen and in reports. (Glossary: Provider registry.)",
     "changelog": [
+      {
+        "version": "1.3.0",
+        "date": "2026-11-02",
+        "note": "OpenAI Decisions switched on (the owner's decision of 2026-11-02, after its measurement and the comparison with JEV on the same golden sets: selectable, not the default; it runs with JEV's bands). Its off_note and off_reason go; an installation still switches it off with JAV_PROVIDERS_OFF."
+      },
       {
         "version": "1.2.0",
         "date": "2026-11-01",
@@ -38,9 +43,7 @@
       "label": "OpenAI Decisions",
       "key": "openai",
       "budget": "openai",
-      "enabled": false,
-      "off_note": "measured on the golden sets before an installation may choose it",
-      "off_reason": "under_measurement"
+      "enabled": true
     },
     "azure_di": {
       "label": "Azure DI",

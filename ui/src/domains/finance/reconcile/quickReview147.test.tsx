@@ -45,7 +45,7 @@ describe("the quick review", () => {
     vi.spyOn(api, "reconcileQuickReview").mockResolvedValue(review());
     render(<ReconcileQuickReview wpId="wp-00000000000a" readOnly={false} onWorkspace={vi.fn()} onCards={vi.fn()} />);
     const sure = await screen.findByRole("region", { name: "Sure by AI" });
-    expect(sure.textContent).toContain("JEV is at least 0.95 sure of it");
+    expect(sure.textContent).toContain("each judgement service among them is at least 0.95 sure of it");
     expect(sure.textContent).toContain("Private expense · JEV: Retail purchase 0.97 · GPT: Retail purchase 1.00");
     expect(within(sure).getByRole("button", { name: "Accept 1 line(s)" })).toBeTruthy();
     const look = screen.getByRole("region", { name: "AI suggestion: look at it" });

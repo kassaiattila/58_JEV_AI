@@ -28,7 +28,7 @@ describe("native review in everyday words (120)", () => {
   });
 
   it("names native to-dos in sentences, counting facts from one", () => {
-    expect(reasonText("native:fact:2:unsupported:0.15")).toBe("A JEV nem t\u00e1masztja al\u00e1 a(z) 3. adatjavaslatot (0,15)");
+    expect(reasonText("native:fact:2:unsupported:0.15")).toBe("Az AI-ellen\u0151rz\u00e9s nem t\u00e1masztja al\u00e1 a(z) 3. adatjavaslatot (0,15)");
     expect(reasonText("native:fact:0:requires_review")).toBe("A(z) 1. adatjavaslathoz figyelmeztet\u00e9s tartozik; ellen\u0151rizd");
     expect(reasonText("native:reading:partial")).toBe("Az irat nem teljesen olvashat\u00f3 (r\u00e9szleges); n\u00e9zd meg a forr\u00e1st \u00e9s a hi\u00e1nyokat");
     expect(reasonText("native:no_facts")).toBe("Az iratb\u00f3l nem keletkezett adatjavaslat");

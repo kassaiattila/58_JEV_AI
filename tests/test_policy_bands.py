@@ -110,7 +110,7 @@ def test_legacy_constants_derive_from_bands():
     assert policy.human_max_conf() == policy.band("invoice.pick")["choice_human_max_conf"] == 0.60
     assert policy.auto_min_conf_high_stakes() == policy.band("invoice.pick.high_stakes")["choice_human_max_conf"] == 0.85
     assert policy.review_flag_p() == policy.band("invoice.verify")["noul_yes_min"] == 0.70
-    assert policy.detect_low_confidence() == policy.band("detect.doc_type")["choice_human_max_conf"] == 0.60
+    assert policy.detect_low_confidence() == policy.band("detect.doc_type")["choice_human_max_conf"] == 0.80  # its own set
     assert policy.intent_human_max_conf() == policy.band("email.intent")["choice_human_max_conf"] == 0.60
 
 
