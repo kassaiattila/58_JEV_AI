@@ -5,7 +5,7 @@
 name = "jav"
 version = "1.79.0"  # Single version source; update the UI package descriptors and README with each release.
 description = "A multilingual AI-flow framework for processing documents and emails (Burr + Pydantic AI + JEV)"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.13"  # the lockfiles are compiled for Python 3.12 (docs/guides/SETUP.md)
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
