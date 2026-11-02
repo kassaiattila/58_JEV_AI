@@ -5491,5 +5491,6 @@
   "Azure reads weak scans more accurately, for a fee, within each run's Azure budget. Its endpoint and key go into the .env file of this machine (the setup guide, section 3); the free check asks the resource for its details and analyses nothing:": "Az Azure pontosabban, díj ellenében olvassa a gyenge szkenneket, a futások Azure-keretén belül. A címe és a kulcsa ennek a gépnek a .env fájljába kerül (a telepítési útmutató 3. része); az ingyenes ellenőrzés csak az erőforrás adatait kérdezi le, semmit nem elemez:",
   "JPEG image": "JPEG-kép",
   "PNG image": "PNG-kép",
-  "TIFF image": "TIFF-kép"
+  "TIFF image": "TIFF-kép",
+  "This image cannot be read ({{why}})": "Ez a kép nem olvasható ({{why}})"
 }
