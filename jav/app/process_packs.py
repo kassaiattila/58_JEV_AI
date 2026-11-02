@@ -315,7 +315,7 @@ def chosen(pack: ProcessPack, choices: dict[str, str] | None = None) -> ProcessP
     """277 (O3): the pack as a case started with `choices` runs it, before its definition is made: the steps its options
     leave out are gone (and from what the other steps wait for, the screens, the partners, the wraps and the workflow
     kind), their resources and step parameters are set over the pack's, an option's examples take the place of the
-    pack's, and it asks no choice any more. A pack without choices is returned as it is (`PackError` for a choice
+    pack's, and it asks no choice and replaces nothing any more (`successor` reads the packs as their files have them). A pack without choices is returned as it is (`PackError` for a choice
     given to it)."""
     if not pack.choices:
         if choices:
@@ -342,7 +342,7 @@ def chosen(pack: ProcessPack, choices: dict[str, str] | None = None) -> ProcessP
         "examples": examples, "partners": tuple(p for p in pack.partners if p.from_step not in left),
         "wraps": tuple(w for w in pack.wraps if w.step not in left),
         "workflow": pack.workflow if pack.workflow is None or pack.workflow.step not in left else None,
-        "choices": ()})
+        "choices": (), "replaces": ()})  # the pack as its file has it names what it took the place of
     narrowed._fixed = tuple(sorted({k for o in options for k in o.resources}))
     return narrowed
 

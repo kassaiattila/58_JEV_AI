@@ -23,14 +23,11 @@ def _registered() -> None:
 
 
 def _chained() -> dict:
-    """An invented four-step chain with a choice of the invoices' source (the shape of the merged monthly
-    reconciliation), built on the real two-source pack."""
-    data = copy.deepcopy(cfg.load("process:two_sources_reconciliation"))
-    data["id"] = "two_sources_reconciliation"
-    data["choices"] = [{"id": "invoices_from", "title": "Where the invoices come from", "default": "folder", "options": [
-        {"id": "folder", "title": "A folder", "leaves_out": ["emails"]},
-        {"id": "mailbox", "title": "A mailbox", "leaves_out": ["invoices"]},
-        {"id": "both", "title": "Both"}]}]
+    """The monthly reconciliation's four-step chain with its choice of the invoices' source (O3f), without what it
+    replaces (the tests add that themselves)."""
+    data = copy.deepcopy(cfg.load("process:monthly_reconciliation"))
+    del data["replaces"]
+    assert [o["id"] for o in data["choices"][0]["options"]] == ["folder", "mailbox", "both"]
     return data
 
 
@@ -58,6 +55,7 @@ def test_the_chosen_pack_leaves_the_steps_out_and_the_steps_that_waited_for_them
     overview = folder.screens.tabs[0]
     assert [e.step for e in overview.elements] == [None, "invoices", "statements", "reconcile"]
     assert folder.choices == ()  # a narrowed pack asks nothing more
+    assert process_packs.chosen(_merged(), {}).replaces == ()  # and replaces nothing (its file says what it did)
     mailbox = process_packs.chosen(pack, {"invoices_from": "mailbox"})
     assert [s.id for s in mailbox.steps] == ["emails", "statements", "reconcile"]
     both = process_packs.chosen(pack, {"invoices_from": "both"})
@@ -115,7 +113,7 @@ def _with_choice(**option) -> dict:
     (lambda d: _with_choice(params={"statements": {"pack": "nowhere"}}), "with invoices_from=mailbox: step 'statements'"),
     (lambda d: _with_choice(leaves_out=["invoices", "emails", "statements", "reconcile"]),
      "with invoices_from=mailbox: it leaves out every step"),
-    (lambda d: d.update(replaces=[{"pack": "two_sources_reconciliation"}]) or d, "replaces itself"),
+    (lambda d: d.update(replaces=[{"pack": "monthly_reconciliation"}]) or d, "replaces itself"),
     (lambda d: d.update(replaces=[{"pack": "old_chain", "choices": {"invoices_from": "tray"}}]) or d,
      "replaces 'old_chain': no option 'tray' of the choice 'invoices_from'"),
 ])
@@ -132,32 +130,54 @@ PERSON = "anna"
 
 
 def _merged() -> process_packs.ProcessPack:
-    """The merged monthly reconciliation as the configs will have it: the four-step chain with the invoices' source
-    chosen, taking the place of the two chains it unites."""
-    data = _chained()
-    data["id"] = "monthly_reconciliation"
-    data["replaces"] = [{"pack": "mailbox_reconciliation", "choices": {"invoices_from": "mailbox"}},
-                        {"pack": "two_sources_reconciliation", "choices": {"invoices_from": "both"}}]
-    return _pack(data)
+    """The merged monthly reconciliation (O3f): the four-step chain with the invoices' source chosen, taking the place
+    of the two chains it unites."""
+    return process_packs.load("monthly_reconciliation")
+
+
+def _old(pack_id: str, picks: dict[str, str]) -> tuple[process_packs.ProcessPack, str]:
+    """A retired pack as its file was before the merge: the merged one's variant under its own id and version, and its
+    file's text."""
+    import json
+
+    data = process_packs.chosen(_merged(), picks).model_dump(mode="json")
+    data["id"] = pack_id
+    data["meta"] = {**data["meta"], "name": f"process:{pack_id}", "version": "1.1.1"}
+    del data["choices"], data["replaces"]
+    return _pack(data), json.dumps(data)
+
+
+OLD = {"mailbox_reconciliation": {"invoices_from": "mailbox"}}
 
 
 @pytest.fixture
 def merged(tmp_path, monkeypatch):
-    from jav.core import store
+    """A store, and the retired packs as they were before the merge: loaded while not `gone`, and in the snapshot a
+    case started on one keeps (the live store's cases of them hold their file's text)."""
+    from jav.core import rulebook, store
     from tests.statement_pdf import pdf_lines_as_text
 
     pdf_lines_as_text(monkeypatch)
-    pack, real = _merged(), process_packs.load
+    real, old = process_packs.load, {pid: _old(pid, picks) for pid, picks in OLD.items()}
     gone: set[str] = set()
 
     def load(pack_id: str) -> process_packs.ProcessPack:
+        if pack_id not in old:
+            return real(pack_id)
         if pack_id in gone:
             raise process_packs.UnknownPack(f"no process pack {pack_id!r}")
-        return pack if pack_id == "monthly_reconciliation" else real(pack_id)
+        return old[pack_id][0]
+
+    get_in, content_in = rulebook.get_in, rulebook.content_in
+
+    def snapshot(c, snapshot_id):
+        found = get_in(c, snapshot_id) or {}
+        return {**found, "files": {**(found.get("files") or {}),
+                                   **{f"processes/{pid}.json": {"sha256": f"old-{pid}"} for pid in old}}}
 
     monkeypatch.setattr(process_packs, "load", load)
-    names = cfg.all_names  # a removed pack's file is not listed either
-    monkeypatch.setattr(cfg, "all_names", lambda *a, **k: [n for n in names(*a, **k) if n.removeprefix("process:") not in gone])
+    monkeypatch.setattr(rulebook, "get_in", snapshot)
+    monkeypatch.setattr(rulebook, "content_in", lambda c, sha: old[sha[4:]][1] if sha.startswith("old-") else content_in(c, sha))
     with store.use_store(tmp_path / "choices.sqlite"):
         yield tmp_path, gone
 

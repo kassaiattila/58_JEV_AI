@@ -26,9 +26,8 @@ from tests.test_workflows_146 import MONTH, _invoices, _party, _statements
 registrations.load_all()
 PERSON = "anna"
 HUMAN = {"X-Actor": PERSON}
-CHAINS = {"monthly_reconciliation": [("invoices", "documents"), ("statements", "bank_statements")],
-          "mailbox_reconciliation": [("emails", "mailbox"), ("statements", "bank_statements")],
-          "two_sources_reconciliation": [("invoices", "documents"), ("emails", "mailbox"), ("statements", "bank_statements")],
+# 277 (O3f): the monthly reconciliation's steps that take documents, every option's (its choice leaves some out)
+CHAINS = {"monthly_reconciliation": [("invoices", "documents"), ("emails", "mailbox"), ("statements", "bank_statements")],
           "mailbox_routing": [("emails", "mailbox")]}
 
 

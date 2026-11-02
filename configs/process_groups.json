@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "process_groups",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "The groups of the case types (the process packs, configs/processes/), in the order the New case page and the case list show them, each with its processes in their order (jav/app/process_packs.py `groups`). Every process pack stands in exactly one group; a pack another took the place of (`replaces`) shows its old cases under its successor's group. The titles are English; the interface translates them.",
     "changelog": [
+      {
+        "version": "1.0.1",
+        "date": "2026-11-02",
+        "note": "The two monthly reconciliations united with the monthly reconciliation are gone."
+      },
       {
         "version": "1.0.0",
         "date": "2026-11-02",
@@ -15,22 +20,37 @@
     {
       "id": "documents",
       "title": "Documents",
-      "processes": ["documents", "bank_statements"]
+      "processes": [
+        "documents",
+        "bank_statements"
+      ]
     },
     {
       "id": "emails",
       "title": "Emails",
-      "processes": ["mailbox", "mailbox_routing", "mail_routing"]
+      "processes": [
+        "mailbox",
+        "mailbox_routing",
+        "mail_routing"
+      ]
     },
     {
       "id": "reconciliation",
       "title": "Reconciliation",
-      "processes": ["monthly_reconciliation", "two_sources_reconciliation", "mailbox_reconciliation", "reconciliation"]
+      "processes": [
+        "monthly_reconciliation",
+        "reconciliation"
+      ]
     },
     {
       "id": "quotes",
       "title": "Quotes",
-      "processes": ["it_quote", "insurance_offer", "allianz_property_offer", "insurance_renewal"]
+      "processes": [
+        "it_quote",
+        "insurance_offer",
+        "allianz_property_offer",
+        "insurance_renewal"
+      ]
     }
   ]
 }
