@@ -65,9 +65,9 @@ locally, and the data stays in a local SQLite file.
 - **git**;
 - the keys in `.env`: JEV (`TypeSafeJAV_API_KEY`) and/or OpenAI (`OPENAI_API_KEY`, also for OpenAI Decisions);
 - optional: the classic desktop Outlook for Windows for the mailbox download (not the new Outlook), and an Azure
-  Document Intelligence key for the paid escalation of weak local OCR.
+  Document Intelligence resource (its endpoint and key) for the paid recognition of weak scans.
 
-Docker is used only by the legacy project's slow OCR fallback, never by default. Details: [setup](docs/guides/SETUP.md).
+Nothing of the legacy project is needed to run it. Details: [setup](docs/guides/SETUP.md).
 
 ## Getting started
 
@@ -106,8 +106,8 @@ python -m jav.cli eval-report [runs/*.jsonl]                       # shared eval
 # golden, detect-golden and extract_cases with --budget-usd exit with code 3 when the budget left cases without a result;
 # golden and email-golden take a hard JEV budget with --jev-budget-usd (a provider without a budget cannot be called)
 # every command that can make paid calls (also run, detect, detect-corpus, email, email-inbox and the determinism ones)
-# needs the sub-budget for live calls: --jev-budget-usd, --budget-usd (OpenAI); Azure is never called from the command
-# line; without a budget only earlier answers count (the JEV cache) and a live call becomes a to-do
+# needs the sub-budget for live calls: --jev-budget-usd, --budget-usd (OpenAI); Azure only with ocr --engine azure_di
+# --azure-budget-usd; without a budget only earlier answers count (the JEV cache) and a live call becomes a to-do
 # every command that asks AI takes --engine jev|decisions|gpt (configs/engines.json; --no-jev = --engine gpt): run, detect, detect-corpus, email and
 # email-inbox follow the application's AI engine (Settings > Processing) when they name none; the measurements measure
 # JEV and GPT unless told, and the S path needs a judgement service (JEV or OpenAI Decisions)

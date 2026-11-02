@@ -251,31 +251,30 @@ def test_the_named_copies_come_from_the_instance(env):
     assert len(pdfs) == 2 and before in pdfs
 
 
-# --- Azure recognition keeps working where it worked before ---------------------------------------------------------
+# --- Azure recognition reads the frozen copy itself ----------------------------------------------------------------
 
 
-def test_azure_gets_the_unchanged_original_under_the_sidecar_folder(env, monkeypatch):
-    data_root = env["tmp"] / "legacy_data"
-    (data_root / "inbox").mkdir(parents=True)
-    original = data_root / "inbox" / "scan.pdf"
+def test_azure_is_sent_the_frozen_copy_itself(env, monkeypatch):
+    """279: the legacy sidecar could see only the original under its data folder, so the source instance needed an
+    alias; with the direct route only, the frozen copy's own bytes are sent, whatever folder the original was in."""
+    from unittest.mock import patch
+
+    from jav.documents import azure_di
+    from tests.azure_fake import ENDPOINT, FakeAzure
+
+    original = env["tmp"] / "own" / "scan.pdf"
+    original.parent.mkdir(parents=True)
     write_text_pdf(original, INVOICE_LINES[:2])
     digest, rel = source_instances.freeze(original)
     instance = source_instances.path_of(rel)
-    monkeypatch.setitem(ocr._CFG["azure_di"], "data_root", str(data_root))
-    sent = []
-
-    def fake_urlopen(req, timeout):
-        sent.append(json.loads(req.data)["path"])
-        raise OSError("no sidecar in tests")
-
-    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
-    with ocr.azure_alias(str(original), digest), pytest.raises(ocr.OcrUnavailableError):
-        ocr.azure_words(instance)
-    assert sent == [f"{ocr._CFG['azure_di']['container_root']}/inbox/scan.pdf"]
     original.write_bytes(b"%PDF changed since it was added")
-    with ocr.azure_alias(str(original), digest), pytest.raises(ocr.AzureBlocked, match="unreachable"):
-        ocr.azure_words(instance)  # a changed original is never sent: refused as before (121: as unreachable), with no call
-    assert len(sent) == 1
+    monkeypatch.setenv(azure_di.ENDPOINT_ENV, ENDPOINT)
+    monkeypatch.setenv(azure_di.KEY_ENV, "test-key-not-real")
+    fake = FakeAzure()
+    with patch("urllib.request.urlopen", fake), patch.object(azure_di.time, "sleep"):
+        ocr.azure_words(instance)
+    assert [r.data for r in fake.post_requests] == [instance.read_bytes()]
+    assert _sha(instance.read_bytes()) == digest
 
 
 # --- backup -----------------------------------------------------------------------------------------------------------

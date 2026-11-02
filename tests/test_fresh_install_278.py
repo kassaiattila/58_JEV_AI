@@ -160,16 +160,17 @@ def test_the_reason_ocr_could_not_run_reaches_the_log(monkeypatch, caplog) -> No
 def test_the_start_up_check_shows_the_ocr_state_and_never_fails_on_it(monkeypatch) -> None:
     from jav.devtools import preflight
 
+    azure = {"configured": False, "enabled": True, "host": None, "last_check": None}  # 279: Azure's state in the line
     base = {"engine": "native", "engine_version": "tesseract v5.4.0", "tessdata": [], "tessdata_dir": "D:/t",
-            "tessdata_missing": ["hun", "eng"], "tessdata_differs": []}
+            "tessdata_missing": ["hun", "eng"], "tessdata_differs": [], "azure": azure}
     monkeypatch.setattr(ocr, "status", lambda: base)
     ok, msg = preflight.ocr_status()
     assert ok and "hun, eng missing from D:/t" in msg and "ocr --fetch-langs" in msg
     monkeypatch.setattr(ocr, "status", lambda: {**base, "tessdata": ["eng", "hun", "osd"], "tessdata_missing": [],
                                                 "tessdata_differs": ["osd"]})
     ok, msg = preflight.ocr_status()
-    assert ok and msg == "native tesseract v5.4.0; language packs eng, hun, osd (osd not the pinned file)"
-    monkeypatch.setattr(ocr, "status", lambda: {"engine": None, "error": "no OCR engine (auto)"})
+    assert ok and msg.startswith("native tesseract v5.4.0; language packs eng, hun, osd (osd not the pinned file); Azure")
+    monkeypatch.setattr(ocr, "status", lambda: {"engine": None, "error": "no OCR engine (auto)", "azure": azure})
     ok, msg = preflight.ocr_status()
     assert ok and "install Tesseract 5" in msg
 

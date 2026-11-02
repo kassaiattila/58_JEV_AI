@@ -24,7 +24,7 @@ def _conf():
         lambda c: c["azure_di"].update(data_root="D:/elsewhere/data", sidecar_url="http://127.0.0.1:9999", timeout_s=5),
         lambda c: c["tesseract"].update(timeout_s=1, exe_candidates=["x.exe"]),
         lambda c: c["escalation"].update(enabled=False),
-        lambda c: c["docker"].update(note="another note"),
+        lambda c: c["azure_di"].update(retries=9, retry_max_wait_s=1, max_file_mb=4, check_timeout_s=1, poll_interval_s=5),
         lambda c: c.update(cache_dir="elsewhere/ocr"),
     ],
 )

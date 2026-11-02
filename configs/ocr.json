@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "ocr",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "changelog": [
+   {
+    "version": "1.4.0",
+    "date": "2026-11-02",
+    "note": "The owner's decisions of 2026-11-02 (the framework works without the legacy project; Azure reads at most max_pages pages): the Docker engine (the legacy sidecar's image) and the sidecar route (sidecar_url, container_root) removed, Azure is called only directly with this installation's own endpoint and key; azure_di.retries and retry_max_wait_s (a start refused for load is repeated), max_file_mb (the service's 500 MB, checked before sending), check_timeout_s (the free check of the endpoint and key) and poll_interval_s 2.0 (the service's advice). The OCR cache key loses the docker section: `python -m jav.cli ocr-rekey --from-rev v1.79.1` moves every native and Azure text to the new key with no new OCR."
+   },
    {
     "version": "1.3.0",
     "date": "2026-11-02",
@@ -61,17 +66,15 @@
    "C:/Program Files/Tesseract-OCR/tesseract.exe"
   ]
  },
- "docker": {
-  "image": "aiflow-v4-sidecar",
-  "note": "The legacy project's sidecar image (tesseract-ocr-hun + poppler); about 30 times slower than the native engine (the virtual machine is shared by many containers), so a fallback only"
- },
  "azure_di": {
-  "sidecar_url": "http://127.0.0.1:8800",
-  "container_root": "/data",
   "timeout_s": 240,
   "api_version": "2024-11-30",
-  "poll_interval_s": 1.0,
-  "note": "Azure Document Intelligence (prebuilt-read), PAID and priced per page; never 'auto': only escalation, engine = azure_di or JAV_OCR_ENGINE=azure_di. Directly over the REST API when AZURE_DI_ENDPOINT and AZURE_DI_KEY are set (any readable document; timeout_s bounds the whole call, polling included); otherwise through the legacy sidecar's /parse (chain: azure_di; sidecar_url, container_root), which reads only PDFs under the legacy project's data folder (the container's /data mount; JAV_LEGACY_ROOT). Word geometry: polygons in inches, from the REST result or the sidecar's evidence file. A changed api_version gives the Azure texts a new cache key (jav/ocr.py engine_version)."
+  "poll_interval_s": 2.0,
+  "retries": 3,
+  "retry_max_wait_s": 30,
+  "max_file_mb": 500,
+  "check_timeout_s": 15,
+  "note": "Azure Document Intelligence (prebuilt-read; the model and its price per page are in models.json), PAID and priced per page; never 'auto': only escalation, engine = azure_di or JAV_OCR_ENGINE=azure_di. Called only directly over the REST API, with AZURE_DI_ENDPOINT and AZURE_DI_KEY from this installation's .env (jav/documents/azure_di.py); without them it is not set up here and a weak scan keeps its local text with a to-do. At most max_pages pages are analysed and billed (the `pages` range). timeout_s bounds the whole call, repeats and polling included; a start the service refuses for load (429, 5xx) is repeated at most `retries` times, waiting as it asks, at most retry_max_wait_s. A changed api_version gives the Azure texts a new cache key (jav/documents/ocr.py engine_version); none of the other settings here change what is read."
  },
  "quality": {
   "low_conf_word": 60,

@@ -57,7 +57,6 @@ class Provider:
     enabled: bool
     off_note: str | None = None
     off_reason: str | None = None  # 274: why it is off by default (`OFF_REASONS`)
-    key_fallback: str | None = None  # 274: how it is reached without its own key
 
 
 @dataclass(frozen=True)
@@ -87,8 +86,7 @@ def get(provider_id: str) -> Provider:
     if off_reason is not None and off_reason not in OFF_REASONS:
         raise ValueError(f"configs/{CONFIG}.json {provider_id}: unknown off_reason {off_reason!r}; expected one of {OFF_REASONS}")
     return Provider(id=provider_id, label=str(raw["label"]), key=raw.get("key"), budget=str(raw["budget"]),
-                    enabled=bool(raw["enabled"]), off_note=raw.get("off_note"), off_reason=off_reason,
-                    key_fallback=raw.get("key_fallback"))
+                    enabled=bool(raw["enabled"]), off_note=raw.get("off_note"), off_reason=off_reason)
 
 
 def check_id(provider_id: str) -> str:

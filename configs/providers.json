@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "providers",
-    "version": "1.3.0",
-    "description": "Every paid service the system calls, one description each (jav/core/providers.py). `key`: the key it needs, read from the environment (`typesafe`: TypeSafeJAV_API_KEY or TYPESAFE_API_KEY; `openai`: OPENAI_API_KEY; `azure_di`: AZURE_DI_ENDPOINT and AZURE_DI_KEY). `budget`: the provider whose budget its calls reserve from; the call log keeps the provider's own name. `enabled`: whether an installation may call it at all; an installation overrides it with JAV_PROVIDERS_ON / JAV_PROVIDERS_OFF (comma-separated provider names), and `off_note` says why it is off by default; `off_reason` names that reason as a code the screens show (`under_measurement`: being measured before an installation may choose it), while an installation's own switch reads as `switched_off`. `key_fallback`: how it is still reached without its own key, so a missing key is not reported as a refusal (Azure DI through the legacy sidecar). `label`: its name on screen and in reports. (Glossary: Provider registry.)",
+    "version": "1.4.0",
+    "description": "Every paid service the system calls, one description each (jav/core/providers.py). `key`: the key it needs, read from the environment (`typesafe`: TypeSafeJAV_API_KEY or TYPESAFE_API_KEY; `openai`: OPENAI_API_KEY; `azure_di`: AZURE_DI_ENDPOINT and AZURE_DI_KEY). `budget`: the provider whose budget its calls reserve from; the call log keeps the provider's own name. `enabled`: whether an installation may call it at all; an installation overrides it with JAV_PROVIDERS_ON / JAV_PROVIDERS_OFF (comma-separated provider names), and `off_note` says why it is off by default; `off_reason` names that reason as a code the screens show (`under_measurement`: being measured before an installation may choose it), while an installation's own switch reads as `switched_off`. `label`: its name on screen and in reports. (Glossary: Provider registry.)",
     "changelog": [
+      {
+        "version": "1.4.0",
+        "date": "2026-11-02",
+        "note": "Azure DI's `key_fallback` removed (the owner's decision of 2026-11-02: the framework works on its own, without the legacy project): Azure is reached only directly, with this installation's own endpoint and key, so a measurement with an Azure budget and no key says so like any other provider; an installation that switches it off (JAV_PROVIDERS_OFF=azure_di) is never sent anything."
+      },
       {
         "version": "1.3.0",
         "date": "2026-11-02",
@@ -49,8 +54,7 @@
       "label": "Azure DI",
       "key": "azure_di",
       "budget": "azure_di",
-      "enabled": true,
-      "key_fallback": "the legacy sidecar, for the PDFs under the legacy data folder"
+      "enabled": true
     }
   }
 }

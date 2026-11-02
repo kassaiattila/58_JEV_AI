@@ -31,4 +31,12 @@ describe("075 Azure recipe switch", () => {
     expect(reasonText("ocr:escalation_blocked:unreachable")).toBe((hu as Record<string, string>)[unreachable]);
     expect(reasonText("ocr:escalation_blocked:unavailable")).toBe((hu as Record<string, string>)[failed]);
   });
+
+  it("279: names Azure not set up on this machine and a file Azure does not read, in the escalation and the native step", () => {
+    const huText = hu as Record<string, string>;
+    expect(reasonText("ocr:escalation_blocked:not_configured")).toBe(huText["Weak local recognition; Azure recognition is not set up on this machine"]);
+    expect(reasonText("ocr:escalation_blocked:not_sendable")).toBe(huText["Weak local recognition; this file cannot be sent to Azure (its format or size)"]);
+    expect(reasonText("native:recognition:azure_blocked:not_configured")).toBe(huText["Azure recognition is not set up on this machine; local recognition was used"]);
+    expect(reasonText("native:recognition:azure_blocked:not_sendable")).toBe(huText["This file cannot be sent to Azure (its format or size); local recognition was used"]);
+  });
 });

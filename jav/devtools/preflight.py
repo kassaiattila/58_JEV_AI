@@ -305,22 +305,37 @@ def lang_guard_status() -> tuple[bool, str]:
 def ocr_status() -> tuple[bool, str]:
     """278: the native recogniser and its language packs, as a fresh installation needs to see them. It is a notice,
     never a failure: a machine that reads no scanned document works without them, and the tests that need them say so
-    when they skip."""
+    when they skip. 279: and Azure's state (set up or not, switched off, the last free check), as a notice too."""
     from jav.documents import ocr
 
     s = ocr.status()
+    azure = azure_notice(s["azure"])
     if not s.get("engine"):
-        return True, f"no OCR engine: {s.get('error', 'not found')} (install Tesseract 5: docs/guides/SETUP.md section 3)"
+        return True, f"no OCR engine: {s.get('error', 'not found')} (install Tesseract 5: docs/guides/SETUP.md section 3); {azure}"
     msg = f"{s['engine']} {s.get('engine_version', '')}".strip()
     if s.get("engine") != "native":
-        return True, msg
+        return True, f"{msg}; {azure}"
     if s["tessdata_missing"]:
         return True, (f"{msg}; language pack(s) {', '.join(s['tessdata_missing'])} missing from {s['tessdata_dir']} "
-                      "(python -m jav.cli ocr --fetch-langs)")
+                      f"(python -m jav.cli ocr --fetch-langs); {azure}")
     msg += f"; language packs {', '.join(s['tessdata'])}"
     if s["tessdata_differs"]:
         msg += f" ({', '.join(s['tessdata_differs'])} not the pinned file)"
-    return True, msg
+    return True, f"{msg}; {azure}"
+
+
+def azure_notice(azure: dict) -> str:
+    """279: Azure in one phrase, without a call: not set up, switched off, or set up with its last free check."""
+    if not azure["enabled"]:
+        return "Azure switched off here (JAV_PROVIDERS_OFF)"
+    if not azure["configured"]:
+        return "Azure not set up (no AZURE_DI_ENDPOINT and AZURE_DI_KEY; docs/guides/SETUP.md section 3)"
+    last = azure.get("last_check")
+    if not last:
+        return f"Azure set up ({azure['host']}), not checked yet (python -m jav.cli ocr --check-azure)"
+    if last.get("ok"):
+        return f"Azure set up ({azure['host']}), checked {last.get('at')}"
+    return f"Azure set up ({azure['host']}), last check failed: {last.get('reason')} at {last.get('at')}"
 
 
 FULL_RUN_LOCK = Path(tempfile.gettempdir()) / "jav-full-test-run.lock"

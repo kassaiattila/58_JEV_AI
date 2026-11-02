@@ -7,7 +7,7 @@
 
 ### load
 - **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id; the text-layer test of the document and of each page (scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do); the word layer (word boxes) is saved
-- **ocr_pdf** _(det)_ — a PDF without text: page images (pypdfium2) and tesseract word boxes (native, or the legacy sidecar image) -> the same line and cell building; the word layer is saved; a disk cache in runs/ocr/; the quality signals raw, weak OCR a review reason (policy ocr)
+- **ocr_pdf** _(det)_ — a PDF without text: page images (pypdfium2) and tesseract word boxes (native; a weak result is escalated to Azure DI within the run's budget) -> the same line and cell building; the word layer is saved; a disk cache in runs/ocr/; the quality signals raw, weak OCR a review reason (policy ocr)
 - **load_text** _(det)_ — A pack that reads text or tables: an email's own text (the text's digest is the doc_id) or a text / table file (the table through the isolated native reader), laid out by the PDF reader's line and cell builder (three spaces = a column); no word layer; an empty text is a text:empty to-do
 
 ### extract

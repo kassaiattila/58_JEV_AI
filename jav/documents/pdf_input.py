@@ -59,14 +59,12 @@ def read_source(source_path: str, read_path: str | None) -> tuple[PdfText, str, 
 
 def recognise(source_path: str, read_path: str | None, doc_id: str, page_count: int | None) -> Recognised:
     """OCR of a PDF without text (`jav.documents.ocr`, cached), escalated to Azure on a weak local result within the run's
-    budget. While the flow reads the frozen copy, which the legacy sidecar cannot see, the Azure call may use the
-    unchanged original instead (`azure_alias`). No engine: no text and an `ocr:unavailable:<reason>` to-do; the flow
-    goes on."""
-    from jav.documents.ocr import OcrUnavailableError, azure_alias, ocr_with_escalation
+    budget; the frozen copy is what is read and sent (279: the legacy sidecar route, which could only see the
+    original, is gone). No engine: no text and an `ocr:unavailable:<reason>` to-do; the flow goes on."""
+    from jav.documents.ocr import OcrUnavailableError, ocr_with_escalation
 
     try:
-        with azure_alias(source_path if read_path else None, doc_id):
-            pdf, escalated = ocr_with_escalation(read_path or source_path, page_count=page_count)
+        pdf, escalated = ocr_with_escalation(read_path or source_path, page_count=page_count)
     except OcrUnavailableError as exc:
         # 278: the to-do keeps the kind; the reason (for example the language packs a fresh installation lacks) goes
         # into the log, where it was lost before

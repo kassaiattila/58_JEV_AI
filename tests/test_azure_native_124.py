@@ -20,7 +20,8 @@ from jav.documents import azure_di
 from jav.documents.pdf import PdfText
 from jav.runtime import worker
 from jav.core import calls
-from tests.test_azure_direct_121 import RESULT, FakeAzure, keys, weak_scan  # noqa: F401 - fixtures
+from tests.azure_fake import RESULT, FakeAzure
+from tests.test_azure_direct_121 import keys, weak_scan  # noqa: F401 - fixtures
 
 
 def _detect_ocr(source, scope: str = "run-on"):

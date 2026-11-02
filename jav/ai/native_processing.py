@@ -54,8 +54,7 @@ def azure_recognition(read_path: Path, *, source_path: str, sha256: str) -> tupl
     if ctx is None or ctx.budget_scope is None or not calls.has_budget(ctx.budget_scope, ocr.AZURE_PROVIDER):
         return None, "off"
     try:
-        with ocr.azure_alias(source_path if source_path != str(read_path) else None, sha256):
-            recognised = ocr.ocr_pdf(read_path, engine_name=ocr.AZURE_PROVIDER)
+        recognised = ocr.ocr_pdf(read_path, engine_name=ocr.AZURE_PROVIDER)
     except ocr.AzureBlocked as exc:
         return None, exc.reason
     except ocr.OcrUnavailableError:

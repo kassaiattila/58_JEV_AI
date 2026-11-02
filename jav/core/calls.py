@@ -223,11 +223,10 @@ KEY_MISSING_NOTE = ("No {provider} key in this environment: its budget cannot be
 
 def missing_keys(limits: dict[str, Decimal]) -> list[str]:
     """231 (D-h): the budgeted providers whose key this environment lacks, in the budget's order; 265: every provider the
-    registry describes is checked with its own key (`jav.core.providers`), an undescribed name is not; 274: nor one
-    still reached without its own key (`key_fallback`: Azure DI through the legacy sidecar)."""
+    registry describes is checked with its own key (`jav.core.providers`), an undescribed name is not. 279: Azure DI
+    too: the legacy sidecar route it had without its own key (274, `key_fallback`) is gone."""
     known = set(providers.ids())
-    return [provider for provider in limits
-            if provider in known and providers.get(provider).key_fallback is None and not providers.has_key(provider)]
+    return [provider for provider in limits if provider in known and not providers.has_key(provider)]
 
 
 def scope_calls(scope: str) -> dict[str, Any]:

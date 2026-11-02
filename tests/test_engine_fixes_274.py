@@ -84,10 +84,11 @@ def test_every_judgement_services_budget_refusal_is_a_budget_skip():
     assert eval_report.budget_skips(rows) == ["a", "b"]
 
 
-def test_a_provider_reached_without_its_key_is_not_named_as_missing_one(monkeypatch):
+def test_azure_without_its_own_key_is_named_as_missing_too(monkeypatch):
+    # 279: the legacy sidecar route that reached Azure without a key of its own (274, `key_fallback`) is gone
     for name in ("AZURE_DI_ENDPOINT", "AZURE_DI_KEY", "OPENAI_API_KEY"):
         monkeypatch.delenv(name, raising=False)
-    assert calls.missing_keys({"openai": Decimal("0.1"), "azure_di": Decimal("0.02")}) == ["openai"]
+    assert calls.missing_keys({"openai": Decimal("0.1"), "azure_di": Decimal("0.02")}) == ["openai", "azure_di"]
 
 
 def test_an_output_price_without_its_token_limit_is_refused(monkeypatch):

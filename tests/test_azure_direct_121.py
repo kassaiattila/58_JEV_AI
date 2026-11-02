@@ -3,15 +3,14 @@
 Before 121 the escalation of a weak scan went only through the legacy sidecar, which sees only the legacy project's
 data folder. Every document from the owner's own folders failed before the network, was logged as a failed Azure
 call, and its weak local text went on without a to-do (18 of 18 attempts on 2026-10-06). Now, with an endpoint and a
-key in the environment, the REST API is called directly with the document's bytes; without them, a document the
-sidecar cannot see is not called at all. When the recipe's Azure switch is on but the escalation cannot run, the item
-gets a to-do. The HTTP client is replaced by a fake; no network.
+key in the environment, the REST API is called directly with the document's bytes; without them nothing is called
+(279: the sidecar route is gone). When the recipe's Azure switch is on but the escalation cannot run, the item gets a
+to-do. The HTTP client is replaced by a fake (`tests/azure_fake.py`); no network.
 """
 
 from __future__ import annotations
 
 import io
-import json
 import urllib.error
 from decimal import Decimal
 from unittest.mock import patch
@@ -23,63 +22,16 @@ from jav.core import store
 from jav.documents import azure_di
 from jav.documents.pdf import PdfText
 from jav.core import calls
+from tests.azure_fake import ENDPOINT, OPERATION, FakeAzure
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
-
-ENDPOINT = "https://example-di.cognitiveservices.azure.com/"
-OPERATION = "https://example-di.cognitiveservices.azure.com/documentintelligence/documentModels/prebuilt-read/analyzeResults/abc?api-version=2024-11-30"
-RESULT = {"status": "succeeded", "analyzeResult": {
-    "apiVersion": "2024-11-30", "modelId": "prebuilt-read", "content": "Payable 1000",
-    "pages": [{"pageNumber": 1, "angle": 0, "width": 8.5, "height": 11, "unit": "inch",
-               "words": [{"content": "Payable", "polygon": [0.5, 1.0, 1.2, 1.0, 1.2, 1.15, 0.5, 1.15], "confidence": 0.99,
-                          "span": {"offset": 0, "length": 9}},
-                         {"content": "1000", "polygon": [1.3, 1.0, 1.8, 1.0, 1.8, 1.15, 1.3, 1.15], "confidence": 0.98,
-                          "span": {"offset": 10, "length": 4}}],
-               "lines": [{"content": "Payable 1000"}]}]}}
-
-
-class _Reply(io.BytesIO):
-    def __init__(self, body: bytes, status: int = 200, headers: dict[str, str] | None = None) -> None:
-        super().__init__(body)
-        self.status = status
-        self.headers = headers or {}
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *exc):
-        return False
-
-
-class FakeAzure:
-    """Answers the two REST requests: POST …:analyze → 202 + Operation-Location; GET → the queued poll answers."""
-
-    def __init__(self, polls: list | None = None, *, post: object = None, operation: str = OPERATION) -> None:
-        self.requests: list = []
-        self.polls = list(polls if polls is not None else [{"status": "running"}, RESULT])
-        self.post = post
-        self.operation = operation
-
-    def __call__(self, request, timeout=None):
-        self.requests.append(request)
-        if request.get_method() == "POST":
-            if isinstance(self.post, BaseException):
-                raise self.post
-            return _Reply(b"", 202, {"Operation-Location": self.operation, "Retry-After": "0"})
-        answer = self.polls.pop(0)
-        if isinstance(answer, BaseException):
-            raise answer
-        return _Reply(json.dumps(answer).encode("utf-8"), 200, {"Retry-After": "0"})
 
 
 @pytest.fixture
 def weak_scan(tmp_path, monkeypatch):
-    """A weak local OCR result for a document OUTSIDE the sidecar's data folder, escalation on, a fresh store."""
+    """A weak local OCR result for a document in one of the owner's own folders, escalation on, a fresh store."""
     source = tmp_path / "own-folder" / "scan.pdf"
     source.parent.mkdir()
     write_text_pdf(source, INVOICE_LINES)
-    sidecar_root = tmp_path / "legacy-data"
-    sidecar_root.mkdir()
-    monkeypatch.setattr(ocr, "_CFG", {**ocr._CFG, "azure_di": {**ocr._CFG["azure_di"], "data_root": str(sidecar_root)}})
     monkeypatch.delenv(ocr.ENGINE_ENV, raising=False)
     monkeypatch.setattr(ocr, "ESCALATION", {"enabled": True, "engine": "azure_di"})
     monkeypatch.setattr(ocr, "CACHE_DIR", tmp_path / "ocr-cache")
@@ -118,7 +70,7 @@ def test_tests_never_see_the_azure_keys():
     assert not azure_di.configured()
 
 
-def test_direct_call_reads_a_document_the_sidecar_cannot_see(weak_scan, keys):
+def test_direct_call_reads_a_document_from_any_folder(weak_scan, keys):
     fake = FakeAzure()
     with patch("urllib.request.urlopen", fake):
         pdf, escalated = _escalate(weak_scan)
@@ -148,6 +100,8 @@ def test_an_error_response_is_a_definite_failure_with_a_todo(weak_scan, keys):
     with patch("urllib.request.urlopen", FakeAzure(post=refused)):
         pdf, escalated = _escalate(weak_scan)
     assert not escalated and _invocations()[0][0] == "failed"
+    with store.connect() as c:  # 279: a refused start analysed nothing, so the call log settles it at 0
+        assert [tuple(r) for r in c.execute("SELECT cost_usd, cost_known FROM invocations")] == [("0", 1)]
     assert ocr.escalation_review_reasons(pdf.ocr) == ["ocr:escalation_blocked:unavailable"]
 
 
@@ -176,12 +130,13 @@ def test_an_analysis_that_never_finishes_is_uncertain(weak_scan, keys, monkeypat
     assert not escalated and _invocations()[0][0] == "uncertain"
 
 
-def test_without_keys_an_unseen_document_is_never_called_and_gets_a_todo(weak_scan):
+def test_without_keys_nothing_is_called_and_the_document_gets_a_todo(weak_scan):
+    # 279: no legacy sidecar route is left; without this installation's endpoint and key Azure is not set up here
     fake = FakeAzure()
     with patch("urllib.request.urlopen", fake):
         pdf, escalated = _escalate(weak_scan)
-    assert not escalated and not fake.requests and _invocations() == []  # not a "failed paid call" any more
-    assert ocr.escalation_review_reasons(pdf.ocr) == ["ocr:escalation_blocked:unreachable"]
+    assert not escalated and not fake.requests and _invocations() == []  # not a "failed paid call"
+    assert ocr.escalation_review_reasons(pdf.ocr) == ["ocr:escalation_blocked:not_configured"]
 
 
 def test_switch_off_still_needs_no_todo(weak_scan, keys):
@@ -193,8 +148,8 @@ def test_switch_off_still_needs_no_todo(weak_scan, keys):
 
 
 def test_the_azure_cache_key_is_unchanged():
-    # every Azure text cached before 121 was read with API version 2024-11-30 (the sidecar's SDK 1.0.2); the direct
-    # route uses the same version, so those texts are reused and no page is paid for again
+    # every Azure text cached before 121 was read with API version 2024-11-30 (the legacy sidecar's SDK 1.0.2); the
+    # direct route uses the same version, so those texts are reused and no page is paid for again
     assert ocr.engine_version("azure_di") == "azure_di prebuilt-read"
     settings = ocr.output_settings(ocr._CFG)["azure_di"]
     assert "api_version" not in settings and "poll_interval_s" not in settings

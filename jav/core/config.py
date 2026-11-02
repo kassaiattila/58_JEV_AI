@@ -110,7 +110,8 @@ GOLDEN_EXPECTED_DIR = OLD_DATA_ROOT / "golden" / "doc-extract-bare"
 # The project's own name first, then the SDK's default variable.
 API_KEY_ENV_VARS = ("TypeSafeJAV_API_KEY", "TYPESAFE_API_KEY")
 OPENAI_KEY_ENV_VAR = "OPENAI_API_KEY"
-# 121: Azure Document Intelligence, called directly (jav/documents/azure_di.py); without them the legacy sidecar is used
+# 121: Azure Document Intelligence, called directly (jav/documents/azure_di.py); 279: the only route, so without
+# them Azure is not set up here
 AZURE_DI_ENV_VARS = ("AZURE_DI_ENDPOINT", "AZURE_DI_KEY")
 
 # Model administration: configs/models.json (config as data; read with json directly, as jav.core.cfg imports this module).
@@ -188,7 +189,7 @@ OPENAI_SETTINGS: dict = {"reasoning_effort": _MODELS["openai"].get("reasoning_ef
                          # count; 0 = none (the work queue repeats a failed item instead)
                          "sdk_max_retries": int(_MODELS["openai"].get("sdk_max_retries", 0))}
 TRACKER_PROJECTS: dict[str, str] = dict(_MODELS.get("burr", {}).get("tracker_projects", {}))
-# 075: Azure DI (through the legacy sidecar) is priced per page for the reservation and the call log
+# 075: Azure DI is priced per page for the reservation and the call log (279: called only directly)
 AZURE_DI_MODEL: str = _MODELS.get("azure_di", {}).get("model", "prebuilt-read")
 AZURE_USD_PER_PAGE: Decimal = Decimal(str(_MODELS.get("azure_di", {}).get("usd_per_page", "0.0015")))
 

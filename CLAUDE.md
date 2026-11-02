@@ -88,7 +88,7 @@ python -m jav.cli fx-rates [--fetch FROM TO] [--currency C]             # 130 st
 python -m jav.cli statement-table <file.xlsx|file.csv|file.pdf|folder>  # 136 a bank statement export read by code (free): its accounts and checks (141: a CIB PDF or text statement, a camt.053 XML too)
 .\scripts\dev.ps1 start|status|stop                     # UI + local service (serve, 127.0.0.1:8930) + the configured workers (one by default)
 cd ui; npm run build | npm test | npm run lint | npm run dev   # UI (ui/): build into ui/dist, vitest, ESLint, dev server :5173
-python -m jav.cli ocr [<pdf>] [--force] [--psm N] [--limit N] | --fetch-langs   # without a PDF: status of the OCR engine | 278: the pinned language packs a fresh clone lacks
+python -m jav.cli ocr [<pdf>] [--force] [--psm N] [--limit N] [--engine native|azure_di --azure-budget-usd X] | --fetch-langs | --check-azure   # without a PDF: status of the OCR engines | 278: the pinned language packs a fresh clone lacks | 279: Azure live only under its budget; the free check of the Azure endpoint and key
 python -m jav.cli store | eval-report [runs/*.jsonl] [--out f] | admin [--write] | configs | flows [--check] | docs
 python -m jav.cli snapshot [--id S | --run R | --diff A B | --restore SHA --out F]   # 218 calculation snapshots: the code and the rules a run, item, case or approval was computed with
 python -m jav.cli trace [--points | --point P | --subject KIND:ID | --run R | --case C] [--last N]   # 218 the decision trace: which rule decided, with what, in which version
@@ -99,7 +99,7 @@ python -m jav.cli deps-audit [--show]                       # 075 known vulnerab
 python -m jav.devtools.capability_catalog                  # deterministic inventory of types and intents
 ```
 
-`JAV_OCR_ENGINE=azure_di <command>`: Azure DI, called directly when `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` are in `.env` (121, `jav/documents/azure_di.py`), otherwise through the legacy sidecar (only for PDFs under the legacy data folder). **Paid**, page-limited, never chosen by `auto`, but OCR escalation (`configs/ocr.json`) calls it automatically on weak local OCR; since 075 only within the run's Azure budget (recipe switch `azure_ocr`, 0.02 USD per document by default) and through the call log (`jav/documents/ocr.py` `azure_recognise`). Live Outlook download: from the UI (Settings › Mailboxes) or with the Outlook bridge ported into `scripts/outlook_bridge.ps1` (148: Sent Items too); the exact command is in the README's email section. Keys live in `.env` (`TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`, optionally `AZURE_DI_ENDPOINT` + `AZURE_DI_KEY`; optional variables: `.env.example`); never print a value.
+`JAV_OCR_ENGINE=azure_di <command>`: Azure DI, called directly with `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` from `.env` (121, `jav/documents/azure_di.py`; 279: the only route, the legacy sidecar and the Docker engine are gone; free check of the endpoint and key: `python -m jav.cli ocr --check-azure`). **Paid**, at most 12 pages per document (`max_pages`), never chosen by `auto`, but OCR escalation (`configs/ocr.json`) calls it automatically on weak local OCR; since 075 only within the run's Azure budget (recipe switch `azure_ocr`, 0.02 USD per document by default) and through the call log (`jav/documents/ocr.py` `azure_recognise`). Live Outlook download: from the UI (Settings › Mailboxes) or with the Outlook bridge ported into `scripts/outlook_bridge.ps1` (148: Sent Items too); the exact command is in the README's email section. Keys live in `.env` (`TypeSafeJAV_API_KEY`, `OPENAI_API_KEY`, optionally `AZURE_DI_ENDPOINT` + `AZURE_DI_KEY`; optional variables: `.env.example`); never print a value.
 
 ## 6. Architecture (details: `docs/ARCHITECTURE.md`)
 
@@ -138,7 +138,7 @@ python -m jav.devtools.capability_catalog                  # deterministic inven
 - **PDF and OCR:**
   - `pdfplumber layout=True` glues words together, so word-level reconstruction is needed (`jav/documents/pdf.py`). A broken font triggers OCR; if that yields no text either, the result is `needs_ocr`.
   - tesseract is not on the PATH. The Hungarian language pack is only in `tools/tessdata` (`--tessdata-dir`). `tsv` output needs `-c tessedit_create_tsv=1`.
-  - The legacy sidecar's Docker OCR is about 30× slower; fallback only.
+  - Azure DI is reached only with this installation's own endpoint and key (279); without them a weak scan keeps its local text with an `ocr:escalation_blocked:not_configured` to-do, and a machine without tesseract has no local OCR (Azure stands in within a run's budget).
 - **JEV:**
   - Many candidates plus a long state produce `max_tokens_exceeded` (400); the call site's `request_char_budget` / `option_context_max` settings help.
   - A "different kind of number" (e.g. a phone number offered as a tax number) only gets a probability of 0.57–0.63, so a check-digit validator is mandatory.
