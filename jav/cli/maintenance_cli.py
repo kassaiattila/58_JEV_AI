@@ -744,6 +744,8 @@ def cmd_ocr(args: argparse.Namespace) -> int:
     on a scanned invoice."""
     from jav.documents import ocr
 
+    if args.fetch_langs:
+        return _fetch_language_packs(ocr.tessdata_dir())
     if not args.pdf:
         print(json.dumps(ocr.status(), ensure_ascii=False, indent=2))
         return 0
@@ -756,6 +758,24 @@ def cmd_ocr(args: argparse.Namespace) -> int:
     for ln in pdf.layout[: args.limit or None]:
         print(f"L{ln.no:03d} p{ln.page}: {ln.text}")
     return 0
+
+
+def _fetch_language_packs(folder: Path) -> int:
+    """278: the pinned language packs a fresh installation lacks (configs/ocr.json `tesseract.language_packs`)."""
+    from jav.documents import tessdata
+
+    try:
+        outcomes = tessdata.fetch(folder)
+    except tessdata.LanguagePackError as exc:
+        print(f"Cannot fetch the language packs: {exc}")
+        return 2
+    print(f"Language packs in {folder}:")
+    for o in outcomes:
+        print(f"  {o.name}: {o.outcome.replace('_', ' ')}{f' ({o.detail})' if o.detail else ''}")
+    lacking = tessdata.missing(folder)
+    if lacking:
+        print(f"Still missing: {', '.join(lacking)}")
+    return 0 if not lacking and all(o.outcome in ("in_place", "fetched") for o in outcomes) else 2
 
 
 def cmd_ocr_rekey(args: argparse.Namespace) -> int:
@@ -978,6 +998,8 @@ def register(sub) -> None:
     p.add_argument("--force", action="store_true", help="recognise again without the cache (the cache is not written)")
     p.add_argument("--psm", type=int, default=None, help="tesseract page segmentation mode (default: configs/ocr.json)")
     p.add_argument("--limit", type=int, default=0, help="only the first N lines")
+    p.add_argument("--fetch-langs", action="store_true",
+                   help="download the missing language packs configs/ocr.json pins, each checked by its SHA-256")
     p.set_defaults(fn=cmd_ocr)
     p = sub.add_parser("ocr-rekey", help="move the OCR cache written under an older configs/ocr.json to the current "
                                          "key, if the older file's output settings are the same (no new OCR)")

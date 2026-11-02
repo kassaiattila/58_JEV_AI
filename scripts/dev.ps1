@@ -1,5 +1,6 @@
 # Starts and stops the local service and its workers.
 #   .\scripts\dev.ps1 start    # the API (127.0.0.1:8930) and the workers in the background; logs: runs\dev\*.log
+#                              # it waits until the API answers, and says why if it stopped (exit code 1)
 #                              # as many workers as configs\service.json "workers" says (one by default)
 #                              # also the invented registers (127.0.0.1:8941) the insurance case asks
 #   .\scripts\dev.ps1 status   # whether they run, and how many jobs wait
@@ -8,7 +9,8 @@
 param(
     [Parameter(Mandatory = $true)][ValidateSet("start", "stop", "status")][string]$Action,
     [int]$Port = 8930,
-    [int]$StopTimeoutSec = 120
+    [int]$StopTimeoutSec = 120,
+    [int]$StartTimeoutSec = 90
 )
 
 $ErrorActionPreference = "Stop"
@@ -49,6 +51,33 @@ function Start-Tracked([string]$Name, [string[]]$CliArgs) {
     Write-Output "$Name started (pid $($proc.Id)), log: $out"
 }
 
+function Wait-Api([int]$TimeoutSec) {
+    # 278: "started" is said only once the service answers; a service that stopped at start-up says why (on a new
+    # machine the usual reasons are a taken port or a missing package) instead of leaving it to the log files; the
+    # outcome goes into $script:ApiUp (a function's return value would be mixed into the lines it prints)
+    $deadline = (Get-Date).AddSeconds($TimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        if ($null -eq (Get-Tracked "api")) {
+            Write-Output "api stopped at start-up:"
+            foreach ($f in @((Join-Path $DevDir "api.err.log"), (Join-Path $DevDir "api.log"))) {
+                if ((Test-Path $f) -and ((Get-Item $f).Length -gt 0)) { Get-Content $f -Tail 5 -Encoding UTF8 | ForEach-Object { Write-Output "  $_" } }
+            }
+            Write-Output "  the service's own log: $(Join-Path $Root 'runs\logs\api.log')"
+            $script:ApiUp = $false
+            return
+        }
+        try {
+            $r = Invoke-WebRequest -Uri "http://127.0.0.1:$Port/api/health" -UseBasicParsing -TimeoutSec 2
+            if ($r.StatusCode -eq 200) { Write-Output "api answers: http://127.0.0.1:$Port/"; $script:ApiUp = $true; return }
+        } catch {
+            # not listening yet: it is still loading its code
+        }
+        Start-Sleep -Milliseconds 500
+    }
+    Write-Output "api does not answer after $TimeoutSec s; see $(Join-Path $DevDir 'api.log') and runs\logs\api.log"
+    $script:ApiUp = $false
+}
+
 function Invoke-Cli([string[]]$CliArgs) {
     # 139: jav.cli is only importable from the project root, so the script may be started from any folder
     Push-Location $Root
@@ -58,8 +87,11 @@ function Invoke-Cli([string[]]$CliArgs) {
 switch ($Action) {
     "start" {
         Start-Tracked "api" @("serve", "--port", "$Port")
+        $script:ApiUp = $false
+        Wait-Api $StartTimeoutSec
         for ($slot = 1; $slot -le $WorkerCount; $slot++) { Start-Tracked $WorkerNames[$slot - 1] @("worker", "--slot", "$slot") }
         Start-Tracked "registers" @("invented-services")
+        if (-not $script:ApiUp) { exit 1 }
     }
     "status" {
         foreach ($name in (@("api") + $WorkerNames + @("registers"))) {

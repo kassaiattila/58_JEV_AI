@@ -562,7 +562,9 @@ def run_worker(*, once: bool = False, idle_sleep_s: float = 2.0, max_jobs: int |
         preload.preload()  # 091: all the code now, so later changes on disk cannot mix into this process
         rule_defaults.use()  # 231 (U4a): the installation's defaults over the rule files, outside a case
         observability.use_config()  # 231 (E4): the measurements into a local file, when switched on
-        if running_slots() == [mine]:  # an old request no worker is left to answer
+        # an old request no worker is left to answer; 278: one made while this worker loaded is its own and stays (the
+        # start script's stop right after a start was lost, and the worker was killed after the stop's time limit)
+        if running_slots() == [mine] and not _stop_requested(started):
             stop_path().unlink(missing_ok=True)
         holder = calls.holder()  # E1: this process's claims stay its own while it runs
         info: dict[str, Any] = {"startup": startup(), "processed": 0, "results": {}, "stopped": False, "errors": 0,

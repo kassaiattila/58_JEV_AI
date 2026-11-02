@@ -302,6 +302,27 @@ def lang_guard_status() -> tuple[bool, str]:
     return not over, msg
 
 
+def ocr_status() -> tuple[bool, str]:
+    """278: the native recogniser and its language packs, as a fresh installation needs to see them. It is a notice,
+    never a failure: a machine that reads no scanned document works without them, and the tests that need them say so
+    when they skip."""
+    from jav.documents import ocr
+
+    s = ocr.status()
+    if not s.get("engine"):
+        return True, f"no OCR engine: {s.get('error', 'not found')} (install Tesseract 5: docs/guides/SETUP.md section 3)"
+    msg = f"{s['engine']} {s.get('engine_version', '')}".strip()
+    if s.get("engine") != "native":
+        return True, msg
+    if s["tessdata_missing"]:
+        return True, (f"{msg}; language pack(s) {', '.join(s['tessdata_missing'])} missing from {s['tessdata_dir']} "
+                      "(python -m jav.cli ocr --fetch-langs)")
+    msg += f"; language packs {', '.join(s['tessdata'])}"
+    if s["tessdata_differs"]:
+        msg += f" ({', '.join(s['tessdata_differs'])} not the pinned file)"
+    return True, msg
+
+
 FULL_RUN_LOCK = Path(tempfile.gettempdir()) / "jav-full-test-run.lock"
 
 
@@ -342,6 +363,9 @@ def preflight(*, skip_pytest: bool = False) -> int:
 
     g = devstate.git_state()
     results.append(("git", True, g.line() if g else "not a git repository / git is not available"))
+
+    ok, msg = ocr_status()
+    results.append(("OCR", ok, msg))
 
     ok, msg = data_guard_status()
     results.append(("data guard", ok, msg))
