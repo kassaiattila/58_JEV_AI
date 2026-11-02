@@ -457,14 +457,37 @@ def create_app(*, store_path: Path | None = None) -> FastAPI:
     return app
 
 
+class PortInUseError(RuntimeError):
+    """278: the service's address is taken, by another copy of the service or by another program."""
+
+
+def check_port_free(host: str, port: int) -> None:
+    """278: the address is tried before the minutes of loading, so a taken port is named at once on the screen;
+    otherwise uvicorn only writes it into the log and the start fails without a word."""
+    import socket
+
+    family = socket.AF_INET6 if ":" in host else socket.AF_INET
+    with socket.socket(family, socket.SOCK_STREAM) as probe:
+        try:
+            probe.bind((host, port))
+        except OSError as exc:
+            raise PortInUseError(
+                f"{host}:{port} is taken ({exc.strerror or exc}): another copy of the service or another program "
+                "listens there; stop it, or start on another port (--port, or \"port\" in configs/service.json)"
+            ) from exc
+
+
 def serve(*, host: str | None = None, port: int | None = None) -> None:
-    """Start the service (uvicorn). It binds only to a loopback address and refuses any other address."""
+    """Start the service (uvicorn). It binds only to a loopback address and refuses any other address; a taken port
+    raises `PortInUseError` before anything is loaded."""
     import uvicorn
 
     s = settings()
     host = host or s["host"]
     if host not in LOOPBACK:
         raise ValueError(f"the local service binds only to a loopback address, not {host!r}")
+    port = port or int(s["port"])
+    check_port_free(host, port)
     from jav.app import datasets
     from jav.runtime import preload
     from jav.core import applog
@@ -475,5 +498,5 @@ def serve(*, host: str | None = None, port: int | None = None) -> None:
     observability.use_config()  # 231 (E4): the measurements into a local file, when the configuration switches it on
     datasets.warm_up()  # 158: the package list is built in the background, so its first request does not wait 5-8 s
     # 063: the service log also goes to a persistent rotating file (runs/logs/api.log), with tracebacks for 500 errors
-    uvicorn.run(create_app(), host=host, port=port or int(s["port"]), log_level="info", access_log=False,
+    uvicorn.run(create_app(), host=host, port=port, log_level="info", access_log=False,
                 log_config=applog.uvicorn_config("api"))

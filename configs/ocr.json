@@ -1,8 +1,13 @@
 {
  "meta": {
   "name": "ocr",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "changelog": [
+   {
+    "version": "1.3.0",
+    "date": "2026-11-02",
+    "note": "tesseract.language_packs: where a fresh installation gets the native recogniser's language packs (python -m jav.cli ocr --fetch-langs) and the SHA-256 of each file; they are the files already in use, so no value that changes the recognised text moves and the cache key is unchanged."
+   },
    {
     "version": "1.2.1",
     "date": "2026-11-01",
@@ -41,6 +46,15 @@
   "oem": 3,
   "timeout_s": 180,
   "tessdata_dir": "tools/tessdata",
+  "language_packs": {
+   "source": "https://github.com/tesseract-ocr/tessdata_fast/raw/4.1.0/{name}.traineddata",
+   "files": {
+    "eng": "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2",
+    "hun": "35067e7cfe102dcdc953f9a758fdfaa6296b17a1ee6d874ee780fa306430b9fb",
+    "osd": "9cf5d576fcc47564f11265841e5ca839001e7e6f38ff7f7aacf46d15a96b00ff"
+   },
+   "note": "The tesseract-ocr project's tessdata_fast release 4.1.0: byte for byte the files the legacy sidecar's image held and every measurement read with. `python -m jav.cli ocr --fetch-langs` puts the missing ones into tessdata_dir and keeps a file only when its SHA-256 matches; a different file already there is left alone and reported."
+  },
   "exe_candidates": [
    "tesseract",
    "%LOCALAPPDATA%/Programs/Tesseract-OCR/tesseract.exe",

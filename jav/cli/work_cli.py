@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -289,8 +290,19 @@ def cmd_calls_resolve(args):
 
 
 def cmd_serve(args):
+    from jav.core import applog
     from jav.service import api
-    api.serve(port=args.port)
+
+    try:
+        api.serve(port=args.port)
+    except api.PortInUseError as exc:
+        print(f"The local service did not start: {exc}", file=sys.stderr)
+        return 2
+    except SystemExit as exc:  # 278: uvicorn's own start-up failure (exit code 3) says why only in the log
+        if exc.code not in (None, 0):
+            print(f"The local service did not start (exit code {exc.code}); the reason is in "
+                  f"{applog.log_path('api')}", file=sys.stderr)
+        raise
     return 0
 
 

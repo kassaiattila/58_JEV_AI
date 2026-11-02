@@ -54,5 +54,7 @@ def test_the_service_preloads_before_it_serves(monkeypatch):
     monkeypatch.setattr(preload, "preload", lambda: order.append("preload") or [])
     monkeypatch.setattr(uvicorn, "run", lambda *a, **k: order.append("serve"))
     monkeypatch.setattr(api, "create_app", lambda *a, **k: object())
+    # 278: the port is tried first (a stand-in: the machine's own service may hold the configured one)
+    monkeypatch.setattr(api, "check_port_free", lambda host, port: order.append("port"))
     api.serve()
-    assert order == ["preload", "serve"]
+    assert order == ["port", "preload", "serve"]

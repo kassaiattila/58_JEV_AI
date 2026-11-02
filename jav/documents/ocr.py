@@ -42,7 +42,7 @@ from typing import Any
 
 from jav.documents import pdf as pdfmod
 from jav.core import cfg, jsonfile, trace
-from jav.documents import azure_di
+from jav.documents import azure_di, tessdata
 from jav.core.config import AZURE_DI_MODEL, AZURE_USD_PER_PAGE, DATA_ROOT, OLD_DATA_ROOT, PROJECT_ROOT
 from jav.documents.layout import LineLayout
 from jav.documents.pdf import PdfText, build_layout, text_layer_ok
@@ -65,7 +65,8 @@ _NOT_OUTPUT: dict[str, tuple[str, ...] | None] = {
     "meta": None,
     "cache_dir": None,
     "escalation": None,
-    "tesseract": ("timeout_s", "exe_candidates"),
+    # 278: where a fresh installation fetches the language packs from; the packs themselves are the ones in use
+    "tesseract": ("timeout_s", "exe_candidates", "language_packs"),
     # 121: the REST API version is in the engine version instead (`engine_version`), so the earlier texts stay reusable
     "azure_di": ("sidecar_url", "data_root", "container_root", "timeout_s", "api_version", "poll_interval_s"),
 }
@@ -425,7 +426,17 @@ def _run_tesseract(png: Path, out_base: Path, *, psm: int | None = None, eng: st
     except (subprocess.TimeoutExpired, subprocess.CalledProcessError, OSError) as exc:
         # 265 (code review AI-02): a hung or failed engine is an unavailability (`ocr:unavailable:OcrEngineFailed`, the
         # item goes on with a to-do), not a general error retried twice
-        raise OcrEngineFailed(f"the OCR engine ({eng}) failed on {png.name}: {type(exc).__name__}") from exc
+        raise OcrEngineFailed(f"the OCR engine ({eng}) failed on {png.name}: {type(exc).__name__}"
+                              f"{_missing_packs_hint() if eng == 'native' else ''}") from exc
+
+
+def _missing_packs_hint() -> str:
+    """278: a fresh installation's commonest cause of a failed native run, named in the failure."""
+    lacking = tessdata.missing(tessdata_dir())
+    if not lacking:
+        return ""
+    return (f"; the language pack(s) {', '.join(lacking)} are missing from {tessdata_dir()} "
+            "(python -m jav.cli ocr --fetch-langs)")
 
 
 # --- page images ------------------------------------------------------------------------------
@@ -755,8 +766,11 @@ def status() -> dict[str, Any]:
     except OcrUnavailableError as exc:
         out["engine"] = None
         out["error"] = str(exc)
-    tessdata = tessdata_dir()
-    out["tessdata"] = sorted(p.stem for p in tessdata.glob("*.traineddata")) if tessdata.exists() else []
+    packs = tessdata.state(tessdata_dir())  # 278: the required ones missing, and pinned ones that differ
+    out["tessdata"] = packs["present"]
+    out["tessdata_dir"] = packs["folder"]
+    out["tessdata_missing"] = packs["missing"]
+    out["tessdata_differs"] = packs["differs"]
     out["cache_files"] = len(list(CACHE_DIR.glob("*.json"))) if CACHE_DIR.exists() else 0
     return out
 

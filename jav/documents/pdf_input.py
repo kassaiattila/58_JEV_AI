@@ -13,11 +13,14 @@ rule is this module's, until then the AI layer's decision rules).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from jav.core.digest import file_sha256
 from jav.documents.pdf import PdfText
+
+log = logging.getLogger("jav.documents.pdf_input")
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,9 @@ def recognise(source_path: str, read_path: str | None, doc_id: str, page_count: 
         with azure_alias(source_path if read_path else None, doc_id):
             pdf, escalated = ocr_with_escalation(read_path or source_path, page_count=page_count)
     except OcrUnavailableError as exc:
+        # 278: the to-do keeps the kind; the reason (for example the language packs a fresh installation lacks) goes
+        # into the log, where it was lost before
+        log.warning("OCR could not run on document %s: %s", doc_id, exc)
         return Recognised(pdf=None, unavailable=f"ocr:unavailable:{type(exc).__name__}")
     return Recognised(pdf=pdf, escalated=escalated, signals=pdf.ocr or {})
 

@@ -122,5 +122,6 @@ def test_the_service_warms_the_list_up_when_it_starts(monkeypatch):
     monkeypatch.setattr(preload, "preload", lambda: order.append("preload"))
     monkeypatch.setattr(datasets, "warm_up", lambda: order.append("warm_up"))
     monkeypatch.setattr(uvicorn, "run", lambda *a, **k: order.append("run"))
+    monkeypatch.setattr(api, "check_port_free", lambda host, port: None)  # 278: the machine's service may hold it
     api.serve()
     assert order == ["preload", "warm_up", "run"]

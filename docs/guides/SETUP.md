@@ -1,21 +1,39 @@
 # Installation and local environment
 
-**Valid from:** 2026-09-27; reviewed 2026-09-30. **Platform:** Windows 11, PowerShell 5.1, Python 3.12, [uv](https://docs.astral.sh/uv/) (for the Python environment), Node.js 20.19+ or 22.12+ (for the user interface), git.
+**Valid from:** 2026-09-27; reviewed 2026-11-02 (a fresh clone installed on a clean folder by this guide). **Platform:** Windows 11, PowerShell 5.1, Python 3.12, [uv](https://docs.astral.sh/uv/) (for the Python environment), Node.js 20.19+ or 22.12+ (for the user interface), Tesseract 5 (for scanned documents), git.
 
 ## Plain-language summary
 
-This guide lists what a machine needs to run the project. Git holds only the source code, the settings and the documentation. The keys, the local data and the large OCR language packs are not in it, so each machine has to obtain them separately. A fresh clone runs the user interface, the work packages and the runs; the golden-set measurements also need the legacy project (section 4).
+This guide lists what a machine needs to run the project. Git holds only the source code, the settings and the documentation. The keys, the local data and the large OCR language packs are not in it, so each machine has to obtain them separately: the language packs with one command, the keys by hand. A fresh clone runs the user interface, the work packages and the runs; the golden-set measurements also need the legacy project (section 4).
 
 ## 1. Python environment
 
+**On a new machine, first.** Install the programs (with `winget`, which Windows 11 has, or from their own pages), then allow local PowerShell scripts for your user once, because Windows does not run them by default and the start script (`scripts\dev.ps1`) and the environment's `Activate.ps1` are such scripts:
+
 ```powershell
-uv venv --python 3.12.15 .venv   # the latest 3.12 patch release; uv fetches it if it is missing (an older uv may not know it: uv self update)
+winget install --id Git.Git -e
+winget install --id astral-sh.uv -e
+winget install --id OpenJS.NodeJS.LTS -e
+winget install --id UB-Mannheim.TesseractOCR -e      # Tesseract 5 (5.4.0 is the version the measurements used); section 3
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned   # local scripts run; downloaded, unsigned ones still do not
+git clone <the repository's address> C:\JAV           # a private repository: git asks for an account with access
+cd C:\JAV
+```
+
+Open a new PowerShell window after the installs, so the new programs are on the PATH. Clone into a short folder (for example `C:\JAV`): the deepest file of the Python environment is about 140 characters below the project folder, so the folder's own path should stay under about 100 characters unless long paths are switched on in Windows. The folder's name does not matter.
+
+```powershell
+uv venv --python 3.12.15 .venv   # the 3.12 patch release the tests run on; uv fetches it if it is missing (an older uv may not know it: uv self update)
 uv pip install --require-hashes -r requirements-dev.lock   # the runtime packages and the development tools, each with its hash
 .\.venv\Scripts\Activate.ps1
 python -m jav.cli hooks-install      # data guard: a check before every commit and push; once per clone
 uv tool install ruff==0.16.4         # the code check, in the version preflight counts with (pyproject.toml, ruff_version)
-python -m jav.cli preflight          # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
+cd ui; npm ci; npm run build; cd ..  # the user interface (below); before preflight, so its tests run too
+python -m jav.cli ocr --fetch-langs  # the OCR language packs (section 3)
+python -m jav.cli preflight          # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + OCR + data guard + language guard + Ruff limit + state snapshot
 ```
+
+On a fresh clone `preflight` is green. It notes that no handoff exists (the internal working documents stay on the machine that wrote them) and that the dependency audit has not run yet (`python -m jav.cli deps-audit`), and a few tests skip, each saying why: they need the internal working documents, the language packs or the legacy golden set. Without the user interface's packages its tests are skipped, not failed, so install them first.
 
 **Package lists.** `requirements.txt` names the runtime packages, `requirements-dev.txt` adds the test tools; `requirements.lock` and `requirements-dev.lock` pin every package with its hashes, so an install refuses a package that differs from the one locked. A machine that only runs the service may install `requirements.lock`. A list change is locked again with the current pins as constraints, so nothing else moves: `uv pip compile requirements-dev.txt --generate-hashes -c requirements-dev.lock --python-version 3.12 --python-platform windows --no-header --no-annotate -o requirements-dev.lock` (and the same for `requirements.txt` into `requirements.lock`).
 
@@ -29,6 +47,8 @@ cd ui; npm ci; npm run build; cd ..   # dependencies as pinned in package-lock.j
 .\scripts\dev.ps1 status            # are they running?
 .\scripts\dev.ps1 stop              # stop both; an interrupted run resumes from its saved step
 ```
+
+`start` waits until the service answers (at most 90 seconds, `-StartTimeoutSec`) and prints its address. If the service stops at start-up, it prints the reason and exits with code 1; on a new machine the usual reason is a port another program already uses (the service needs 8930, the invented registers of the insurance cases 8941). Start it on another port with `-Port`, or set `port` in `configs/service.json`. `python -m jav.cli serve` names a taken port the same way.
 
 **Your own folders in the user interface.** By default, any existing local folder or file can be given in the user interface (for a work package or a work folder). The restriction can be switched back on with `restrict_paths: true` in `configs/service.json`. Documents can then be added only from allowed folders: the project's `inbox/` and `data/` folders, the legacy project's data, and the folders listed in the `JAV_API_ROOTS` variable in `.env` (separate several folders with `;`, and quote the value if a path contains a space). Example: `JAV_API_ROOTS="D:\Invoices\Incoming"`. After the change, run `.\scripts\dev.ps1 stop` and then `start`. The folder with the real documents stays on the machine and never goes into git.
 
@@ -60,13 +80,13 @@ Optional environment variables (in `.env` or in the shell):
 
 ## 3. OCR (for PDFs without a text layer)
 
-- **Tesseract 5.x**, installed natively in `%LOCALAPPDATA%\Programs\Tesseract-OCR`. It does not need to be on the PATH: `configs/ocr.json` lists where to look (the PATH, this folder and `C:\Program Files\Tesseract-OCR`).
-- **Language packs** (not in git; git-ignored): `tools/tessdata/` (eng, hun, osd; the project uses this one) and `tools/tessdata_best/`. Get them from the tesseract-ocr `tessdata_fast` and `tessdata_best` releases, or from the legacy sidecar's Docker image, where the original copy came from. Without a PDF, `python -m jav.cli ocr` prints the state of the engine and the language packs.
+- **Tesseract 5.x**, installed natively (`winget install --id UB-Mannheim.TesseractOCR -e`, the UB Mannheim build for Windows; the measurements used 5.4.0). It does not need to be on the PATH: `configs/ocr.json` lists where to look (the PATH, `%LOCALAPPDATA%\Programs\Tesseract-OCR` and `C:\Program Files\Tesseract-OCR`).
+- **Language packs** (not in git; git-ignored): `tools/tessdata/` holds `eng`, `hun` and `osd`. `python -m jav.cli ocr --fetch-langs` downloads the missing ones from the tesseract-ocr project's `tessdata_fast` release 4.1.0 and keeps each file only when its SHA-256 matches the one pinned in `configs/ocr.json` (`tesseract.language_packs`): byte for byte the files every measurement read with, so recognition is the same on every machine. A different file already in the folder is left alone and reported. `JAV_TESSDATA_DIR` names another folder (for a second checkout or a worktree). Without a PDF, `python -m jav.cli ocr` prints the state of the engine and the language packs (which are missing, which differ from the pinned files), and `preflight` shows it on its OCR line. A scanned document read without them gets an OCR to-do, and the worker's log (`runs\logs\worker.log`) names the missing packs.
 - The paid Azure Document Intelligence escalation is needed only to escalate weak local OCR. With `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` in `.env` the system calls the service directly, for a document in any folder; without them it goes through the legacy project's sidecar container, which reads only documents under the legacy data folder. If the recipe's Azure switch is on but the escalation cannot run, the document gets a to-do. In a run it is used only within the run's Azure budget (the recipe's Azure recognition switch), and every call is in the call log.
 
 ## 4. Dependency on the legacy project: what works in a fresh clone
 
-`jav/core/config.py` finds the golden sets and the legacy data folder under `<legacy-root>`, the root folder of the legacy project. They are only read. `<legacy-root>` comes from the `JAV_LEGACY_ROOT` environment variable (or a line in `.env`); without it, `jav/core/config.py` falls back to a built-in default path (`DEFAULT_OLD_PROJECT_ROOT`), which is unlikely to exist on another machine, so set the variable there.
+`jav/core/config.py` finds the golden sets and the legacy data folder under `<legacy-root>`, the root folder of the legacy project. They are only read. `<legacy-root>` comes from the `JAV_LEGACY_ROOT` environment variable (or a line in `.env`); without it, `jav/core/config.py` falls back to the `10_AIFLOW_V4` folder next to the project folder (`DEFAULT_OLD_PROJECT_ROOT`), which another machine usually does not have, so set the variable there if the legacy project is somewhere else.
 
 A fresh GitHub clone has neither the legacy project, nor the golden sets, nor the internal working documents. In that case:
 
@@ -89,7 +109,7 @@ The start-up check is green on a fresh clone too, once the hooks are installed (
 | `inbox/` | downloaded emails (personal data) | No |
 | the internal working documents: handoffs, plans, reports, the backlog, the decisions log and the rest (list of paths: `jav/core/doc_scope.py`) | the local records of how the development went; a fresh clone does not have them | No: they are not under version control; the only second copy is in the daily backup |
 | `docs/STATE.md` | the generated state snapshot | Yes: `preflight` regenerates it |
-| `tools/tessdata*/` | OCR language packs | Yes, they can be downloaded again |
+| `tools/tessdata/` | OCR language packs | Yes: `python -m jav.cli ocr --fetch-langs` downloads them again |
 | `ui/node_modules/`, `ui/dist/` | user-interface dependencies and build | Yes: `npm ci` and `npm run build` recreate them |
 | `.venv/` | the Python environment | Yes, it can be rebuilt from the lockfile |
 

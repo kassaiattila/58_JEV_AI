@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition, invoice data extraction and email intent — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.79.0`** (2026-11-02). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.79.1`** (2026-11-02). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -25,7 +25,7 @@ The system reads invoices, other documents and emails. It recognises what type e
 | | **Partner register**: Settings › Partners keeps the outside parties the processes deal with (customers, suppliers, the insured, brokers), every change a version, retired rather than deleted; the same tax number or name is not recorded twice. It starts empty: the suppliers and buyers of the invoices read are offered as proposals, and only a person records one. A case's page shows the partners its process names (an IT quote: the request's customer) and links it to the register. A process may also keep its own values over its pack's resources (which price list, which template) and over the rule values its steps allow (a quote's lines, the rounding unit), versioned and previewed on its earlier decisions, a case keeping the values it started with (Settings › Processes) | New |
 | | **Task proposals from emails**: GPT proposes a concrete task (action, deadline, assignee) with a verbatim quote; a code gate drops any proposal the quote does not support; only a person can accept one | Works; off by default |
 | | **Email routing**: each invoice, outgoing invoice and bank statement that arrived by email is proposed for the open work package of its own party, period and role (incoming invoices, outgoing invoices, bank statements), or a new one; a person accepts, chooses another package or leaves it unrouted, and a document that cannot be placed says why. Code only, no AI call; offered on an email package's result and as a workflow after a mailbox download | Works; new |
-| | **Mailbox download** from the Outlook running on the machine, by mailbox and period, once or on a schedule, with a free message-count preview; new emails become a work package | Works; needs desktop Outlook |
+| | **Mailbox download** from the Outlook running on the machine, by mailbox and period, once or on a schedule, with a free message-count preview; new emails become a work package | Works; needs the classic desktop Outlook |
 | Work packages | **Work packages, processing settings and runs**: a package from a folder (optionally with its subfolders; folders and files can be chosen in the Windows picker), an upload, a mailbox or a watched folder; one processing that handles each item by its kind (type recognition, then extraction; email intent and attachments), with versioned settings and a pre-start overview of the services and budget; a readiness check; an idempotent start on a fixed input; trial and live runs; approval and release | Works |
 | | **Source instances**: an unchanging copy of every document added to a package, kept once per content; processing, the review page image and the named copies read this copy, so what a person checks is exactly what the result was made from, even if the original is later changed or deleted | Works |
 | | **Reliable execution**: a durable job queue and one or more background workers (one by default); resumption from the saved step; a call log and an up-front cost reservation for every paid call (a call sent without an answer counts as uncertain and is never repeated by itself); the cost of each item, run and work package per provider and model, with the run's total first; to-dos grouped by reason | Works on the worker path |
@@ -47,7 +47,7 @@ How it is built: [architecture](docs/ARCHITECTURE.md). How to use the workspace:
 - The call log and the budget apply only on the path that runs through the worker. The measurement commands call the models directly, so that closed measurements stay comparable.
 - One worker runs by default (`configs/service.json` `workers` allows more on the same store and machine). With one worker, document items wait while a mailbox download is in progress.
 - It is a single-user tool for the local machine, without a login. The open security items are listed in the [security notes](docs/SECURITY.md).
-- Mailbox download needs desktop Outlook to be running. Image attachments of emails (for example signature logos) are not processed.
+- Mailbox download needs the classic desktop Outlook for Windows to be running (the new Outlook has no automation interface the download can use). Image attachments of emails (for example signature logos) are not processed.
 - Runs made with older versions may have no boxes on the page image; the `reground` command recalculates them.
 - The utility-cost report breaks down only the gross amount, and it is built from a single run.
 - We do not claim real-world accuracy without an independent hand-labelled golden set.
@@ -60,27 +60,31 @@ locally, and the data stays in a local SQLite file.
 - **Python 3.12** with [uv](https://docs.astral.sh/uv/) (the packages: `requirements.lock`; among them TypeSafe/JEV,
   Pydantic AI with OpenAI, Burr, FastAPI and Uvicorn, pdfplumber, openpyxl and python-docx);
 - **Node.js 20.19+ or 22.12+**, only to build the interface (React and Vite);
-- **Tesseract 5** with the Hungarian and English language packs, for scanned documents;
+- **Tesseract 5** with the Hungarian and English language packs, for scanned documents (`python -m jav.cli ocr
+  --fetch-langs` downloads the packs, each checked by its fingerprint);
 - **git**;
 - the keys in `.env`: JEV (`TypeSafeJAV_API_KEY`) and/or OpenAI (`OPENAI_API_KEY`, also for OpenAI Decisions);
-- optional: desktop Outlook for the mailbox download, and an Azure Document Intelligence key for the paid escalation of
-  weak local OCR.
+- optional: the classic desktop Outlook for Windows for the mailbox download (not the new Outlook), and an Azure
+  Document Intelligence key for the paid escalation of weak local OCR.
 
 Docker is used only by the legacy project's slow OCR fallback, never by default. Details: [setup](docs/guides/SETUP.md).
 
 ## Getting started
 
 ```powershell
-uv venv --python 3.12 .venv; uv pip install --require-hashes -r requirements-dev.lock   # details, OCR, keys: docs/guides/SETUP.md
+uv venv --python 3.12.15 .venv; uv pip install --require-hashes -r requirements-dev.lock   # a new machine, OCR, keys: docs/guides/SETUP.md
 .\.venv\Scripts\Activate.ps1
 python -m jav.cli hooks-install        # data guard: checks before commit and push (once per clone)
-python -m jav.cli preflight            # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + data guard + language guard + Ruff limit + state snapshot
+cd ui; npm ci; npm run build; cd ..    # the interface (before preflight, so its tests run too)
+python -m jav.cli ocr --fetch-langs    # the OCR language packs, each checked by its SHA-256
+python -m jav.cli preflight            # tests (Python + UI) + contract lint + engine matrix + configs + handoff + git + OCR + data guard + language guard + Ruff limit + state snapshot
 python smoke_test.py                   # the keys; --jev-budget-usd 0.01 adds one live JEV call
-cd ui; npm ci; npm run build; cd ..    # the interface
-.\scripts\dev.ps1 start                # the local service, the worker and the interface: http://127.0.0.1:8930/
+.\scripts\dev.ps1 start                # the local service, the worker and the interface: http://127.0.0.1:8930/ (it waits until the service answers)
 ```
 
-Before the first start, copy `.env.example` to `.env` and fill in the keys.
+Before the first start, copy `.env.example` to `.env` and fill in the keys. On a new machine, first install the programs
+and allow local PowerShell scripts once (`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`): [setup, a new
+machine](docs/guides/SETUP.md#1-python-environment).
 
 In a fresh clone, without the legacy project (`10_AIFLOW_V4`) and its golden set, the UI, work packages, runs and the mailbox download all work; the golden-set measurements need the legacy project. Details: [setup, fresh clone](docs/guides/SETUP.md).
 
@@ -97,7 +101,7 @@ python -m jav.cli golden --arm S --type <pack> --cases <file> --store <copy>   #
 python -m jav.cli determinism --arm S --n 5                        # repeated runs without the cache (legacy project)
 python -m jav.cli detect <pdf> | detect-golden | detect-corpus <folder>   # detect-golden needs the legacy project
 python -m jav.cli email <inbox/<mailbox>/<msgid>> | email-golden | email-inbox inbox/   # email-golden needs the legacy project
-python -m jav.cli ocr [<pdf>]                                      # without a PDF: the OCR engine's status
+python -m jav.cli ocr [<pdf>] [--fetch-langs]                      # without a PDF: the OCR engine's status; --fetch-langs: the language packs
 python -m jav.cli eval-report [runs/*.jsonl]                       # shared evaluation report from the raw runs, no model calls
 # golden, detect-golden and extract_cases with --budget-usd exit with code 3 when the budget left cases without a result;
 # golden and email-golden take a hard JEV budget with --jev-budget-usd (a provider without a budget cannot be called)
