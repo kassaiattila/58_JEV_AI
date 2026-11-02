@@ -383,7 +383,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
             return (
               <div key={k} className="param-field">
                 <Picker label={PARAM_LABEL[k] ?? k} className="block-picker" value={value}
-                  options={choices.map((o) => ({ value: o.value, label: paramValue(k, o.value), detail: o.detail, disabled: o.disabled }))}
+                  options={choices.map((o) => ({ value: o.value, label: paramValue(k, o.value), detail: o.detail, disabled: o.disabled, group: o.group }))}
                   onChange={(v) => setParams((p) => (k === PATH ? applyPath({ ...full, ...p }, v) : { ...p, [k]: v }))} />
                 {explain ? <p className="param-note">{explain}</p> : null}
               </div>

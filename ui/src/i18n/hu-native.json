@@ -5424,5 +5424,9 @@
   "GPT only (OpenAI)": "csak GPT (OpenAI)",
   "JEV and GPT: JEV recognises the type and the email's intent, and chooses or checks during extraction": "JEV + GPT: a JEV ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél",
   "OpenAI Decisions and GPT: OpenAI's judgement service recognises the type and the email's intent, and chooses or checks during extraction, in JEV's place": "OpenAI Decisions + GPT: az OpenAI ítélő szolgáltatása ismeri fel a típust és a levél szándékát, és választ vagy ellenőriz az adatkinyerésnél, a JEV helyett",
-  "GPT only (OpenAI): type recognition, extraction and email intent by GPT, checked by the code": "Csak GPT (OpenAI): típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel"
+  "GPT only (OpenAI): type recognition, extraction and email intent by GPT, checked by the code": "Csak GPT (OpenAI): típusfelismerés, adatkinyerés és levélszándék GPT-vel, kódos ellenőrzéssel",
+  "Automatic (recommended) — {{judge}} and GPT": "Automatikus (ajánlott) — {{judge}} és GPT",
+  "{{judge}} where possible — cheaper, no line items; GPT elsewhere (S)": "{{judge}}, ahol lehet — olcsóbb, tételsorok nélkül; máshol GPT (S)",
+  "GPT + {{judge}} — with line items (G)": "GPT + {{judge}} — tételsorokkal (G)",
+  "With {{judge}}": "{{judge}} ítéletével"
 }
