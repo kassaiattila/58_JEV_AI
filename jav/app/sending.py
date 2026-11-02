@@ -32,7 +32,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from jav.app import app_settings, capabilities, naming, process_runtime, work
+from jav.app import app_settings, capabilities, naming, process_packs, process_runtime, work
 from jav.core import cfg, identity, store
 from jav.core.process import cases, kinds, outbox, tasks
 from jav.core.process.engine import StepContext
@@ -183,13 +183,16 @@ class Send(BaseModel):
 
 
 def _folder(case_id: str) -> list[str]:
-    """The case's folder parts under the output folder: its process pack and its name with its id."""
+    """The case's folder parts under the output folder: its process pack and its name with its id. 277 (O3): a case of
+    a merged pack whose choices make it what a case of a pack it took the place of was keeps that pack's folder (an
+    Allianz quote's offers stay under `allianz_property_offer`)."""
     pinned = process_runtime.pack_of(case_id)
     try:
         name = work.get(case_id)["name"]
     except KeyError:
         name = None
-    return [pinned[0] if pinned else "cases", f"{naming.safe_part(name, limit=60) or 'case'}_{case_id}"]
+    folder = (process_packs.former(pinned[0], process_runtime.choices_of(case_id)) or pinned[0]) if pinned else "cases"
+    return [folder, f"{naming.safe_part(name, limit=60) or 'case'}_{case_id}"]
 
 
 def _handovers_of(case_id: str, step_id: str) -> list[dict[str, Any]]:

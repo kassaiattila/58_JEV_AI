@@ -39,7 +39,8 @@ During development, `npm run dev` serves the user interface at `http://127.0.0.1
 Copy `.env.example` to `.env` and fill in:
 
 - `TypeSafeJAV_API_KEY`: the JEV key (the SDK's own `TYPESAFE_API_KEY` name is also accepted);
-- `OPENAI_API_KEY`: for the G path (GPT extraction) and the task proposals.
+- `OPENAI_API_KEY`: for the G path (GPT extraction), the task proposals, processing with GPT only, and OpenAI Decisions
+  (the same key).
 
 `.env` never goes into git; the data guard also looks for the secret values from `.env` in the lines being committed. Never write a key value into a log or a document. `python smoke_test.py` checks the environment and that the JEV key is there (it prints only the key's length); with `--jev-budget-usd 0.01` it makes one tiny live call under that budget (paid, a fraction of a cent), recorded in the call log.
 
@@ -51,6 +52,8 @@ Optional environment variables (in `.env` or in the shell):
 | `JAV_API_ROOTS` | allowed document folders when the folder restriction is on (section 1) |
 | `JAV_INGEST_TOKEN` | the key of the standalone email receiver (`email-ingest-server`) used on the legacy, manual route; without it (and without `--token`) the receiver prints a one-off key at start-up |
 | `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY` | the Azure Document Intelligence resource for the paid escalation of weak local OCR, called directly (section 3); without them the legacy sidecar is used |
+| `JAV_PROVIDERS_ON`, `JAV_PROVIDERS_OFF` | the paid services this installation may call, over `configs/providers.json` `enabled` (names separated by `,`): for example `JAV_PROVIDERS_OFF=openai_decisions` switches OpenAI Decisions off, `jev` where JEV is not contracted |
+| `JAV_TESSDATA_DIR` | the folder of the Tesseract language packs, if it is not `tools/tessdata` (section 3) |
 | `JAV_OCR_ENGINE` | `native`, `docker` or `azure_di` for one command; `azure_di` forces the paid Azure recognition (page-limited). The default comes from `configs/ocr.json` and never picks Azure. |
 | `JAV_ALLOW_SDK_DEBUG` | `1`: allows the JEV library's detailed log; it also logs personal data, so use it only on made-up data |
 | `JAV_HYPOTHESIS_EXAMPLES` | the number of generated examples per property-based test (default 150), for a deeper search |

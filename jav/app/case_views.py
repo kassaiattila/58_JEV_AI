@@ -464,7 +464,8 @@ def started_cases(case_id: str) -> list[dict[str, Any]]:
         with store.connect() as c:
             case = cases.find_case_in(c, h["id"])
         out.append({"id": h["id"], "name": h["name"], "record": h["value"], "pack": pinned[0] if pinned else None,
-                    "process": process_packs.load(pinned[0]).title if pinned else None,
+                    # 277 (O3): the case's own version of its pack, so one whose pack is gone still says its title
+                    "process": pack.title if pinned and (pack := process_runtime.pack_for(h["id"])) else None,
                     "status": case["status"] if case else None})
     return out
 

@@ -84,7 +84,9 @@ export interface CaseTab { id: string; label: string; elements: CaseElement[] }
 /** 263 (F3): the case list's views' counts (`jav/app/case_lists.py` `view_counts`). */
 export interface CaseViewCounts {
   views: { waiting: number; mine: number; open: number; closed: number };
-  processes: { pack: string; title: string; open: number; all: number; repeats: boolean }[];
+  processes: { pack: string; title: string; open: number; all: number; repeats: boolean; group?: string | null }[];
+  /** 277 (O3): the case types' groups in order, each with its processes in their order (each process names its own) */
+  groups?: { id: string; title: string; processes?: string[] }[];
 }
 export interface CaseView {
   /** U-A8: `due`, whether the worker has something to do for the case now (the page asks again while it has) */
@@ -110,6 +112,8 @@ export interface CaseNextDraft {
   source?: CaseSource; step_sources?: Record<string, CaseSource>;
   /** 261: the caps of the case, filled in again for a person to approve */
   step_budgets?: Record<string, Record<string, string>>;
+  /** 277 (O3): the choices the next case starts with (the case's own, or those its process's successor names) */
+  choices?: Record<string, string>;
 }
 
 // 231 (A7e): the data of the shared elements: a send step's handovers, a reply step's wait, the case's events and cost
@@ -265,7 +269,7 @@ export const casesApi = {
   // 231 C1c: the packages it reads; C2d: its own party and period; U2c: each step's own documents
   startCase: (body: { pack: string; record?: { workpackage_id: string; item_id: string }; sources?: string[]; name: string;
     party_id?: string; period_start?: string; period_end?: string; source?: CaseSource; step_sources?: Record<string, CaseSource>;
-    follows?: string; step_budgets?: Record<string, Record<string, string>> }) =>
+    follows?: string; step_budgets?: Record<string, Record<string, string>>; choices?: Record<string, string> }) =>
     request<{ case_id: string }>("POST", "/cases", body),
   /** 261: the case's next period as the new case's form shows it filled in (nothing is written) */
   caseNext: (caseId: string) => request<CaseNextDraft>("GET", `/cases/${enc(caseId)}/next`),

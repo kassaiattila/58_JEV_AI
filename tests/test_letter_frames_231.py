@@ -33,9 +33,9 @@ def _frame(kind: str, ident: str) -> dict:
     return next(f for f in found["frames"] if f["ident"] == ident)
 
 
-def _kept_subject(pack_id: str) -> str:
-    """The covering letter's subject as a case of the pack started now reads it."""
-    values, refs = process_settings.effective_rules(process_packs.load(pack_id))
+def _kept_subject(pack_id: str, choices: dict[str, str] | None = None) -> str:
+    """The covering letter's subject as a case of the pack started now reads it (277: with these choices)."""
+    values, refs = process_settings.effective_rules(process_packs.chosen(process_packs.load(pack_id), choices))
     over = capabilities.case_overlay({capabilities.RULES: values, capabilities.RULE_REFS: refs})
     with cfg.overlay(over):
         return cfg.load("letter_frames")["frames"]["offer_letter"]["subject"]
@@ -57,7 +57,7 @@ def test_a_changed_frame_reaches_the_cases_started_after_it_is_made_active(db) -
     assert _kept_subject("insurance_offer") == before  # a draft reaches no case
     letter_frames.activate("letter_frame", "offer_letter", 1, "bela")
     assert _kept_subject("insurance_offer") == SUBJECT
-    assert _kept_subject("allianz_property_offer") == SUBJECT  # every process that uses the frame
+    assert _kept_subject("insurance_offer", {"product": "allianz"}) == SUBJECT  # every case that uses the frame
     _values, refs = process_settings.effective_rules(process_packs.load("insurance_offer"))
     assert refs["letter_frames"]["frames.offer_letter"] == {"setting": "letter_frame/offer_letter", "version": 1}
     frame = _frame("letter_frame", "offer_letter")

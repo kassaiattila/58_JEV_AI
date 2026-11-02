@@ -147,7 +147,7 @@ def test_the_process_offers_the_tariff_as_its_example_material_by_its_title(tmp_
 
     registrations.load_all()
     with store.use_store(tmp_path / "examples.sqlite"):
-        material = examples.of("allianz_property_offer")
+        material = examples.of("insurance_offer", {"product": "allianz"})  # 277 (O3h): the quote's Allianz option
         [one] = material["sets"]
         assert (one["name"], one["state"]) == ("product_set_allianz_tariff", examples.MISSING)
         assert one["title"] == f"Allianz Hungária Zrt.: {TARIFF.title}" and "PÉLDA" in one["title"]

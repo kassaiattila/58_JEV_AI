@@ -38,15 +38,15 @@ import json
 import re
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, ValidationError
 
 from jav.app import capabilities, scopes
 from jav.core import cfg
 from jav.core.process.definition import NAME, ProcessDef, StepDef
 
-__all__ = ["Adopt", "Element", "ExampleSet", "Examples", "FollowUp", "Intake", "PackError", "PartnerLink", "ProcessPack", "Step",
-           "Tab",
-           "UnknownPack", "definition", "load", "packs"]
+__all__ = ["Adopt", "Choice", "ChoiceRefused", "Element", "ExampleSet", "Examples", "FollowUp", "Intake", "Option", "PackError", "PartnerLink",
+           "ProcessPack", "Replaced", "Step", "Tab", "UnknownPack", "chosen", "definition", "former", "group_of", "group_problems",
+           "groups", "load", "packs", "picked", "successor", "variants"]
 
 ELEMENTS = "screen_elements"
 EXAMPLE_DOCUMENTS = "examples_"  # 231 (U0): `configs/examples_<name>.json`, a pack's invented documents
@@ -75,6 +75,10 @@ class PackError(ValueError):
 
 class UnknownPack(PackError):
     """231 (B2): no process pack of this id."""
+
+
+class ChoiceRefused(PackError):
+    """277 (O3): a case asked to start with a choice its pack does not ask, or an option the choice does not have."""
 
 
 class _Model(BaseModel):
@@ -205,6 +209,37 @@ class Examples(_Model):
     note: str | None = Field(default=None, min_length=1)
 
 
+class Option(_Model):
+    """277 (O3; the owner's decision of 2026-11-02: one case type in place of several alike): one answer to a choice a
+    case is started with: the steps it leaves out (a step that waited for one waits for the rest), the resources and
+    the step parameters it sets over the pack's, and its own example material in place of the pack's."""
+
+    id: str = Field(pattern=NAME)
+    title: str = Field(min_length=1)  # English; the interface translates it
+    summary: str | None = Field(default=None, min_length=1)
+    leaves_out: tuple[str, ...] = ()
+    resources: dict[str, str] = Field(default_factory=dict)
+    params: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    examples: Examples | None = None
+
+
+class Choice(_Model):
+    """277 (O3): a choice a person makes when a case starts, its options and the one taken when nothing is chosen."""
+
+    id: str = Field(pattern=NAME)
+    title: str = Field(min_length=1)
+    default: str = Field(pattern=NAME)
+    options: tuple[Option, ...] = Field(min_length=2)
+
+
+class Replaced(_Model):
+    """277 (O3): a process pack this one took the place of, and the choices that make a case of this one what a case of
+    that one was (the next period of an earlier case, the case list's folding of the old cases)."""
+
+    pack: str = Field(pattern=NAME)
+    choices: dict[str, str] = Field(default_factory=dict)
+
+
 class ProcessPack(_Model):
     meta: dict[str, Any]
     id: str = Field(pattern=NAME)
@@ -230,10 +265,128 @@ class ProcessPack(_Model):
     # 231 (U3c; the owner's decision of 2026-10-28): a resource that follows from another ({resource: source}): the
     # source's thing brings it (a product its tariff), and a process does not set it on its own
     derived: dict[str, str] = Field(default_factory=dict)
+    # 277 (O3): the choices a case starts with (`chosen`), and the packs this one took the place of
+    choices: tuple[Choice, ...] = ()
+    replaces: tuple[Replaced, ...] = ()
+    _fixed: tuple[str, ...] = PrivateAttr(default=())  # 277 (O3): the resources the chosen options set (`chosen`)
 
     @property
     def version(self) -> str:
         return str(self.meta["version"])
+
+    @property
+    def fixed(self) -> tuple[str, ...]:
+        """277 (O3): the resources a narrowed pack's options set: a case's choice, which the process's own values do not
+        go over (`process_settings.effective_resources`); none for a pack as its file has it."""
+        return self._fixed
+
+    def option_resources(self) -> set[str]:
+        """277 (O3): the resources any option of the pack's choices sets (a person sets them by the choice, not as the
+        process's own value)."""
+        return {k for c in self.choices for o in c.options for k in o.resources}
+
+
+def picked(pack: ProcessPack, choices: dict[str, str] | None) -> dict[str, str]:
+    """277 (O3): the pack's choices as a case starts with them, each one not given at its default; `PackError` for a
+    choice the pack does not ask or an option it does not have."""
+    given = dict(choices or {})
+    asked = {c.id: c for c in pack.choices}
+    unknown = sorted(set(given) - set(asked))
+    if unknown:
+        raise ChoiceRefused(f"process pack {pack.id!r} has no choice {unknown[0]!r}")
+    out: dict[str, str] = {}
+    for choice in pack.choices:
+        option = given.get(choice.id, choice.default)
+        if option not in {o.id for o in choice.options}:
+            raise ChoiceRefused(f"process pack {pack.id!r} has no option {option!r} of the choice {choice.id!r}")
+        out[choice.id] = option
+    return out
+
+
+def variants(pack: ProcessPack) -> list[dict[str, str]]:
+    """277 (O3): every combination of the pack's options, in the options' order ([{}] for a pack without choices)."""
+    out: list[dict[str, str]] = [{}]
+    for choice in pack.choices:
+        out = [{**v, choice.id: o.id} for v in out for o in choice.options]
+    return out
+
+
+def chosen(pack: ProcessPack, choices: dict[str, str] | None = None) -> ProcessPack:
+    """277 (O3): the pack as a case started with `choices` runs it, before its definition is made: the steps its options
+    leave out are gone (and from what the other steps wait for, the screens, the partners, the wraps and the workflow
+    kind), their resources and step parameters are set over the pack's, an option's examples take the place of the
+    pack's, and it asks no choice and replaces nothing any more (`successor` reads the packs as their files have them). A pack without choices is returned as it is (`PackError` for a choice
+    given to it)."""
+    if not pack.choices:
+        if choices:
+            picked(pack, choices)  # refuses the choice it does not ask
+        return pack
+    picks = picked(pack, choices)
+    options = [next(o for o in c.options if o.id == picks[c.id]) for c in pack.choices]
+    left = {s for o in options for s in o.leaves_out}
+    resources = dict(pack.resources)
+    params: dict[str, dict[str, Any]] = {}
+    for option in options:
+        resources.update(option.resources)
+        for step_id, values in option.params.items():
+            params.setdefault(step_id, {}).update(values)
+    steps = tuple(s.model_copy(update={"after": tuple(a for a in s.after if a not in left),
+                                       "gates": tuple(g for g in s.gates if g not in left),
+                                       "params": {**s.params, **params.get(s.id, {})}})
+                  for s in pack.steps if s.id not in left)
+    tabs = tuple(t.model_copy(update={"elements": kept}) for t in pack.screens.tabs
+                 if (kept := tuple(e for e in t.elements if e.step not in left)))
+    examples = next((o.examples for o in options if o.examples is not None), pack.examples)
+    narrowed = pack.model_copy(update={
+        "resources": resources, "steps": steps, "screens": pack.screens.model_copy(update={"tabs": tabs}),
+        "examples": examples, "partners": tuple(p for p in pack.partners if p.from_step not in left),
+        "wraps": tuple(w for w in pack.wraps if w.step not in left),
+        "workflow": pack.workflow if pack.workflow is None or pack.workflow.step not in left else None,
+        "choices": (), "replaces": ()})  # the pack as its file has it names what it took the place of
+    narrowed._fixed = tuple(sorted({k for o in options for k in o.resources}))
+    return narrowed
+
+
+def _choice_problems(pack: ProcessPack, known: list[str]) -> list[str]:
+    """277 (O3): what is wrong with the pack's choices and what it replaces; then every combination of its options
+    checked as a pack of its own, each problem named by the combination (one the whole pack has, `known`, only once)."""
+    problems: list[str] = []
+    ids = {s.id for s in pack.steps}
+    names = [c.id for c in pack.choices]
+    problems += [f"a choice is listed twice: {n}" for n in sorted({n for n in names if names.count(n) > 1})]
+    for choice in pack.choices:
+        options = [o.id for o in choice.options]
+        problems += [f"choice {choice.id!r}: an option is listed twice: {n}" for n in sorted({n for n in options if options.count(n) > 1})]
+        if choice.default not in options:
+            problems.append(f"choice {choice.id!r}: its default {choice.default!r} is none of its options")
+        for option in choice.options:
+            where = f"choice {choice.id!r}: option {option.id!r}"
+            problems += [f"{where} leaves out no step {s!r}" for s in option.leaves_out if s not in ids]
+            problems += [f"{where} sets parameters of no step {s!r}" for s in option.params if s not in ids]
+            problems += [f"{where} sets the pack's own parameter {k!r}" for values in option.params.values()
+                         for k in values if k.startswith("_")]
+            problems += [f"{where} sets {k!r}, which is no resource of the pack" for k in option.resources
+                         if k not in pack.resources]
+    for old in pack.replaces:
+        if old.pack == pack.id:
+            problems.append(f"the pack replaces itself ({old.pack!r})")
+            continue
+        try:
+            picked(pack, old.choices)
+        except PackError as exc:
+            problems.append(f"replaces {old.pack!r}: " + str(exc).replace(f"process pack {pack.id!r} has ", ""))
+    if problems:
+        return problems  # the combinations are only built from a sound set of choices
+    for picks in variants(pack):
+        if not picks:
+            continue
+        where = "with " + ", ".join(f"{k}={v}" for k, v in picks.items())
+        variant = chosen(pack, picks)
+        if not variant.steps:
+            problems.append(f"{where}: it leaves out every step")
+            continue
+        problems += [f"{where}: {p}" for p in _problems(variant) if p not in known]
+    return problems
 
 
 def _resolved(params: dict[str, Any], resources: dict[str, str], problems: list[str], where: str) -> dict[str, Any]:
@@ -441,6 +594,8 @@ def _problems(pack: ProcessPack) -> list[str]:
         definition(pack)
     except (ValidationError, ValueError) as exc:
         problems.append(f"the steps do not make a process definition: {exc}")
+    if pack.choices or pack.replaces:  # 277 (O3)
+        problems += _choice_problems(pack, problems)
     return problems
 
 
@@ -476,6 +631,69 @@ def load(pack_id: str) -> ProcessPack:
 def packs() -> list[ProcessPack]:
     """Every process pack, read and checked."""
     return [load(name.split(":", 1)[1]) for name in cfg.all_names() if name.startswith("process:")]
+
+
+GROUPS = "process_groups"  # 277 (O3): `configs/process_groups.json`
+
+
+def groups() -> list[dict[str, Any]]:
+    """277 (O3; the owner's decision of 2026-11-02): the case types' groups in their order, each {id, title,
+    processes} with its processes in their order (`configs/process_groups.json`)."""
+    return [dict(g) for g in cfg.load(GROUPS)["groups"]]
+
+
+def group_of(pack_id: str) -> str | None:
+    """277 (O3): the group a process stands in; a pack another took the place of, its successor's; None for none."""
+    for group in groups():
+        if pack_id in group["processes"]:
+            return str(group["id"])
+    later = successor(pack_id)
+    return group_of(later[0]) if later is not None and later[0] != pack_id else None
+
+
+def group_problems() -> list[str]:
+    """277 (O3): what is wrong with the groups: a group listed twice or without a title, one naming a process that is
+    not there or another group's, and a process in no group."""
+    problems: list[str] = []
+    ids = [str(g.get("id")) for g in groups()]
+    problems += [f"a group is listed twice: {i}" for i in sorted({i for i in ids if ids.count(i) > 1})]
+    known = {p.id for p in packs()}
+    placed: dict[str, str] = {}
+    for group in groups():
+        if not group.get("title"):
+            problems.append(f"group {group.get('id')!r} has no title")
+        for pack_id in group.get("processes") or []:
+            if pack_id not in known:
+                problems.append(f"group {group['id']!r} names no process pack {pack_id!r}")
+            elif pack_id in placed:
+                problems.append(f"process {pack_id!r} stands in two groups: {placed[pack_id]}, {group['id']}")
+            else:
+                placed[pack_id] = str(group["id"])
+    problems += [f"process {p!r} stands in no group" for p in sorted(known - set(placed))]
+    return problems
+
+
+def former(pack_id: str, picks: dict[str, str] | None) -> str | None:
+    """277 (O3): the pack a case of `pack_id` with these choices is what a case was before the merge (the one its
+    `replaces` names with choices the case's include), so what it is known by outside the store (its output folder)
+    stays; None when none is, or for a pack that is gone."""
+    try:
+        pack = load(pack_id)
+    except UnknownPack:
+        return None
+    given = picks or {}
+    return next((old.pack for old in pack.replaces if old.choices and all(given.get(k) == v for k, v in old.choices.items())),
+                None)
+
+
+def successor(pack_id: str) -> tuple[str, dict[str, str]] | None:
+    """277 (O3): the pack that took the place of `pack_id` (its `replaces`) and the choices that make a case of it what
+    a case of `pack_id` was; None when none did."""
+    for pack in packs():
+        for old in pack.replaces:
+            if old.pack == pack_id:
+                return pack.id, picked(pack, old.choices)
+    return None
 
 
 def definition(pack: ProcessPack) -> ProcessDef:

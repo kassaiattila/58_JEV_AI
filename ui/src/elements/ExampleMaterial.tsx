@@ -12,9 +12,12 @@ const STATE: Record<string, [string, string]> = {
   installed: ["s-done", "Installed"], partial: ["s-warn", "Partly installed"], missing: ["s-waiting", "Not installed"],
 };
 
-export function ExampleMaterial({ pack, needed, onChanged }: { pack: string; needed: boolean; onChanged: () => void }) {
+export function ExampleMaterial({ pack, needed, onChanged, choices }: { pack: string; needed: boolean; onChanged: () => void;
+  /** 277 (O3): the material of the options a case starts with */
+  choices?: Record<string, string> }) {
   useLocale();
-  const examples = useLoad(`examples:${pack}`, () => api.processExamples(pack));
+  const chosen = choices ? [choices] as const : [] as const;  // 277: named only when a process asks a choice
+  const examples = useLoad(`examples:${pack}:${JSON.stringify(choices ?? {})}`, () => api.processExamples(pack, ...chosen));
   const { busy, error, run } = useAction();
   if (examples.error) return <p className="notice error" role="alert">{examples.error.message}</p>;
   if (!examples.data) return <p className="muted">{t("Loading…")}</p>;
@@ -47,11 +50,11 @@ export function ExampleMaterial({ pack, needed, onChanged }: { pack: string; nee
         <div className="button-row">
           {!installed ? (
             <button type="button" className={needed ? "primary" : "secondary"} disabled={busy}
-              onClick={() => void run(() => api.installExamples(pack), { then: changed })}>{t("Install the example material")}</button>
+              onClick={() => void run(() => api.installExamples(pack, ...chosen), { then: changed })}>{t("Install the example material")}</button>
           ) : null}
           {removable ? (
             <ConfirmButton className="secondary" disabled={busy}
-              onConfirm={() => void run(() => api.removeExamples(pack), { then: changed })}>{t("Remove the example material")}</ConfirmButton>
+              onConfirm={() => void run(() => api.removeExamples(pack, ...chosen), { then: changed })}>{t("Remove the example material")}</ConfirmButton>
           ) : null}
         </div>
       ) : null}

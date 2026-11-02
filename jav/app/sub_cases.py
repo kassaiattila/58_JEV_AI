@@ -154,9 +154,18 @@ def _waited_for(pack: Any, step_id: str) -> set[str]:
     return seen
 
 
+def _keeps_batch(step: Any) -> bool:
+    """277 (O3): a step whose capability keeps a work package of its own (it makes one or a package is bound to it: a
+    batch's processing), whose batch a later step's sub-case may read as a sub-case's batches."""
+    try:
+        return capabilities.of(step.uses).bound is not None
+    except capabilities.CapabilityError:
+        return False
+
+
 def _pack_check(pack: Any) -> list[str]:
     problems: list[str] = []
-    ours = {step.id for step, _ in _steps(pack)}
+    ours = {step.id for step, _ in _steps(pack)} | {step.id for step in pack.steps if _keeps_batch(step)}
     for step, params in _steps(pack):
         where = f"step {step.id!r}"
         if params.pack == pack.id or pack.id in _runs(params.pack, {params.pack}):
@@ -179,7 +188,7 @@ def _pack_check(pack: Any) -> list[str]:
         waited = _waited_for(pack, step.id)
         for ref in params.sources_from:
             if ref not in ours:
-                problems.append(f"{where}: sources_from names {ref!r}, which is no step that runs a case")
+                problems.append(f"{where}: sources_from names {ref!r}, which is no step that runs a case or keeps a batch")
             elif ref not in waited:
                 problems.append(f"{where}: sources_from names {ref!r}, a step it does not wait for")
     return problems
@@ -260,12 +269,15 @@ def _gathered(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _batches(ctx: StepContext, step_ids: tuple[str, ...]) -> list[str]:
-    """The batches the sub-cases of the named earlier steps made, in their order."""
+    """The batches the sub-cases of the named earlier steps made, in their order; 277 (O3): of a step that keeps a batch
+    of its own (the case's own mailbox download), that batch."""
     out: list[str] = []
     for step_id in step_ids:
         sub = (ctx.result_of(step_id)[1] or {}).get("case_id")
         if sub:
             out += [wp for wp in document_processing.case_packages(sub) if wp not in out]
+        elif (own := document_processing.package_of(ctx.case_id, step_id)) is not None and own not in out:
+            out.append(own)
     return out
 
 

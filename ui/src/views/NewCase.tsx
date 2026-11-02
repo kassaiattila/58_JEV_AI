@@ -3,11 +3,13 @@
 // a tariff with no active version) says what it needs. The chosen process's part stands beside the list, so its next
 // step shows without scrolling: its example material where it has some, then its own start form (the shared one,
 // `elements/ProcessStart.tsx`), which asks what a case of it needs and starts it. U1e: once the material changes, the
-// form is made anew, so its choices (an own party the material made) are read again.
+// form is made anew, so its choices (an own party the material made) are read again. 277 (O3; the owner's decision of
+// 2026-11-02): the processes stand in their groups, and a process that asks choices when a case starts (the invoices'
+// source, the routing, the product) shows them first: the example material and the form follow the options picked.
 import { useState } from "react";
-import { api } from "../api";
+import { api, inGroupOrder, pickedOptions, type ProcessRow } from "../api";
 import { ExampleMaterial } from "../elements/ExampleMaterial";
-import { ProcessCreate } from "../elements/ProcessStart";
+import { ChoiceFields, ProcessCreate } from "../elements/ProcessStart";
 import { PageHeader } from "../components/PageHeader";
 import { useLoad } from "../hooks";
 import { t, useLocale } from "../i18n";
@@ -16,13 +18,37 @@ import { go } from "../route";
 export function NewCase({ pack, after }: { pack?: string; after?: string }) {
   useLocale();
   const processes = useLoad("processes:new-case", api.processes);
+  const draft = useLoad(after ? `case-next:${after}` : null, () => api.caseNext(after ?? ""));  // 277: its choices
   const startable = (processes.data?.processes ?? []).filter((p) => p.manual);
   const [query, setQuery] = useState("");
   const shownProcesses = startable.filter((p) => !query.trim() || `${t(p.title)} ${p.summary ? t(p.summary) : ""}`.toLowerCase().includes(query.trim().toLowerCase()));
   const chosen = startable.find((p) => p.id === pack) ?? null;
-  const missing = chosen?.missing_at_start ?? [];
+  const [picksBy, setPicksBy] = useState<Record<string, Record<string, string>>>({});
+  const picks = chosen ? picksBy[chosen.id] ?? (draft.data?.pack === chosen.id ? draft.data.choices : undefined) ?? {} : {};
+  const options = pickedOptions(chosen?.choices, picks);
+  const asked = !!chosen?.choices?.length;
+  const missing = asked ? options.flatMap((o) => o.missing_at_start) : chosen?.missing_at_start ?? [];
+  const hasExamples = asked ? options.some((o) => o.examples) : !!chosen?.examples;
+  const choices = asked ? Object.fromEntries(chosen!.choices!.map((c, i) => [c.id, options[i].id])) : undefined;
   const [material, setMaterial] = useState(0);
   const materialChanged = () => { processes.reload(); setMaterial((n) => n + 1); };
+  // 277 (O3): the groups in their order, each with its processes the search leaves; a process of no group last
+  const groups = [...(processes.data?.groups ?? []), { id: "", title: "Other" }]
+    .map((g) => ({ ...g, shown: inGroupOrder(shownProcesses.filter((p) => (p.group ?? "") === g.id), (p) => p.id, g) }))
+    .filter((g) => g.shown.length);
+  const choice = (p: ProcessRow) => (
+    <label key={p.id} className="wizard-choice">
+      <input type="radio" name="new-case-process" checked={p.id === chosen?.id} aria-label={t(p.title)}
+        onChange={() => go({ view: "case-list", create: true, pack: p.id })} />
+      <span>
+        <strong>{t(p.title)}</strong>
+        {p.missing_at_start?.length ? (
+          <span className="todo-text small">{t("Before a case can start: {{what}} needs an active version.",
+            { what: p.missing_at_start.map((m) => t(m.label)).join(", ") })}</span>
+        ) : null}
+      </span>
+    </label>
+  );
   return (
     <>
       <PageHeader crumbs={[{ label: t("Cases"), href: "#/cases" }]} title={t("New case")}
@@ -32,38 +58,35 @@ export function NewCase({ pack, after }: { pack?: string; after?: string }) {
       {processes.data ? (
         <div className="new-case">
           {/* 263 (F3, H26): one line a process, with a search, so the processes fit on the screen; the chosen one's
-              description stands beside it, above its form */}
+              description stands beside it, above its form; 277: under their groups' names */}
           <section className="card new-case-list" aria-label={t("Which process?")}>
             <input className="new-case-search" type="search" value={query} placeholder={t("Search the processes…")}
               aria-label={t("Search the processes")} onChange={(e) => setQuery(e.target.value)} />
-            <fieldset className="wizard-choices compact">
-              <legend>{t("Which process?")}</legend>
-              {shownProcesses.map((p) => (
-                <label key={p.id} className="wizard-choice">
-                  <input type="radio" name="new-case-process" checked={p.id === chosen?.id} aria-label={t(p.title)}
-                    onChange={() => go({ view: "case-list", create: true, pack: p.id })} />
-                  <span>
-                    <strong>{t(p.title)}</strong>
-                    {p.missing_at_start?.length ? (
-                      <span className="todo-text small">{t("Before a case can start: {{what}} needs an active version.",
-                        { what: p.missing_at_start.map((m) => t(m.label)).join(", ") })}</span>
-                    ) : null}
-                  </span>
-                </label>
-              ))}
-              {!shownProcesses.length ? <p className="muted small">{t("No process matches the search.")}</p> : null}
-            </fieldset>
+            {groups.map((g) => (
+              <fieldset key={g.id || "other"} className="wizard-choices compact new-case-group">
+                <legend>{t(g.title)}</legend>
+                {g.shown.map(choice)}
+              </fieldset>
+            ))}
+            {!shownProcesses.length ? <p className="muted small">{t("No process matches the search.")}</p> : null}
           </section>
           <section className="card new-case-form" aria-label={chosen ? t(chosen.title) : t("New case")}>
             {chosen ? <h2>{t(chosen.title)}</h2> : <p className="muted">{t("Choose a process on the left: its form opens here.")}</p>}
             {chosen?.summary ? <p className="small muted">{t(chosen.summary)}</p> : null}
-            {chosen?.examples ? <ExampleMaterial pack={chosen.id} needed={missing.length > 0} onChanged={materialChanged} /> : null}
-            {chosen && missing.length && !chosen.examples ? (
+            {chosen && asked ? (
+              <ChoiceFields info={chosen} picks={picks} onChange={(next) => setPicksBy((prev) => ({ ...prev, [chosen.id]: next }))} />
+            ) : null}
+            {chosen && hasExamples ? (
+              <ExampleMaterial key={JSON.stringify(choices ?? {})} pack={chosen.id} choices={choices} needed={missing.length > 0}
+                onChanged={materialChanged} />
+            ) : null}
+            {chosen && missing.length && !hasExamples ? (
               <p className="small">{t("Make them active first:")} <a href="#/settings/products">{t("Settings › Products")}</a></p>
             ) : null}
-            {chosen && !missing.length ? (
-              <ProcessCreate key={`${chosen.id}:${material}:${after ?? ""}`} pack={chosen.id} after={after}
-                onDone={(caseId) => go({ view: "cases", caseId })} onCancel={() => go({ view: "case-list" })} />
+            {chosen && !missing.length && (!after || draft.data || draft.error) ? (
+              <ProcessCreate key={`${chosen.id}:${material}:${after ?? ""}:${JSON.stringify(choices ?? {})}`} pack={chosen.id}
+                after={after} choices={choices} onDone={(caseId) => go({ view: "cases", caseId })}
+                onCancel={() => go({ view: "case-list" })} />
             ) : null}
           </section>
         </div>

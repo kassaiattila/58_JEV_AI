@@ -33,13 +33,14 @@ def _problems(data: dict) -> list[str]:
 
 def test_every_process_pack_passes_its_check() -> None:
     # 231 (C1c): the email routing; (C2d) the reconciliation; (C3b3) the bank statements and the documents
-    assert [p.id for p in process_packs.packs()] == ["allianz_property_offer", "bank_statements", "documents",
+    assert [p.id for p in process_packs.packs()] == ["bank_statements", "documents",
                                                      "insurance_offer", "insurance_renewal", "it_quote", "mail_routing",
-                                                     "mailbox", "mailbox_reconciliation", "mailbox_routing",
-                                                     "monthly_reconciliation", "reconciliation",
-                                                     "two_sources_reconciliation"]  # (C3d) the
+                                                     "mailbox", "monthly_reconciliation",
+                                                     "reconciliation"]  # (C3d) the
     # mailbox download; (D-f3) the insurance quote; (D-g) its renewal; (U-A6) the real corporate property product's quote;
-    # (U2c) the multi-step ones, whose steps run cases of the others
+    # (U2c) the multi-step ones, whose steps run cases of the others; 277 (O3f): the monthly reconciliation took the
+    # place of the two that differed from it only in the invoices' source, (O3g) the mailbox download that of the one
+    # that routed its emails too, (O3h) the insurance quote that of the Allianz quote, its product chosen
 
 
 def test_the_it_quote_pack_becomes_a_process_definition_of_capability_steps() -> None:

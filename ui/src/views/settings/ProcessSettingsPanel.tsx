@@ -119,9 +119,14 @@ function ProcessPage({ pack, tab, initial }: { pack: string; tab: Tab; initial: 
                   <Fragment key={r.key}>
                     <tr aria-selected={selected("settings", r.key)}>
                       <td><button type="button" className="link-btn" aria-expanded={selected("settings", r.key)} onClick={() => toggle({ kind: "settings", key: r.key })}>{t(r.label)}</button></td>
-                      <td className="process-in-use"><ResourceValue r={r} value={r.value} /></td>
+                      <td className="process-in-use">{r.chosen_at_start ? (  // 277 (O3): each option's value
+                        <ul className="plain small">{r.chosen_at_start.map((x) => (
+                          <li key={`${x.choice}:${x.option}`}>{t(x.title)}: <ResourceValue r={r} value={x.value} /></li>))}</ul>
+                      ) : <ResourceValue r={r} value={r.value} />}</td>
                       <td className="muted"><ResourceValue r={r} value={r.file_value} /></td>
-                      <td>{r.derived_from ? (  // U3c: as its source brings it
+                      <td>{r.chosen_at_start ? (  // 277 (O3): a case's choice sets it
+                        <span className="process-origin small muted">{t("Chosen when a case starts")}</span>
+                      ) : r.derived_from ? (  // U3c: as its source brings it
                         <span className="process-origin small muted">{t("From the {{source}}", { source: t(page.resources.find((x) => x.key === r.derived_from)?.label ?? r.derived_from) })}</span>
                       ) : <Origin own={r.own} drafts={r.versions.filter((v) => v.state === "draft").length} />}</td>
                     </tr>

@@ -137,10 +137,12 @@ def _active_rows(c: Any, pack_id: str, kind: str) -> list[Any]:
 
 def effective_resources(pack: process_packs.ProcessPack) -> dict[str, str]:
     """The pack's resources: its file's, with the process's active values over them; 231 (U3c) a derived resource as its
-    source brings it (a product its tariff), whatever value it had of its own."""
+    source brings it (a product its tariff), whatever value it had of its own. 277 (O3): a resource the case's chosen
+    option set (`ProcessPack.fixed`, the product of the chosen one) stays the option's."""
     with store.connect() as c:
         own = {r["key"]: json.loads(r["value"]) for r in _active_rows(c, pack.id, RESOURCE)}
-    resources = {**pack.resources, **{k: str(v) for k, v in own.items() if k in pack.resources and k not in pack.derived}}
+    resources = {**pack.resources, **{k: str(v) for k, v in own.items()
+                                      if k in pack.resources and k not in pack.derived and k not in pack.fixed}}
     for key in pack.derived:
         if (brought := _brought(pack, key, resources)) is not None:
             resources[key] = brought
@@ -328,6 +330,8 @@ def propose(pack_id: str, key: str, value: Any, actor: identity.Who, *, kind: st
     if kind == RESOURCE and key in pack.derived:  # U3c: it follows its source (a product's tariff)
         raise explained(SettingError, "the {{what}} follows from the {{source}}: set the {{source}} instead",
                         what=_resource_title(pack, key), source=_resource_title(pack, pack.derived[key]))
+    if kind == RESOURCE and key in pack.option_resources():  # 277 (O3): a case's choice sets it
+        raise explained(SettingError, "the {{what}} is chosen when a case starts", what=_resource_title(pack, key))
     if problems := _problems(pack, kind, key, value):
         raise explained(SettingError, "the process cannot take this value: {{problems}}", problems="; ".join(problems))
     sid = _id(pack_id, kind, key)
@@ -410,10 +414,18 @@ def view(pack_id: str) -> dict[str, Any]:
     def names(*values: Any) -> dict[str, str]:
         return {str(v): known[str(v)] for v in values if str(v) in known}
 
+    chosen = pack.option_resources()
     for key, file_value in pack.resources.items():
         mine = by_key.get((RESOURCE, key), [])
         value, own = _own(mine)
         label, options = resource_info(pack, key)
+        if key in chosen:  # 277 (O3): a case's choice sets it: read only, with each option's value
+            at_start = [{"choice": c.id, "option": o.id, "title": o.title, "value": o.resources.get(key, file_value)}
+                        for c in pack.choices for o in c.options]
+            resources.append({"key": key, "label": label, "options": None, "file_value": file_value,
+                              "value": file_value, "own": False, "versions": [], "derived_from": pack.derived.get(key),
+                              "chosen_at_start": at_start, "names": names(file_value, *(a["value"] for a in at_start))})
+            continue
         if key in pack.derived:  # U3c: shown as its source brings it, read only
             resources.append({"key": key, "label": label, "options": None, "file_value": file_value,
                               "value": effective[key], "own": False, "versions": [], "derived_from": pack.derived[key],
@@ -466,7 +478,10 @@ def case_settings(case_id: str) -> dict[str, Any]:
     if capabilities.KEPT_RULES not in data:
         return {"pack": pack.id, "kept": False, "resources": [], "rules": []}
     refs = data.get(capabilities.RULE_REFS) or {}
-    now = {r["key"]: r for r in view(pack.id)["rules"]}
+    try:
+        now = {r["key"]: r for r in view(pack.id)["rules"]}
+    except process_packs.UnknownPack:  # 277 (O3): a pack another took the place of has no settings now
+        now = {}
     rules = []
     with cfg.overlay(capabilities.case_overlay(data, case_id)):  # the values as the case reads them
         for key, (rule, _steps) in rule_keys(pack).items():
@@ -534,18 +549,20 @@ def used_by(kind: str) -> dict[str, list[dict[str, str]]]:
     newest active one by the list it names now); a partner role by the pack's partner links, and the own parties' role
     by a scope with an own party (U3e)."""
     out: dict[str, list[dict[str, str]]] = {}
-    for pack in process_packs.packs():
-        entry = {"id": pack.id, "title": pack.title}
-        if kind == PARTNER_ROLE:
-            # U3e: an own party plays the role "own" in a process whose cases belong to one
-            idents = [link.role for link in pack.partners] + ([partners.OWN] if scopes.PARTY in pack.scope.parts else [])
-        else:
-            resources, keepers = effective_resources(pack), _keepers(pack)
-            idents = []
-            for key in pack.resources:
-                if _kind_of(pack, key) == kind:
-                    value = keepers[key].kept(resources[key]) if key in keepers else resources[key]
-                    idents.append(str(value).split("@", 1)[0])
+    for full in process_packs.packs():
+        entry = {"id": full.id, "title": full.title}
+        idents = []
+        # 277 (O3): what any of its choices' options uses (the Allianz product of the insurance quote's choice)
+        for pack in (process_packs.chosen(full, picks) for picks in process_packs.variants(full)):
+            if kind == PARTNER_ROLE:
+                # U3e: an own party plays the role "own" in a process whose cases belong to one
+                idents += [link.role for link in pack.partners] + ([partners.OWN] if scopes.PARTY in pack.scope.parts else [])
+            else:
+                resources, keepers = effective_resources(pack), _keepers(pack)
+                for key in pack.resources:
+                    if _kind_of(pack, key) == kind:
+                        value = keepers[key].kept(resources[key]) if key in keepers else resources[key]
+                        idents.append(str(value).split("@", 1)[0])
         for ident in idents:
             if entry not in out.setdefault(ident, []):
                 out[ident].append(entry)

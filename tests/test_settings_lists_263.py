@@ -100,9 +100,9 @@ def test_the_price_lists_and_the_own_parties_are_their_domains_lists(db):
 def test_a_processs_settings_name_every_library_value_not_only_the_active_choices(db):
     from jav.app import process_settings
 
-    examples.install("allianz_property_offer", ANNA)  # the invented tariff
+    examples.install("insurance_offer", ANNA, {"product": "allianz"})  # the invented tariff of the Allianz option
     with display.use("hu"):
-        by = {r["key"]: r for r in process_settings.view("allianz_property_offer")["resources"]}
-    assert by["tariff"]["names"][by["tariff"]["value"]].startswith("Allianz")
+        by = {r["key"]: r for r in process_settings.view("insurance_offer")["resources"]}
+    assert any(name.startswith("Allianz") for name in by["tariff"]["names"].values())
     assert by["letter_frame"]["names"]["offer_letter"] == "Biztosítási ajánlat – {{policyholder}}"  # its subject
     assert by["offer_output"]["names"]["rated_offer"] == "Díjazott ajánlat"

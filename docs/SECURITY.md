@@ -102,7 +102,7 @@ The system encrypts nothing. Disk encryption (BitLocker) is a machine setting th
 |---|---|---|
 | Store | extracted data from documents and emails, the documents' word layer, corrections, to-dos, runs, the call log | indefinitely |
 | Flow-state store | the full processing state of each item, including the text that was read | for finished items, only the last save (thinning) |
-| Runs folder | raw runs; the JEV cache (with the requests, so excerpts of document and email text); the OCR cache (recognised text) | indefinitely |
+| Runs folder | raw runs; the JEV and OpenAI Decisions caches (`runs/cache/decisions/`; with the requests, so excerpts of document and email text); the OCR cache (recognised text) | indefinitely |
 | Service log | errors with stack traces, which may include file names and paths; for some operations, the requester's name. Keys, tokens and passwords from the environment and the local key file are masked (since 2026-09-30) | rotates every 5 MB; 5 old copies are kept |
 | Development script's process output (`runs/dev/`) | what the service and the worker started by `scripts/dev.ps1` print: start-up lines, errors with stack traces, and for each downloaded email its folder name and version (since 2026-10-17 not its subject) | the current and the previous start's output; not rotated |
 | Incoming email folder | the text and header data of downloaded emails, and their attachments | indefinitely |

@@ -54,7 +54,7 @@ def test_the_next_period_is_the_period_parts_own(period, following) -> None:
 
 def test_the_periodic_multi_step_processes_are_repeated_by_period() -> None:
     repeated = {p.id for p in process_packs.packs() if p.repeats}
-    assert repeated == {"monthly_reconciliation", "two_sources_reconciliation", "mailbox_reconciliation"}
+    assert repeated == {"monthly_reconciliation"}  # 277 (O3f): the invoices' source is its choice now
     assert all(scopes.PERIOD in process_packs.load(p).scope.parts for p in repeated)
 
 
@@ -70,7 +70,7 @@ def test_an_open_case_offers_its_next_period_filled_in_and_starts_it_once(db) ->
     assert "only_new" not in draft["step_sources"]["statements"]  # its survey takes only the statements not in the store
     scope = {"party": party, "period": list(APRIL), "step_sources": draft["step_sources"]}
     with pytest.raises(process_runtime.NextPeriodError):  # the next period's case is a case of the same process
-        process_runtime.start_next(case, "two_sources_reconciliation", scope, name=draft["name"], actor=PERSON)
+        process_runtime.start_next(case, "documents", scope, name=draft["name"], actor=PERSON)
     following = process_runtime.start_next(case, "monthly_reconciliation", scope, name=draft["name"], actor=PERSON)
     assert case_views.view(case)["next_period"] == {"case_id": following}
     page = case_views.view(following)

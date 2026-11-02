@@ -553,6 +553,18 @@ input[type="radio"], input[type="checkbox"] { accent-color: var(--ink); } /* 157
 .stage-tabs.sub-track .stage-tab { min-height: 36px; border-right: 0; }
 .stage-tabs.sub-track .stage-tab[aria-selected="true"] { background: transparent; }
 .track-row:has(> .sub-track) .track-log { min-height: 36px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; }
+/* 277 (O4; the owner's decision of 2026-11-02): a track under another stands on the same neutral surface as the part
+   chosen above it and starts with that part's number and name (`TrackLead`); its own parts are unnumbered, and its
+   chosen part lifts to the page's surface */
+.track-row.is-sub { align-items: center; padding: 0 var(--sp-2) 0 var(--sp-3); border-radius: var(--radius); background: var(--tint); }
+.track-row.is-sub > .stage-tabs.sub-track { border-bottom: 0; }
+.track-row.is-sub .stage-tabs.sub-track .stage-tab:hover { background: var(--soft); }
+.track-row.is-sub .stage-tabs.sub-track .stage-tab[aria-selected="true"] { background: var(--paper); }
+.track-row.is-sub .track-log { border-bottom: 0; }
+.track-lead { display: flex; flex: none; gap: var(--sp-2); align-items: center; padding-right: var(--sp-2); color: var(--ink); white-space: nowrap; }
+.track-lead strong { font-weight: 600; }
+.track-lead .stage-no { background: var(--ink); color: var(--paper); }
+.track-lead::after { content: "›"; color: var(--muted); }
 /* 263 (F3): a case's steps in the case list - the state marks alone, each named in its tooltip */
 .track-marks { display: inline-flex; gap: 4px; align-items: center; }
 .track-mark { display: inline-flex; }

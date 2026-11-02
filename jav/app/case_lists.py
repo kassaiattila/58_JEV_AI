@@ -23,7 +23,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from jav.app import capabilities, datasets, package_scope, parties, process_runtime
+from jav.app import capabilities, datasets, package_scope, parties, process_packs, process_runtime
 from jav.app.datasets import Dataset, LabelSet, Rows, col
 from jav.core import store
 from jav.core.process import cases, outbox, tasks
@@ -87,7 +87,7 @@ def _case_rows(c: Any, *, closed: bool) -> list[dict[str, Any]]:
     party_names = {pid: row["name"] for pid, row in parties.party_rows(c).items()}
     # H25: every case, its steps and its scope read at once; a pack once per version
     all_cases, all_steps, all_scopes = cases.all_in(c), cases.all_step_states_in(c), package_scope.stored_all(c)
-    packs: dict[tuple[str, str], Any] = {}
+    packs: dict[tuple[Any, ...], Any] = {}
     found: dict[str, dict[str, Any]] = {}
     subs: dict[tuple[str, str], str] = {}  # (main case, its step) -> the sub-case running it now
     for wp in _containers(c, closed=True):  # a closed main case may hold an open sub-case's place
@@ -95,7 +95,8 @@ def _case_rows(c: Any, *, closed: bool) -> list[dict[str, Any]]:
         data = (case or {}).get("data") or {}
         if case is None or "pack" not in data:
             continue
-        key = (data["pack"], data["pack_version"])
+        # 277 (O3): and its choices, which narrow the pack's steps
+        key = (data["pack"], data["pack_version"], tuple(sorted((data.get(process_runtime.CHOICES) or {}).items())))
         if key not in packs:
             packs[key] = process_runtime.pack_for(wp["id"])
         pack = packs[key]
@@ -229,10 +230,13 @@ def view_counts(actor: str | None) -> dict[str, Any]:
     counts = {v: sum(1 for r in rows if _in_view(r, v, actor, None)) for v in VIEWS}
     by: dict[str, dict[str, Any]] = {}
     for r in rows:
-        entry = by.setdefault(r["pack"], {"pack": r["pack"], "title": r["process"], "open": 0, "all": 0, "repeats": r["_repeats"]})
+        entry = by.setdefault(r["pack"], {"pack": r["pack"], "title": r["process"], "open": 0, "all": 0, "repeats": r["_repeats"],
+                                          "group": process_packs.group_of(r["pack"])})  # 277 (O3)
         entry["all"] += 1
         entry["open"] += r["status"] == cases.OPEN and not r.get("_hidden")
-    return {"views": counts, "processes": sorted(by.values(), key=lambda e: e["title"])}
+    return {"views": counts, "processes": sorted(by.values(), key=lambda e: e["title"]),
+            "groups": [{"id": g["id"], "title": g["title"], "processes": list(g["processes"])}
+                       for g in process_packs.groups()]}
 
 
 def _handovers(scope: dict[str, str]) -> Rows:

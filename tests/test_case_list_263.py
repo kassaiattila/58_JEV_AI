@@ -56,6 +56,7 @@ def test_the_views_filter_the_list_and_count_their_cases_at_once(db) -> None:  #
     assert {r["_key"] for r in _rows(include_closed="1")} == {mine, other}
     counts = case_lists.view_counts(PERSON)
     assert counts["views"] == {"waiting": 1, "mine": 1, "open": 1, "closed": 1}
-    assert counts["processes"] == [{"pack": "sub_chain", "title": "Chain", "open": 1, "all": 2, "repeats": False}]
+    # 277 (O3): with its group (an invented process stands in none)
+    assert counts["processes"] == [{"pack": "sub_chain", "title": "Chain", "open": 1, "all": 2, "repeats": False, "group": None}]
     with store.connect() as c:
         assert len(case_lists._case_rows(c, closed=True)) == 2
