@@ -106,8 +106,13 @@ def test_an_output_price_without_its_token_limit_is_refused(monkeypatch):
 
 
 def test_a_provider_off_by_default_says_why_and_one_switched_off_here_says_so(monkeypatch):
+    """A registry whose OpenAI Decisions is off by default while it is measured (as until 275)."""
     monkeypatch.delenv(providers.ON_ENV, raising=False)
     monkeypatch.delenv(providers.OFF_ENV, raising=False)
+    described = providers._described()
+    measured = {**described, "openai_decisions": {**described["openai_decisions"], "enabled": False,
+                                                  "off_reason": providers.UNDER_MEASUREMENT}}
+    monkeypatch.setattr(providers, "_described", lambda: measured)
     assert providers.off_reason("openai_decisions") == providers.UNDER_MEASUREMENT
     assert providers.off_reason("jev") is None
     monkeypatch.setenv(providers.OFF_ENV, "openai_decisions,jev")
