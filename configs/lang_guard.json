@@ -1,9 +1,14 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.173",
+    "version": "1.0.174",
     "description": "Language guard (jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.174",
+        "date": "2026-11-02",
+        "note": "baseline: 5638 -> 5645 Hungarian lines in 463 files; accepted: docs/GLOSSARY.md, docs/guides/USER_GUIDE.md"
+      },
       {
         "version": "1.0.173",
         "date": "2026-11-01",
@@ -1027,10 +1032,10 @@
     "configs/types/vizmuvek_szamla.json": 27,
     "docs/ARCHITECTURE.md": 14,
     "docs/BANK_FILES.md": 2,
-    "docs/GLOSSARY.md": 387,
+    "docs/GLOSSARY.md": 389,
     "docs/SECURITY.md": 2,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 303,
+    "docs/guides/USER_GUIDE.md": 308,
     "jav/ai/candidates.py": 15,
     "jav/ai/detect.py": 1,
     "jav/ai/detect_detail.py": 2,

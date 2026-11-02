@@ -116,9 +116,10 @@ describe("the one list, grouped (263)", () => {
     await screen.findByRole("link", { name: "One" });
     expect(screen.getByRole("link", { name: "Three" }).getAttribute("href")).toBe("#/settings/products/rules/r3");
     expect(screen.getAllByText("Active")[0].className).toBe("status s-done");  // a badge's mark by its value
-    // the order of the rows' pages, for a thing's previous and next
-    expect(JSON.parse(sessionStorage.getItem("jav.table.things.order")!)).toEqual(
-      ["#/settings/products/rules/r1", "#/settings/products/rules/r2", "#/settings/products/rules/r3"]);
+    // the order of the rows' pages, for a thing's previous and next (277: written after the rows show, so waited for:
+    // a loaded machine's full run read it before it was written)
+    await waitFor(() => expect(JSON.parse(sessionStorage.getItem("jav.table.things.order") ?? "null")).toEqual(
+      ["#/settings/products/rules/r1", "#/settings/products/rules/r2", "#/settings/products/rules/r3"]));
     fireEvent.click(screen.getByRole("button", { name: "Group by" }));
     fireEvent.click(screen.getByRole("option", { name: "Grouped by Kind" }));
     await waitFor(() => expect(query).toHaveBeenLastCalledWith("things", {}, expect.objectContaining({ group: "kind" })));
