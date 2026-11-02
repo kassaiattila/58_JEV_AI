@@ -86,6 +86,30 @@ class EstimateIn(In):
                             Field(min_length=1, max_length=20)]
 
 
+# 277 (O3): a choice a request names, `<choice>:<option>` (each choice not named at its default)
+ChoiceQuery = Annotated[list[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}:[a-z][a-z0-9_]{0,63}$")]] | None,
+                        Query(max_length=10)]
+
+
+def _picks(named: list[str] | None) -> dict[str, str]:
+    return dict(n.split(":", 1) for n in named or [])
+
+
+def _has_examples(pack: process_packs.ProcessPack) -> bool:
+    return pack.examples is not None and bool(pack.examples.sets or pack.examples.documents or pack.examples.note)
+
+
+def _choices(pack: process_packs.ProcessPack) -> list[dict[str, Any]]:
+    """277 (O3): the choices a case of the pack starts with, for the start form: each option with the steps it leaves
+    out, whether it has example material, and what a case of it cannot start without now."""
+    return [{"id": c.id, "title": c.title, "default": c.default,
+             "options": [{"id": o.id, "title": o.title, "summary": o.summary, "leaves_out": list(o.leaves_out),
+                          "examples": _has_examples(process_packs.chosen(pack, {c.id: o.id})),
+                          "missing_at_start": process_settings.missing_at_start(process_packs.chosen(pack, {c.id: o.id}))}
+                         for o in c.options]}
+            for c in pack.choices]
+
+
 def routes(app: FastAPI, r: str) -> None:
     """The process packs' addresses under the service's prefix `r`."""
 
@@ -96,6 +120,10 @@ def routes(app: FastAPI, r: str) -> None:
     @app.exception_handler(process_packs.UnknownPack)
     async def unknown_pack(_request: Request, exc: process_packs.UnknownPack):
         return error(404, "not_found", str(exc))
+
+    @app.exception_handler(process_packs.ChoiceRefused)
+    async def choice_refused(_request: Request, exc: process_packs.ChoiceRefused):  # 277 (O3)
+        return error(400, "choice_refused", str(exc))
 
     @app.post(r + "/processes/{pack_id}/estimate")
     def step_estimates(pack_id: PackId, body: EstimateIn) -> dict[str, Any]:
@@ -118,9 +146,10 @@ def routes(app: FastAPI, r: str) -> None:
                                # 231 (U2c): the steps whose case of another process takes its own documents
                                "step_sources": sub_cases.step_sources(p) if sub_cases.STEP_SOURCES in p.scope.parts else [],
                                "manual": any(i.on == intake.MANUAL for i in p.intake), "summary": p.summary,
-                               "missing_at_start": process_settings.missing_at_start(p),
-                               "examples": p.examples is not None and bool(p.examples.sets or p.examples.documents
-                                                                            or p.examples.note)}
+                               # 277 (O3): a case started with the default choices; each option says its own
+                               "missing_at_start": process_settings.missing_at_start(process_packs.chosen(p)),
+                               "examples": any(_has_examples(process_packs.chosen(p, v)) for v in process_packs.variants(p)),
+                               "choices": _choices(p)}
                               for p in process_packs.packs()]}
 
     @app.exception_handler(examples.ExampleInUse)
@@ -128,26 +157,26 @@ def routes(app: FastAPI, r: str) -> None:
         return error(409, "example_in_use", str(exc), **message_fields(exc))
 
     @app.get(r + "/processes/{pack_id}/examples")
-    def process_examples(pack_id: PackId) -> dict[str, Any]:
+    def process_examples(pack_id: PackId, choice: ChoiceQuery = None) -> dict[str, Any]:
         """231 (U0): the process's example material: the sets it installs, each with its state, and its packets of
-        invented documents."""
-        return work_views.jsonable(examples.of(pack_id))
+        invented documents; 277 (O3): of the options `choice` names (`<choice>:<option>`, each its default if not)."""
+        return work_views.jsonable(examples.of(pack_id, _picks(choice)))
 
     @app.post(r + "/processes/{pack_id}/examples/install")
-    def process_examples_install(pack_id: PackId, _body: Empty,
-                                 who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(examples.install(pack_id, who))
+    def process_examples_install(pack_id: PackId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)],
+                                 choice: ChoiceQuery = None) -> dict[str, Any]:
+        return work_views.jsonable(examples.install(pack_id, who, _picks(choice)))
 
     @app.post(r + "/processes/{pack_id}/examples/remove")
-    def process_examples_remove(pack_id: PackId, _body: Empty,
-                                who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
-        return work_views.jsonable(examples.remove(pack_id, who))
+    def process_examples_remove(pack_id: PackId, _body: Empty, who: Annotated[identity.Actor, Depends(human_actor)],
+                                choice: ChoiceQuery = None) -> dict[str, Any]:
+        return work_views.jsonable(examples.remove(pack_id, who, _picks(choice)))
 
     @app.post(r + "/processes/{pack_id}/examples/packets/{packet_id}/files")
     def process_example_files(pack_id: PackId, packet_id: PacketId, _body: Empty,
-                              _who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+                              _who: Annotated[identity.Actor, Depends(human_actor)], choice: ChoiceQuery = None) -> dict[str, Any]:
         """The packet's invented documents written as PDFs beside the store, for a case to start on."""
-        return {"files": examples.packet_files(pack_id, packet_id)}
+        return {"files": examples.packet_files(pack_id, packet_id, _picks(choice))}
 
     @app.get(r + "/processes/{pack_id}/records")
     def process_records(pack_id: PackId, q: Annotated[str | None, Query(max_length=200)] = None) -> dict[str, Any]:

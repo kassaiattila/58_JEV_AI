@@ -87,6 +87,9 @@ class CaseIn(In):
     step_budgets: Annotated[dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")],
                                  dict[providers.BudgetId, Annotated[str, Field(max_length=20)]]],
                             Field(min_length=1, max_length=20)] | None = None
+    # 277 (O3): the options of the process's choices the case starts with (each one not given at its default)
+    choices: Annotated[dict[Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")],
+                            Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]{0,63}$")]], Field(max_length=10)] | None = None
 
 
 def _source(source: Source) -> dict[str, Any]:
@@ -112,8 +115,9 @@ def routes(app: FastAPI, r: str) -> None:
                  **({"step_sources": {k: _source(v) for k, v in body.step_sources.items()}} if body.step_sources else {}),
                  **({"step_budgets": body.step_budgets} if body.step_budgets else {})}
         if body.follows:  # 261: the next period's case of a case, recorded on it
-            return {"case_id": process_runtime.start_next(body.follows, body.pack, scope, name=body.name, actor=who)}
-        case_id = process_runtime.start_case(body.pack, scope, name=body.name, actor=who)
+            return {"case_id": process_runtime.start_next(body.follows, body.pack, scope, name=body.name, actor=who,
+                                                          choices=body.choices)}
+        case_id = process_runtime.start_case(body.pack, scope, name=body.name, actor=who, choices=body.choices)
         return {"case_id": case_id}
 
     @app.get(r + "/case-views")

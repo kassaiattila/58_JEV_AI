@@ -276,3 +276,33 @@ def test_the_batch_of_a_step_of_the_case_itself_is_read_as_a_sub_cases_batches(m
     monkeypatch.setattr(document_processing, "case_packages", lambda case: ["wp-a", "wp-b"] if case == "wp-sub" else [])
     monkeypatch.setattr(document_processing, "package_of", lambda case, step: "wp-own" if (case, step) == ("wp-case", "process") else None)
     assert sub_cases._batches(Ctx(), ("emails", "process", "ghost")) == ["wp-a", "wp-b", "wp-own"]
+
+
+# --- 277 (O3d): the local service lists the choices and takes them when a case starts ------------------------------
+
+
+def test_the_service_lists_a_processs_choices_and_starts_a_case_with_them(merged) -> None:
+    from fastapi.testclient import TestClient
+
+    from jav.core import store
+    from jav.service.api import create_app
+
+    folder, _gone = merged
+    scope = _scope(folder, "emails", "statements")
+    body = {"pack": "monthly_reconciliation", "name": "March", "party_id": scope["party"], "period_start": MARCH[0],
+            "period_end": MARCH[1], "step_sources": scope["step_sources"]}
+    with TestClient(create_app(store_path=store.current_path()), base_url="http://127.0.0.1:8930") as c:
+        listed = {p["id"]: p for p in c.get("/api/processes").json()["processes"]}
+        [choice] = listed["monthly_reconciliation"]["choices"]
+        assert (choice["id"], choice["default"]) == ("invoices_from", "folder")
+        assert [(o["id"], o["leaves_out"], o["missing_at_start"]) for o in choice["options"]] == [
+            ("folder", ["emails"], []), ("mailbox", ["invoices"], []), ("both", [], [])]
+        assert listed["documents"]["choices"] == []
+        refused = c.post("/api/cases", headers={"X-Actor": PERSON}, json={**body, "choices": {"invoices_from": "tray"}})
+        assert refused.status_code == 400 and refused.json()["error"] == "choice_refused", refused.text
+        made = c.post("/api/cases", headers={"X-Actor": PERSON}, json={**body, "choices": {"invoices_from": "mailbox"}})
+        assert made.status_code == 201, made.text
+        assert _data(made.json()["case_id"])["choices"] == {"invoices_from": "mailbox"}
+        assert c.get(f"/api/cases/{made.json()['case_id']}/next").json()["choices"] == {"invoices_from": "mailbox"}
+        assert c.get("/api/processes/monthly_reconciliation/examples?choice=invoices_from:both").status_code == 200
+        assert c.get("/api/processes/monthly_reconciliation/examples?choice=invoices_from:tray").status_code == 400

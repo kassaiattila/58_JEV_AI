@@ -44,7 +44,7 @@ from jav.app import capabilities, scopes
 from jav.core import cfg
 from jav.core.process.definition import NAME, ProcessDef, StepDef
 
-__all__ = ["Adopt", "Choice", "Element", "ExampleSet", "Examples", "FollowUp", "Intake", "Option", "PackError", "PartnerLink",
+__all__ = ["Adopt", "Choice", "ChoiceRefused", "Element", "ExampleSet", "Examples", "FollowUp", "Intake", "Option", "PackError", "PartnerLink",
            "ProcessPack", "Replaced", "Step", "Tab", "UnknownPack", "chosen", "definition", "load", "packs", "picked",
            "successor", "variants"]
 
@@ -75,6 +75,10 @@ class PackError(ValueError):
 
 class UnknownPack(PackError):
     """231 (B2): no process pack of this id."""
+
+
+class ChoiceRefused(PackError):
+    """277 (O3): a case asked to start with a choice its pack does not ask, or an option the choice does not have."""
 
 
 class _Model(BaseModel):
@@ -289,12 +293,12 @@ def picked(pack: ProcessPack, choices: dict[str, str] | None) -> dict[str, str]:
     asked = {c.id: c for c in pack.choices}
     unknown = sorted(set(given) - set(asked))
     if unknown:
-        raise PackError(f"process pack {pack.id!r} has no choice {unknown[0]!r}")
+        raise ChoiceRefused(f"process pack {pack.id!r} has no choice {unknown[0]!r}")
     out: dict[str, str] = {}
     for choice in pack.choices:
         option = given.get(choice.id, choice.default)
         if option not in {o.id for o in choice.options}:
-            raise PackError(f"process pack {pack.id!r} has no option {option!r} of the choice {choice.id!r}")
+            raise ChoiceRefused(f"process pack {pack.id!r} has no option {option!r} of the choice {choice.id!r}")
         out[choice.id] = option
     return out
 

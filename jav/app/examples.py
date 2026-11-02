@@ -87,36 +87,38 @@ def _kind(kind: str) -> ExampleKind:
     return _KINDS[kind]
 
 
-def _examples(pack_id: str) -> process_packs.Examples:
-    return process_packs.load(pack_id).examples or process_packs.Examples()
+def _examples(pack_id: str, choices: dict[str, str] | None = None) -> process_packs.Examples:
+    """The pack's example material; 277 (O3): a chosen option's own in its place."""
+    return process_packs.chosen(process_packs.load(pack_id), choices).examples or process_packs.Examples()
 
 
 def _packets(examples: process_packs.Examples) -> list[dict[str, Any]]:
     return list(cfg.load(DOCUMENTS_PREFIX + examples.documents)["packets"]) if examples.documents else []
 
 
-def of(pack_id: str) -> dict[str, Any]:
-    """The pack's example material: its sets, each with its state, and its packets of invented documents."""
-    examples = _examples(pack_id)
+def of(pack_id: str, choices: dict[str, str] | None = None) -> dict[str, Any]:
+    """The pack's example material: its sets, each with its state, and its packets of invented documents; 277 (O3):
+    those of the options `choices` names."""
+    examples = _examples(pack_id, choices)
     return {"sets": [{"kind": s.kind, "name": s.name, **_kind(s.kind).state(s.name)} for s in examples.sets],
             "packets": [{"id": p["id"], "title": p["title"], "documents": len(p["documents"])} for p in _packets(examples)],
             **({"note": examples.note} if examples.note else {})}
 
 
-def install(pack_id: str, actor: identity.Who) -> dict[str, Any]:
+def install(pack_id: str, actor: identity.Who, choices: dict[str, str] | None = None) -> dict[str, Any]:
     """Every set of the material made by the machine and made active by `actor`; a set already there is kept."""
-    for s in _examples(pack_id).sets:
+    for s in _examples(pack_id, choices).sets:
         _kind(s.kind).install(s.name, MACHINE, actor)
-    return of(pack_id)
+    return of(pack_id, choices)
 
 
-def remove(pack_id: str, actor: identity.Who) -> dict[str, Any]:
+def remove(pack_id: str, actor: identity.Who, choices: dict[str, str] | None = None) -> dict[str, Any]:
     """Every set of the material taken out, once nothing refuses it (each set checks before it removes anything: a
     case that keeps one of its things, a thing a person made)."""
     del actor  # anyone who may install the examples may take them out; the store keeps no trace of either
-    for s in _examples(pack_id).sets:
+    for s in _examples(pack_id, choices).sets:
         _kind(s.kind).remove(s.name, MACHINE.id)
-    return of(pack_id)
+    return of(pack_id, choices)
 
 
 def _write(path: Path, document: dict[str, Any]) -> Path:
@@ -127,9 +129,9 @@ def _write(path: Path, document: dict[str, Any]) -> Path:
     return write_unicode_pdf_pages(path, document["pages"])
 
 
-def packet_files(pack_id: str, packet_id: str) -> list[str]:
+def packet_files(pack_id: str, packet_id: str, choices: dict[str, str] | None = None) -> list[str]:
     """The packet's documents written in `<store folder>/examples/<pack>/<packet>/`; their paths."""
-    packet = next((p for p in _packets(_examples(pack_id)) if p["id"] == packet_id), None)
+    packet = next((p for p in _packets(_examples(pack_id, choices)) if p["id"] == packet_id), None)
     if packet is None:
         raise UnknownPacket(packet_id)
     folder = Path(store.current_path()).parent / FOLDER / pack_id / packet_id
