@@ -6,13 +6,14 @@ tesseract and its language packs are installed. No paid call.
 from __future__ import annotations
 
 import io
+import json
 from pathlib import Path
 
 import pypdfium2 as pdfium
 import pytest
 from PIL import Image, ImageDraw
 
-from jav.app import work_readiness, work_recipes
+from jav.app import work, work_readiness, work_recipes
 from jav.core import store
 from jav.documents import image_input, ocr, page_image, tessdata
 from jav.documents.native_contracts import DOCUMENT_FORMATS, DOCUMENT_SUFFIXES, NATIVE_FALLBACK_SUFFIXES
@@ -110,6 +111,31 @@ def test_both_active_processings_take_an_image():
         codes = {f["code"] for _i, level, f in found if level == "blocker"}
         assert not codes & {"unsupported_item", "native_recipe_required"}, (recipe_id, found)  # the file itself is not here
     assert work_readiness.flow_for(work_recipes.recipe("multi-format-processing"), item) == "document"
+
+
+def test_settings_saved_before_the_recipes_took_images_are_not_warned_about(tmp_path):
+    """Taking images changed the recipes' content, not what a saved setting means: a batch saved on the content before
+    is carried (`carries_from`) and not told that its processing changed; one saved on an unknown content still is."""
+
+    def saved_on(name: str, version: int, digest: str) -> str:
+        folder = tmp_path / name
+        folder.mkdir()
+        write_text_pdf(folder / "invoice.pdf", INVOICE_LINES)
+        wp_id = work.create_from_folder(folder, name=name)["id"]
+        with store.connect() as c:
+            c.execute("INSERT INTO recipe_assignments(workpackage_id, revision, recipe_id, recipe_version, recipe_hash,"
+                      " params, actor, note, created_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                      (wp_id, 1, "processing", version, digest, json.dumps({"arm": "auto", "engine": "jev"}), "old", None,
+                       "2026-11-01T10:00:00"))
+        return wp_id
+
+    recipe = work_recipes.recipe("processing")
+    [before_images] = [c for c in recipe["carries_from"] if c["version"] == recipe["version"]]
+    with store.use_store(tmp_path / "s.sqlite"):
+        carried = saved_on("carried", recipe["version"], before_images["hash"])
+        unknown = saved_on("unknown", recipe["version"], "0" * 16)
+        assert "recipe_changed" not in {w["code"] for w in work_readiness.readiness(carried)["warnings"]}
+        assert "recipe_changed" in {w["code"] for w in work_readiness.readiness(unknown)["warnings"]}
 
 
 def test_the_worker_reads_an_image_through_its_wrapper(tmp_path):

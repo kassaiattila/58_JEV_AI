@@ -6,7 +6,7 @@
    {
     "version": "1.17.0",
     "date": "2026-11-02",
-    "note": "The owner's decision of 2026-11-02: JPEG, PNG and TIFF images are documents too. processing and multi-format-processing take them (file_suffixes; multi-format-processing routes them to the document flow), and each is read through the PDF of its pixels (jav/documents/image_input.py): local text recognition, Azure on a weak result within the run's budget, type recognition and extraction as for a scan. The recipes' own versions do not change: their settings mean the same."
+    "note": "The owner's decision of 2026-11-02: JPEG, PNG and TIFF images are documents too. processing and multi-format-processing take them (file_suffixes; multi-format-processing routes them to the document flow), and each is read through the PDF of its pixels (jav/documents/image_input.py): local text recognition, Azure on a weak result within the run's budget, type recognition and extraction as for a scan. The recipes' own versions do not change: their settings mean the same, so each recipe names its content before the image formats in `carries_from` (processing 4, multi-format-processing 3), and a batch whose settings were saved on it does not warn that its processing changed."
    },
    {
     "version": "1.16.1",
@@ -109,6 +109,10 @@
     {
      "version": 3,
      "hash": "a0b6883b8ec79744"
+    },
+    {
+     "version": 4,
+     "hash": "e4166553a1990d39"
     }
    ],
    "title": "Feldolgozás",
@@ -301,6 +305,10 @@
     {
      "version": 2,
      "hash": "2df7f2a2af215289"
+    },
+    {
+     "version": 3,
+     "hash": "11a58d1fa5a60e56"
     }
    ],
    "title": "Multi-format processing",

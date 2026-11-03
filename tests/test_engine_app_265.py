@@ -236,7 +236,7 @@ def test_the_migration_saves_an_old_switch_again_under_its_engine(db):
 def test_the_migration_takes_only_the_version_the_recipe_carries(db):
     """274: a setting saved on the version just before the engine setting was renamed (`carries_from`) is saved again
     on the current version; one saved on an older version keeps its "recipe changed" warning and its settings."""
-    [carried] = work_recipes.recipe("processing")["carries_from"]
+    [carried] = [c for c in work_recipes.recipe("processing")["carries_from"] if c["version"] == 3]
     before, older = _package(db / "before"), _package(db / "older")
     _assign_raw(before, {"arm": "auto", "jev": "on"}, version=carried["version"], digest=carried["hash"])
     _assign_raw(older, {"arm": "auto", "jev": "on"}, version=1, digest="0" * 16)
