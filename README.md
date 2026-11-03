@@ -2,7 +2,7 @@
 
 A multilingual framework for AI flows that read documents and emails. It combines Burr (flow orchestration), Pydantic AI (GPT) and JEV/TypeSafe (typed judgements), keeps its data in a local SQLite database, and runs on Windows. The Hungarian invoice flows — document type recognition, invoice data extraction and email intent — are the reference flows against which the framework's quality is measured.
 
-**Current stable version: `v1.79.1`** (2026-11-02). What each release brought: [changelog](CHANGELOG.md).
+**Current stable version: `v1.80.0`** (2026-11-02). What each release brought: [changelog](CHANGELOG.md).
 
 ## Plain-language summary
 
@@ -18,7 +18,7 @@ The system reads invoices, other documents and emails. It recognises what type e
 | | **Data extraction** on two paths: code finds the candidates and JEV chooses (S path), or GPT extracts and JEV verifies (G path). Type packs for Hungarian and foreign invoices, six kinds of utility bill and the other detailed types | Works |
 | | **Invoice line items**: the line list of an invoice, with a line-total check and per-line checks; line lists can be corrected in the UI, and the checks re-run on the corrected data | Works |
 | | **Data checks** in code: one number reader for every path (amounts and quantities read whole, in Hungarian and English notation; money never with three decimals; an ambiguous reading becomes a to-do); one date reader for every path (month names in six languages, two-digit years, the document's own dates decide the order of day and month, an undecided order becomes a to-do; new); tax numbers and bank account numbers by format and check digit; one party in two roles (two role fields sharing a name or tax number) becomes a to-do on every path; an invoice whose supplier and buyer stand the other way round than on most earlier invoices of the same two companies becomes a to-do (new); an unfilled template field or a value whose kind (money, percentage, date, time) conflicts with its property becomes a to-do in Word, Excel and text sources (new); a field with no candidate is flagged "No estimate"; a PDF without a fitting type pack still gets source-bound general facts (switchable per package; a scan through local text recognition, with a to-do); limits on file size, page count and image size | Works |
-| | **OCR** for PDFs without a text layer: local Tesseract, with optional paid escalation to Azure Document Intelligence when the local result is weak. Azure is a processing setting and is paid from the run's budget | Works |
+| | **OCR** for PDFs without a text layer and for JPEG, PNG and TIFF images: local Tesseract, with optional paid escalation to Azure Document Intelligence when the local result is weak. Azure is a processing setting and is paid from the run's budget | Works |
 | Email | **Email intent**: 12 intents (the newest: a quote request), attachment types and a suggested next step; PDF attachments are processed as documents of the same package | Works; real-world accuracy is not proven without a hand-labelled golden set |
 | | **Quote requests**: a customer's request for a price quote is read from the email's own text (its sender, date and subject, without the quoted messages), an attached request form or a request list: the customer, its tax number, the contact, the deadline, the customer's reference and the requested items with their quantities; what is uncertain becomes a to-do of the email, and a part that lacks a field (the items stand in the attached list, not in the text) is only a note. An Excel or CSV list attached to the email is read as a part of the request. A processing setting, on by default | New; measured on an invented set only |
 | | **Quotes**: a quote is a case of the IT quote process, started from a processed quote request, also straight from the request's email. The seller's price lists are kept in Settings › Price lists: uploaded from Excel with checks, versioned, with discount rules. For each requested item code looks for the item's code first, then the AI proposes a price-list item or none; prices, discounts, VAT and totals are always computed by code. On the quote's page the request stands beside the editable quote: every change is saved at once, a manual price needs a note, a line to review waits for a person, and the approved quote is kept as a version that can be reopened with a reason. The approved quote becomes a Word document (a built-in Hungarian or English template, or the person's own Word template), and a reply letter draft opens in Outlook with it attached: GPT writes a few sentences without numbers, a person accepts the letter, the system never sends it | New; measured on an invented set only |
@@ -65,9 +65,9 @@ locally, and the data stays in a local SQLite file.
 - **git**;
 - the keys in `.env`: JEV (`TypeSafeJAV_API_KEY`) and/or OpenAI (`OPENAI_API_KEY`, also for OpenAI Decisions);
 - optional: the classic desktop Outlook for Windows for the mailbox download (not the new Outlook), and an Azure
-  Document Intelligence key for the paid escalation of weak local OCR.
+  Document Intelligence resource (its endpoint and key) for the paid recognition of weak scans.
 
-Docker is used only by the legacy project's slow OCR fallback, never by default. Details: [setup](docs/guides/SETUP.md).
+Nothing of the legacy project is needed to run it. Details: [setup](docs/guides/SETUP.md).
 
 ## Getting started
 
@@ -106,8 +106,8 @@ python -m jav.cli eval-report [runs/*.jsonl]                       # shared eval
 # golden, detect-golden and extract_cases with --budget-usd exit with code 3 when the budget left cases without a result;
 # golden and email-golden take a hard JEV budget with --jev-budget-usd (a provider without a budget cannot be called)
 # every command that can make paid calls (also run, detect, detect-corpus, email, email-inbox and the determinism ones)
-# needs the sub-budget for live calls: --jev-budget-usd, --budget-usd (OpenAI); Azure is never called from the command
-# line; without a budget only earlier answers count (the JEV cache) and a live call becomes a to-do
+# needs the sub-budget for live calls: --jev-budget-usd, --budget-usd (OpenAI); Azure only with ocr --engine azure_di
+# --azure-budget-usd; without a budget only earlier answers count (the JEV cache) and a live call becomes a to-do
 # every command that asks AI takes --engine jev|decisions|gpt (configs/engines.json; --no-jev = --engine gpt): run, detect, detect-corpus, email and
 # email-inbox follow the application's AI engine (Settings > Processing) when they name none; the measurements measure
 # JEV and GPT unless told, and the S path needs a judgement service (JEV or OpenAI Decisions)

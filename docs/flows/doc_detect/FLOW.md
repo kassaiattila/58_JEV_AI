@@ -7,7 +7,7 @@
 
 ### load
 - **load_pdf** _(det)_ — pdfplumber word-level reconstruction, sha256 doc_id, year hint from the folder; the text-layer test of the document and of each page (scanned pages without text of their own, images over 30 % of the page, are the pdf:pages_without_text to-do, kept open by the ocr_coverage producer)
-- **ocr_pdf** _(det)_ — a PDF without text: OCR (jav/documents/ocr.py: page images and tesseract, native or the legacy sidecar image, a disk cache) onto the same layout; the quality signals in the state
+- **ocr_pdf** _(det)_ — a PDF without text: OCR (jav/documents/ocr.py: page images and the native tesseract, Azure DI on a weak result, a disk cache) onto the same layout; the quality signals in the state
 
 ### classify
 - **detect** _(jev)_ — one request, three judgements: Choice doc_type (the registry and unknown), Noul issuer_is_hungarian, Choice language; anchor hits as features; then the detailed type among the category's packs (jav/ai/detect_detail.py: the legacy anchor score, a JEV Choice when needed). Without JEV: the same three questions to GPT in one structured request, the confidence from the answer's token log-probabilities (jav/ai/detect_gpt.py); a failed call is a detect:gpt_failed to-do

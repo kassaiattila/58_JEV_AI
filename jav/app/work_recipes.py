@@ -169,7 +169,8 @@ MIGRATION_ACTOR = "rendszer"  # data: the actor of the 080 migration in the assi
 
 def carried_hashes(r: dict[str, Any]) -> set[str]:
     """274: the recipe's own hash and those of the versions whose saved settings it carries unchanged in meaning
-    (`carries_from` in configs/recipes.json: only a setting's name changed)."""
+    (`carries_from` in configs/recipes.json: only a setting's name changed; 279: or only the file formats it takes). A
+    batch whose settings were saved on one of them is not warned that its processing changed (`work_readiness`)."""
     return {recipe_hash(r), *(str(c["hash"]) for c in r.get("carries_from", ()))}
 
 

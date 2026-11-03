@@ -71,18 +71,27 @@ Optional environment variables (in `.env` or in the shell):
 | `JAV_LEGACY_ROOT` | the location of the legacy project, if it is not the default (section 4) |
 | `JAV_API_ROOTS` | allowed document folders when the folder restriction is on (section 1) |
 | `JAV_INGEST_TOKEN` | the key of the standalone email receiver (`email-ingest-server`) used on the legacy, manual route; without it (and without `--token`) the receiver prints a one-off key at start-up |
-| `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY` | the Azure Document Intelligence resource for the paid escalation of weak local OCR, called directly (section 3); without them the legacy sidecar is used |
+| `AZURE_DI_ENDPOINT`, `AZURE_DI_KEY` | the Azure Document Intelligence resource for the paid recognition of weak scans, called directly (section 3); without them Azure is not set up on this machine and a weak scan keeps its local text, with a to-do |
 | `JAV_PROVIDERS_ON`, `JAV_PROVIDERS_OFF` | the paid services this installation may call, over `configs/providers.json` `enabled` (names separated by `,`): for example `JAV_PROVIDERS_OFF=openai_decisions` switches OpenAI Decisions off, `jev` where JEV is not contracted |
 | `JAV_TESSDATA_DIR` | the folder of the Tesseract language packs, if it is not `tools/tessdata` (section 3) |
-| `JAV_OCR_ENGINE` | `native`, `docker` or `azure_di` for one command; `azure_di` forces the paid Azure recognition (page-limited). The default comes from `configs/ocr.json` and never picks Azure. |
+| `JAV_OCR_ENGINE` | `native` or `azure_di` for one command; `azure_di` forces the paid Azure recognition (at most 12 pages, live only under a budget). The default comes from `configs/ocr.json` and never picks Azure. |
 | `JAV_ALLOW_SDK_DEBUG` | `1`: allows the JEV library's detailed log; it also logs personal data, so use it only on made-up data |
 | `JAV_HYPOTHESIS_EXAMPLES` | the number of generated examples per property-based test (default 150), for a deeper search |
 
-## 3. OCR (for PDFs without a text layer)
+## 3. OCR (for PDFs without a text layer and for images)
+
+JPEG, PNG and TIFF images are documents too: each is read through a PDF that holds exactly its pixels (`jav/documents/image_input.py`, kept once under the image's fingerprint beside the source instances, in `store/derived/`), so it takes the same recognition as a scanned PDF.
 
 - **Tesseract 5.x**, installed natively (`winget install --id UB-Mannheim.TesseractOCR -e`, the UB Mannheim build for Windows; the measurements used 5.4.0). It does not need to be on the PATH: `configs/ocr.json` lists where to look (the PATH, `%LOCALAPPDATA%\Programs\Tesseract-OCR` and `C:\Program Files\Tesseract-OCR`).
 - **Language packs** (not in git; git-ignored): `tools/tessdata/` holds `eng`, `hun` and `osd`. `python -m jav.cli ocr --fetch-langs` downloads the missing ones from the tesseract-ocr project's `tessdata_fast` release 4.1.0 and keeps each file only when its SHA-256 matches the one pinned in `configs/ocr.json` (`tesseract.language_packs`): byte for byte the files every measurement read with, so recognition is the same on every machine. A different file already in the folder is left alone and reported. `JAV_TESSDATA_DIR` names another folder (for a second checkout or a worktree). Without a PDF, `python -m jav.cli ocr` prints the state of the engine and the language packs (which are missing, which differ from the pinned files), and `preflight` shows it on its OCR line. A scanned document read without them gets an OCR to-do, and the worker's log (`runs\logs\worker.log`) names the missing packs.
-- The paid Azure Document Intelligence escalation is needed only to escalate weak local OCR. With `AZURE_DI_ENDPOINT` and `AZURE_DI_KEY` in `.env` the system calls the service directly, for a document in any folder; without them it goes through the legacy project's sidecar container, which reads only documents under the legacy data folder. If the recipe's Azure switch is on but the escalation cannot run, the document gets a to-do. In a run it is used only within the run's Azure budget (the recipe's Azure recognition switch), and every call is in the call log.
+- **Azure Document Intelligence** (optional, paid): the more accurate cloud recognition of weak scans, and of every scan on a machine with no local engine. The system calls the service directly with this installation's own endpoint and key; nothing else is needed (no container, no other project). At most 12 pages of a document are analysed and billed (`max_pages` in `configs/ocr.json`), at about 0.0015 USD a page (the list price in `configs/models.json`). In a run it is used only within the run's Azure budget (the processing setting **Azure recognition**, 0.02 USD per document by default), every call is in the call log, and when the recognition cannot run the document keeps its local text with a to-do. A start the service refuses for load is repeated; a refused start costs nothing. `JAV_PROVIDERS_OFF=azure_di` switches it off on a machine.
+
+  **Setting it up:**
+
+  1. In the Azure portal create a **Document Intelligence** resource. Choose a region (for data kept in the EU, an EU region such as West Europe or Sweden Central) and the **Standard (S0)** pricing tier. The free tier (F0) analyses only the first two pages of a document and files up to 4 MB.
+  2. On the resource's **Keys and Endpoint** page, copy the endpoint and one of the two keys into `.env`: `AZURE_DI_ENDPOINT=https://<resource>.cognitiveservices.azure.com/` and `AZURE_DI_KEY=<key>`. The endpoint must be an `https` address. The key is never printed or logged.
+  3. Restart the service and the worker (`.\scripts\dev.ps1 stop`, then `start`), then check the endpoint and the key for free: `python -m jav.cli ocr --check-azure`. It asks the resource for its details; nothing is analysed or billed. `python -m jav.cli ocr` without a PDF shows the state, and the start-up check names it on its OCR line.
+  4. A one-off live recognition from the command line needs its own Azure budget: `python -m jav.cli ocr <pdf> --engine azure_di --azure-budget-usd 0.02`.
 
 ## 4. Dependency on the legacy project: what works in a fresh clone
 
@@ -94,9 +103,9 @@ A fresh GitHub clone has neither the legacy project, nor the golden sets, nor th
 |---|---|
 | the full test suite (tests that rely on a golden set are skipped without it, so the coverage is smaller) | `recall`, `golden`, `determinism`, `verifier-probe` (invoice golden set) |
 | the user interface, the local service and the worker; work packages, recipes, trial and live runs with the keys | `detect-golden`, `detect-determinism` (detection golden set) |
-| local OCR (the language packs have to be obtained separately, section 3) | `email-golden`, `email-determinism`, `email-injection-probe` (email golden set) |
+| local OCR (the language packs have to be obtained separately, section 3), and Azure recognition with this installation's own endpoint and key | `email-golden`, `email-determinism`, `email-injection-probe` (email golden set) |
 | downloads, reports and the local backup (the second backup location has to be set for the machine, section 6); the mailbox download and the standalone email receiver (the Outlook bridge, `scripts/outlook_bridge.ps1`, is in this repository) | |
-| the data guard and the start-up check (a missing handoff is only a note) | Azure recognition without its own keys and the legacy Docker OCR (the legacy sidecar), and `legacy-import` |
+| the data guard and the start-up check (a missing handoff is only a note) | `legacy-import` |
 
 The start-up check is green on a fresh clone too, once the hooks are installed (`python -m jav.cli hooks-install`).
 

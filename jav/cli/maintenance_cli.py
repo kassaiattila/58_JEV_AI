@@ -741,17 +741,47 @@ def cmd_burr_prune(args: argparse.Namespace) -> int:
 
 def cmd_ocr(args: argparse.Namespace) -> int:
     """OCR on one PDF (or the engine status): text source, quality signals, lines. For diagnosis: what the flow sees
-    on a scanned invoice."""
+    on a scanned invoice. 279: `--check-azure` checks the Azure endpoint and key for free; `--engine azure_di` reads
+    with Azure, live only under `--azure-budget-usd` (through the call log), otherwise only from an earlier recognition."""
+    from decimal import Decimal, InvalidOperation
+
+    from jav.core import calls
     from jav.documents import ocr
 
     if args.fetch_langs:
         return _fetch_language_packs(ocr.tessdata_dir())
+    if args.check_azure:
+        found = ocr.check_azure()
+        print(json.dumps(found, ensure_ascii=False, indent=2))
+        return 0 if found["ok"] else 2
     if not args.pdf:
         print(json.dumps(ocr.status(), ensure_ascii=False, indent=2))
         return 0
     from jav.documents.pdf import read_document
 
-    pdf = read_document(args.pdf) if not args.force else ocr.ocr_pdf(args.pdf, use_cache=False, psm=args.psm)
+    try:
+        if args.engine == "azure_di":
+            if args.azure_budget_usd:
+                try:
+                    limit = Decimal(args.azure_budget_usd)
+                except InvalidOperation:
+                    print(f"--azure-budget-usd is not an amount: {args.azure_budget_usd}")
+                    return 2
+                with calls.measurement("ocr-azure", {ocr.AZURE_PROVIDER: limit}):
+                    pdf = ocr.ocr_pdf(args.pdf, use_cache=not args.force, engine_name="azure_di")
+            else:  # no budget: only a recognition kept from earlier
+                pdf = ocr.ocr_pdf(args.pdf, engine_name="azure_di")
+        elif args.force or args.engine == "native":
+            pdf = ocr.ocr_pdf(args.pdf, use_cache=not args.force, psm=args.psm, engine_name=args.engine)
+        else:
+            pdf = read_document(args.pdf)
+    except ocr.AzureBlocked as exc:
+        hint = " (give --azure-budget-usd for a live call)" if exc.reason == "no_budget" else ""
+        print(f"Azure was not asked: {exc.reason}{hint}")
+        return 2
+    except ocr.OcrUnavailableError as exc:
+        print(f"no recognition: {exc}")
+        return 2
     print(f"{pdf.path}: {pdf.page_count} page(s), {len(pdf.lines)} line(s), text layer={pdf.has_text_layer}, text source={pdf.text_source}")
     if pdf.ocr:
         print("OCR: " + json.dumps(pdf.ocr, ensure_ascii=False))
@@ -1000,6 +1030,12 @@ def register(sub) -> None:
     p.add_argument("--limit", type=int, default=0, help="only the first N lines")
     p.add_argument("--fetch-langs", action="store_true",
                    help="download the missing language packs configs/ocr.json pins, each checked by its SHA-256")
+    p.add_argument("--engine", choices=("native", "azure_di"), default=None,
+                   help="the engine to read with (default: the text layer, else the configured engine); azure_di is paid")
+    p.add_argument("--azure-budget-usd", default=None,
+                   help="hard Azure budget for a live Azure recognition (--engine azure_di); without it only a kept one")
+    p.add_argument("--check-azure", action="store_true",
+                   help="check the Azure endpoint and key for free (the resource's details; nothing is analysed)")
     p.set_defaults(fn=cmd_ocr)
     p = sub.add_parser("ocr-rekey", help="move the OCR cache written under an older configs/ocr.json to the current "
                                          "key, if the older file's output settings are the same (no new OCR)")

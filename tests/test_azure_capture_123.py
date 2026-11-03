@@ -16,7 +16,8 @@ import pytest
 from jav.documents import ocr
 from jav.core import store
 from jav.documents import azure_di
-from tests.test_azure_direct_121 import RESULT, FakeAzure, _escalate, keys, weak_scan  # noqa: F401 - fixtures
+from tests.azure_fake import RESULT, FakeAzure
+from tests.test_azure_direct_121 import _escalate, keys, weak_scan  # noqa: F401 - fixtures
 
 
 def test_evidence_words_name_the_digest_of_the_original_recognition():

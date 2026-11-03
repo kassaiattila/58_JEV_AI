@@ -236,10 +236,13 @@ export function reasonText(code: string): string {
     case "ocr:unavailable": return t("Text recognition could not run ({{why}}); look at the document by hand", { why: p[2] ?? "" });
     case "ocr:low_confidence": return t("Weak text recognition ({{p}})", { p: num(p[2]) });
     case "ocr:low_conf_words": return t("Many uncertain words in the recognition ({{p}})", { p: num(p[2]) });
-    // 075: the Azure escalation of a weak scan did not run (jav/documents/ocr.py escalation_review_reasons); 121: no route, failed call
+    // 075: the Azure escalation of a weak scan did not run (jav/documents/ocr.py escalation_review_reasons); 121: no route, failed call;
+    // 279: not set up on this machine (no endpoint and key), a file Azure does not read; `unreachable` stays for older to-dos
     case "ocr:escalation_blocked":
       if (p[2] === "uncertain_attempt") return t("Weak local recognition; an earlier Azure call has an uncertain outcome, so it was not repeated");
       if (p[2] === "unreachable") return t("Weak local recognition; Azure recognition is not set up for this document");
+      if (p[2] === "not_configured") return t("Weak local recognition; Azure recognition is not set up on this machine");
+      if (p[2] === "not_sendable") return t("Weak local recognition; this file cannot be sent to Azure (its format or size)");
       if (p[2] === "unavailable") return t("Weak local recognition; Azure recognition failed");
       return t("Weak local recognition; Azure recognition was skipped because of the run's budget");
     // 078: a PDF attachment the reader could not read; the email's intent was still recognised
@@ -314,6 +317,8 @@ export function reasonText(code: string): string {
       if (p[2] === "low_conf_words") return t("Many uncertain words in the Azure recognition ({{p}})", { p: num(p[3]) });
       if (p[3] === "uncertain_attempt") return t("An earlier Azure call has an uncertain outcome, so it was not repeated; local recognition was used");
       if (p[3] === "unreachable") return t("Azure recognition is not set up for this document; local recognition was used");
+      if (p[3] === "not_configured") return t("Azure recognition is not set up on this machine; local recognition was used");
+      if (p[3] === "not_sendable") return t("This file cannot be sent to Azure (its format or size); local recognition was used");
       if (p[3] === "unavailable") return t("Azure recognition failed; local recognition was used");
       return t("Azure recognition was skipped because of the run's budget; local recognition was used");
     // 123: facts left out of a received answer for breaking the presence rule

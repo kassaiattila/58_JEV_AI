@@ -244,7 +244,8 @@ def _readiness(wp_id: str, *, verify: bool) -> dict[str, Any]:
     if a is not None and work_recipes.recipe_status(r) == "retired":
         warnings.append({"code": "recipe_retired", "message": display.text(
             "The batch uses a retired version of the processing; switch it to the current processing.")})
-    elif a is not None and work_recipes.recipe_hash(r) != a["recipe_hash"]:
+    elif a is not None and a["recipe_hash"] not in work_recipes.carried_hashes(r):
+        # 279: settings saved on a content the recipe carries mean the same (e.g. before it took images)
         warnings.append({"code": "recipe_changed", "message": display.text(
             "The processing changed since the settings were saved; save the settings again.")})
     checks = _item_checks(r, params, wp["items"], verify=verify)

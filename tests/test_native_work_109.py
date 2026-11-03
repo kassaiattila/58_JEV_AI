@@ -6,7 +6,7 @@ import pytest
 
 from jav.app import app_settings, work, work_readiness, work_recipes, work_runs
 from jav.core import display, store
-from jav.documents.native_contracts import DOCUMENT_SUFFIXES
+from jav.documents.native_contracts import DOCUMENT_SUFFIXES, NATIVE_SUFFIXES
 from jav.runtime import worker
 from jav.core import queue
 
@@ -74,8 +74,9 @@ def test_native_budget_has_no_azure_and_jev_off_has_no_jev(isolated):
     per = estimate_limits(wp["assignment"]["params"]).provider_limits_usd
     assert set(per) == {"openai"}
     assert "jev" not in ready["budget"]
-    assert ready["budget"]["azure_di"] == Decimal("0.02")
-    assert ready["budget"]["openai"] == 4 * per["openai"] + Decimal("0.22")
+    documents = sum(1 for s in DOCUMENT_SUFFIXES if s not in NATIVE_SUFFIXES)  # 279: the PDF and the images
+    assert ready["budget"]["azure_di"] == Decimal("0.02") * documents
+    assert ready["budget"]["openai"] == 4 * per["openai"] + Decimal("0.22") * documents
 
 
 def test_old_recipe_rejects_native_and_explicit_pdf_filter_survives(isolated):

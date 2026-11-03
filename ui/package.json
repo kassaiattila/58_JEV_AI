@@ -1,7 +1,7 @@
 {
   "name": "jav-ui",
   "private": true,
-  "version": "1.79.1",
+  "version": "1.80.0",
   "type": "module",
   "engines": {
     "node": "^20.19.0 || >=22.12.0"

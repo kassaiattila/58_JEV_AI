@@ -38,6 +38,8 @@ def test_without_parallel_processes_the_tests_run_in_one_as_before(tmp_path, mon
 
 def test_the_number_of_processes_leaves_two_cores_free_and_stays_within_the_cap(monkeypatch):
     monkeypatch.setattr(preflight.importlib.util, "find_spec", lambda name: object())
+    # 279: the machine's free memory also caps the count (265, TOOL-05); left to the machine, a loaded one failed this
+    monkeypatch.setattr(preflight, "available_memory_gb", lambda: None)
     for cores, workers in ((16, preflight.MAX_TEST_WORKERS), (8, 6), (5, 3), (4, 2), (3, 0), (None, 0)):
         monkeypatch.setattr(preflight.os, "cpu_count", lambda c=cores: c)
         assert preflight.parallel_workers() == workers, cores

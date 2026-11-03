@@ -21,6 +21,7 @@ import { go, wpHash } from "../route";
 import { type AddSource } from "./PackageAdd";
 import { PackageItems } from "./PackageItems";
 import { paramExplanation, RecipeParamList, recipeDefaults, recipeTitle } from "./RecipeInfo";
+import { azureOn, AzureSettingNotice } from "./settings/AzurePanel";
 
 const ACTIVE = new Set(["queued", "running"]);
 
@@ -348,6 +349,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
             <p className="muted small">{t("saved by {{actor}}, {{when}}", { actor: current.actor, when: when(current.created_at) })}</p>
             {/* 063: each setting's meaning and the per-item cost budget */}
             <RecipeParamList recipe={currentRecipe} params={current.params} help={help} kinds={kinds} />
+            <AzureSettingNotice on={azureOn(currentRecipe, current.params)} />
           </>
         ) : current ? (
           <>
@@ -361,6 +363,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
             <p><strong>{recipeTitle(catalogue[0], help)}</strong></p>
             <p className="muted">{t("Default settings: if you do not change them, they are saved to the batch when a run starts.")}</p>
             <RecipeParamList recipe={catalogue[0]} params={{}} help={help} kinds={kinds} />
+            <AzureSettingNotice on={azureOn(catalogue[0], {})} />
           </>
         ) : null
       ) : recipe ? (
@@ -386,6 +389,7 @@ function SettingsCard({ view, onChanged }: { view: WorkpackageView; onChanged: (
                   options={choices.map((o) => ({ value: o.value, label: paramValue(k, o.value), detail: o.detail, disabled: o.disabled, group: o.group }))}
                   onChange={(v) => setParams((p) => (k === PATH ? applyPath({ ...full, ...p }, v) : { ...p, [k]: v }))} />
                 {explain ? <p className="param-note">{explain}</p> : null}
+                {k === "azure_ocr" ? <AzureSettingNotice on={value === "on"} /> : null}
               </div>
             );
           })}

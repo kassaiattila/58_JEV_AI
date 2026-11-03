@@ -1,9 +1,19 @@
 {
   "meta": {
     "name": "lang_guard",
-    "version": "1.0.174",
+    "version": "1.0.176",
     "description": "Language guard (jav/devtools/lang_guard.py): a ratchet on the number of lines with Hungarian letters per tracked file. A file may not exceed its baseline entry; a file without an entry may not contain any. The baseline only shrinks (lang-guard --update); raising an entry needs lang-guard --accept <path> (document vocabulary, test data). allow: patterns that are never counted (UI translation files).",
     "changelog": [
+      {
+        "version": "1.0.176",
+        "date": "2026-11-02",
+        "note": "baseline: 5645 -> 5651 Hungarian lines in 463 files; accepted: ui/src/azure279.test.tsx"
+      },
+      {
+        "version": "1.0.175",
+        "date": "2026-11-02",
+        "note": "baseline: 5645 -> 5645 Hungarian lines in 462 files; accepted: docs/guides/USER_GUIDE.md"
+      },
       {
         "version": "1.0.174",
         "date": "2026-11-02",
@@ -1035,7 +1045,7 @@
     "docs/GLOSSARY.md": 389,
     "docs/SECURITY.md": 2,
     "docs/guides/DOCUMENTATION.md": 6,
-    "docs/guides/USER_GUIDE.md": 308,
+    "docs/guides/USER_GUIDE.md": 309,
     "jav/ai/candidates.py": 15,
     "jav/ai/detect.py": 1,
     "jav/ai/detect_detail.py": 2,
@@ -1113,7 +1123,6 @@
     "tests/test_assessment_path_231.py": 1,
     "tests/test_attachment_unreadable_078.py": 1,
     "tests/test_audit_fixes_1002.py": 5,
-    "tests/test_azure_budget_075.py": 1,
     "tests/test_backup_docs_070.py": 4,
     "tests/test_bank_files_146.py": 6,
     "tests/test_callsite_declared_202.py": 5,
@@ -1254,6 +1263,7 @@
     "ui/src/audit1002.test.tsx": 2,
     "ui/src/audit1002N06.test.tsx": 16,
     "ui/src/azure075.test.ts": 1,
+    "ui/src/azure279.test.tsx": 6,
     "ui/src/behaviour.test.tsx": 87,
     "ui/src/components/BrowseButton.tsx": 1,
     "ui/src/components/ConfirmButton.tsx": 2,

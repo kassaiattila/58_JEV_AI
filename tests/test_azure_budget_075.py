@@ -4,37 +4,33 @@ log and the run's budget.
 Before 075 the escalation called the legacy sidecar's /parse directly: no reservation, no call-log row, no ledger row,
 even with zero budget. Now, in a worker run, a document reserves its page count at the Azure price from the run's
 Azure budget first; without an Azure budget (recipe switch off) or with too little of it, the network is never reached
-and the local text goes on (a budget shortfall also raises a to-do). The sidecar is replaced by a fake; no network.
+and the local text goes on (a budget shortfall also raises a to-do). 279: Azure is called directly (the sidecar route is
+gone); the service is replaced by a fake (`tests/azure_fake.py`); no network.
 """
 
 from __future__ import annotations
 
-import io
-import json
 from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
 
 from jav.app import work_readiness, work_recipes
-from jav.documents import ocr
+from jav.documents import azure_di, ocr
 from jav.core import store
 from jav.documents.pdf import PdfText
 from jav.core import calls
+from tests.azure_fake import ENDPOINT, FakeAzure
 from tests.pdfgen import INVOICE_LINES, write_text_pdf
-
-EVIDENCE = {"model_id": "prebuilt-read", "api_version": "2024-11-30", "pages": [{"unit": "inch", "words": [
-    {"content": "Fizetendő", "polygon": [0.5, 1.0, 1.2, 1.0, 1.2, 1.15, 0.5, 1.15], "confidence": 0.99},
-    {"content": "1000", "polygon": [1.3, 1.0, 1.8, 1.0, 1.8, 1.15, 1.3, 1.15], "confidence": 0.98}]}]}
 
 
 @pytest.fixture
 def azure_env(tmp_path, monkeypatch):
-    """A weak local OCR result, escalation on, the sidecar's data root in tmp_path, and a fake sidecar."""
+    """A weak local OCR result, escalation on, this installation's Azure endpoint and key, and a fake service."""
     source = tmp_path / "scan.pdf"
     write_text_pdf(source, INVOICE_LINES)
-    (tmp_path / "evidence.json").write_text(json.dumps(EVIDENCE), encoding="utf-8")
-    monkeypatch.setattr(ocr, "_CFG", {**ocr._CFG, "azure_di": {**ocr._CFG["azure_di"], "data_root": str(tmp_path)}})
+    monkeypatch.setenv(azure_di.ENDPOINT_ENV, ENDPOINT)
+    monkeypatch.setenv(azure_di.KEY_ENV, "test-key-not-real")
     monkeypatch.delenv(ocr.ENGINE_ENV, raising=False)
     monkeypatch.setattr(ocr, "ESCALATION", {"enabled": True, "engine": "azure_di"})
     monkeypatch.setattr(ocr, "CACHE_DIR", tmp_path / "ocr-cache")
@@ -45,21 +41,9 @@ def azure_env(tmp_path, monkeypatch):
         return real_ocr_pdf(path, **kwargs) if kwargs.get("engine_name") == "azure_di" else local
 
     monkeypatch.setattr(ocr, "ocr_pdf", ocr_pdf)
-    requests: list[dict] = []
-
-    class _Reply(io.BytesIO):
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
-    def fake_urlopen(request, **kwargs):
-        requests.append(json.loads(request.data))
-        return _Reply(json.dumps({"provider_used": "azure_di", "evidence_ref": {"path": "evidence.json"}}).encode())
-
-    with store.use_store(tmp_path / "w.sqlite"), patch("urllib.request.urlopen", fake_urlopen):
-        yield source, requests
+    fake = FakeAzure()
+    with store.use_store(tmp_path / "w.sqlite"), patch("urllib.request.urlopen", fake), patch.object(azure_di.time, "sleep"):
+        yield source, fake.post_requests
 
 
 def _rows(sql: str) -> list:
@@ -67,7 +51,7 @@ def _rows(sql: str) -> list:
         return c.execute(sql).fetchall()
 
 
-def test_recipe_switch_off_never_reaches_the_sidecar(azure_env):
+def test_recipe_switch_off_never_reaches_azure(azure_env):
     source, requests = azure_env
     with calls.use_run(budget_scope="run-off"):  # a run with no Azure budget: the recipe switch is off
         pdf, escalated = ocr.ocr_with_escalation(source, use_cache=False)
@@ -76,7 +60,7 @@ def test_recipe_switch_off_never_reaches_the_sidecar(azure_env):
     assert _rows("SELECT COUNT(*) FROM invocations")[0][0] == 0
 
 
-def test_too_small_budget_never_reaches_the_sidecar_and_raises_a_todo(azure_env):
+def test_too_small_budget_never_reaches_azure_and_raises_a_todo(azure_env):
     source, requests = azure_env
     calls.set_budget("run-small", "azure_di", Decimal("0.000001"))
     with calls.use_run(budget_scope="run-small"):

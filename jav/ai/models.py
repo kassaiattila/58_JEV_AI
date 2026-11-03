@@ -483,7 +483,7 @@ class FlowState(BaseModel):
     text_source: str | None = None  # "pdf" (text layer) | "ocr" (jav/documents/ocr.py) | "text" (190) | None (no usable text -> needs_ocr)
     ocr_conf: float | None = None  # OCR mean word confidence (0-1), raw; threshold in the `ocr` block of policy.json
     ocr_low_conf_ratio: float | None = None  # share of weak (< 60) words
-    ocr_engine: str | None = None  # native / docker / azure_di (the text's source, if OCR)
+    ocr_engine: str | None = None  # native / azure_di (the text's source, if OCR; docker in a state recognised before 279)
     ocr_escalated: bool = False  # the more accurate paid engine's text replaced weak local OCR (policy ocr.escalate_*)
     # 218 (plan P3 P3b): what the escalation's decision read (`ocr.escalation_rule`), traced with the save
     ocr_escalation: dict[str, Any] | None = None

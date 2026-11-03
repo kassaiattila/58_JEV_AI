@@ -46,6 +46,19 @@ export interface JevVersionInfo {
   pinned: string; watch_alias: string; latest: string | null; checked_at: string | null;
   newer: boolean | null; stale: boolean; age_days: number | null;
 }
+/** 279: the last free check of the Azure endpoint and key (`jav/documents/ocr.py` `check_azure`): nothing analysed. */
+export interface AzureCheck {
+  at: string; ok: boolean;
+  /** not_configured | not_https | switched_off | refused_key | not_found | http_<code> | unreachable | bad_answer */
+  reason: string | null;
+  host: string | null;
+  custom_models?: { count?: number | null; limit?: number | null } | null;
+}
+/** 279: this installation's Azure Document Intelligence (`azure_status`), never the key. */
+export interface AzureInfo {
+  configured: boolean; enabled: boolean; host: string | null; model: string; api_version: string;
+  max_pages: number; usd_per_page: string; escalation: boolean; last_check: AzureCheck | null;
+}
 /** 076: a paid call with an uncertain outcome, awaiting manual settlement (`jav/core/calls.py` `uncertain_list`). */
 export interface UncertainCall {
   id: number; run_id: string; step_id: string; attempt: number; provider: string; model_requested: string | null;
@@ -97,6 +110,8 @@ export const systemApi = {
   backupStatus: () => request<BackupInfo>("GET", "/system/backup"),
   depsAudit: () => request<DepsAuditInfo>("GET", "/system/deps-audit"),
   jevVersion: () => request<JevVersionInfo>("GET", "/system/jev-version"), // 200
+  azure: () => request<AzureInfo>("GET", "/system/azure"), // 279
+  azureCheck: () => request<AzureCheck>("POST", "/system/azure/check", {}), // 279: free, nothing analysed
   uncertainCalls: () => request<{ calls: UncertainCall[] }>("GET", "/system/uncertain-calls"),
   resolveUncertainCall: (id: number, body: { cost_usd: string | null; note: string }) =>
     request<{ ok: boolean }>("POST", `/system/uncertain-calls/${id}/resolve`, body),

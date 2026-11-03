@@ -2,12 +2,13 @@
 
 Plain-language summary: closing a to-do, and the addresses of the system page: the worker's state and stopping it, the
 last dependency audit, the pinned JEV version against the provider's moving name (200), the store backup's state and a
-backup now, and the paid calls with an uncertain outcome, listed and settled by hand. They moved here from `jav/service/api.py`
+backup now, and the paid calls with an uncertain outcome, listed and settled by hand. 279: this installation's Azure
+Document Intelligence state and its free check (the endpoint and key, nothing analysed). They moved here from `jav/service/api.py`
 as they were: the same paths, request models and answers, in the same order. `jav.service.api.create_app` adds this module
 after the workflows' one.
 
 Layer: UI/CLI (the local service) → `jav.app.work`, `jav.runtime.backup`, `jav.runtime.deps_audit`, `jav.ai.jev_version`,
-`jav.core.calls`, `jav.runtime.worker`.
+`jav.core.calls`, `jav.runtime.worker`, `jav.documents.ocr`.
 """
 
 from __future__ import annotations
@@ -23,6 +24,7 @@ from pydantic import Field
 from jav.runtime import backup, deps_audit
 from jav.app import work_runs, work_views
 from jav.ai import jev_version
+from jav.documents import ocr
 from jav.service.service_shared import Empty, In, Text, human_actor, settings
 from jav.runtime import worker
 from jav.core import calls, identity
@@ -76,6 +78,21 @@ def routes(app: FastAPI, r: str) -> None:
     @app.get(r + "/system/jev-version")
     def jev_version_status() -> dict[str, Any]:
         return work_views.jsonable(jev_version.status())
+
+    # --- Azure Document Intelligence (279): this installation's state, and the free check of its endpoint and key ---
+
+    @app.get(r + "/system/azure")
+    def azure_status() -> dict[str, Any]:
+        """Whether Azure is set up here (endpoint and key, never the key itself), switched on, its model, page limit,
+        price and the last free check; nothing is called."""
+        return work_views.jsonable(ocr.azure_status())
+
+    @app.post(r + "/system/azure/check")
+    def azure_check(body: Empty, who: Annotated[identity.Actor, Depends(human_actor)]) -> dict[str, Any]:
+        """The free check: the resource's details are asked (nothing analysed, not billed, not in the call log); the
+        outcome is kept for the status."""
+        log.info("Azure check requested by %s", who.name)
+        return work_views.jsonable(ocr.check_azure())
 
     # --- store backup (064): status of the latest backup, and backup now ---
 
